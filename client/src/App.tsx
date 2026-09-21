@@ -11,8 +11,6 @@ function App() {
         <img src={astraliaLogo} className={styles.logo} alt="Astralia logo" />
       </a>
       <div className={styles.menuLayout}>
-        <button className={styles.playButton}>join game</button>
-        <button className={styles.playButton}>host game</button>
         <button
           className={styles.decksButton}
           onClick={() => navigate("/my-decks")}
