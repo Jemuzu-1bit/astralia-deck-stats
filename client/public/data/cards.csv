@@ -222,3 +222,186 @@ dcs_03_035n,DCS-03-035 N,Switch Over,Blue,Deck,1,Action,Action,Dawn of the Celes
 dcs_03_036n,DCS-03-036 N,Emergency Assembly,Blue,Deck,2,Action,Strategy,"Dawn of the Celestial Shadow, Structure Deck: Time for Counterattack",,,"draw, reorder, graveyard",FALSE,1,FALSE,"Look at the top 3 cards of your deck. Add one to your hand, then put one at the top of your deck and one into your graveyard.",dcs_03_036_n
 dcs_03_037n,DCS-03-037 N,Recalibrate Equipment,Blue,Deck,2,Action,Action,"Dawn of the Celestial Shadow, Structure Deck: Time for Counterattack",,,enter,FALSE,1,FALSE,Target Character triggers its [ENTER] ability.,dcs_03_037_n
 dcs_03_038n,DCS-03-038 N,Barrage Fire,Blue,Deck,6,Action,Action,"Dawn of the Celestial Shadow, Structure Deck: Time for Counterattack",,,deal,FALSE,1,FALSE,Target Mecha you control deals damage equal to its ATK divided as you choose among 3 adjacent Characters.,dcs_03_038_n
+"dcs01015sr","DCS 01 015 SR","Julia, Scarlet Swordwoman","Green","Deck","2","Character","Adventurer","Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey","","","assault, enter, quest","FALSE","1","FALSE","[ASSAULT]
+[ENTER]: [QUEST 1]
+This card gets +1 ATK and +1 HP for each Quest counter on your Protagonist, up to a maximum of +3.","dcs_01_015_sr"
+"dcs01017p","DCS 01 017 P","Oriana, Brash Mercenary","Green","Deck","3","Character","Adventurer","Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey","","","rapid_recovery, regeneration, quest","FALSE","1","FALSE","[RAPID RECOVERY] [REGENERATION 1]
+Whenever this card shatters an opposing Character while attacking, [QUEST 1].","dcs_01_017_p"
+"dcs01036p","DCS 01 036 P","Heroic Destinies","Green","Deck","3","Action","","Dawn of the Celestial Shadow","","","quest, barrier","FALSE","1","FALSE","Choose 1:
+• [QUEST 1], then draw 1 card.
+• Heroes you control get +1 ATK and [BARRIER] until end of turn.","dcs_01_036_p"
+"dcs02018p","DCS 02 018 P","Pain Fanatic","Red","Deck","2","Character","Supporter","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","This card gets +1 ATK for each damage on it.","dcs_02_018_p"
+"dcs02033sr","DCS 02 033 SR","Isabella, First Descendant","Red","Deck","5","Character","Vampire","Dawn of the Celestial Shadow","","","isolate, enter","FALSE","1","FALSE","[ISOLATE]
+[ENTER]: You can play a Blood Tithe from your Persona Deck.","dcs_02_033_sr"
+"dcs02035p","DCS 02 035 P","Progenitor's Estate","Red","Deck","2","Scenography","Building","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Vampires you control gets +1 ATK.
+Supporters you control gets +1 HP.","dcs_02_035_p"
+"dcs03016p","DCS 03 016 P","Replicant Automaton","Blue","Deck","1","Character","Drone","Dawn of the Celestial Shadow","","","enter","FALSE","1","FALSE","[ENTER]: If you don’t control another card with the same name, search your deck for a Replicant Automaton and put it into play.","dcs_03_016_p"
+"dcs03025sr","DCS 03 025 SR","Haruka Phoenix, Daring Pilot","Blue","Deck","2","Character","Pilot","Dawn of the Celestial Shadow","","","pilot, shatter","FALSE","1","FALSE","[PILOT]: Whenever the Piloted Mecha is obliviated, you may PAY 2. If you do, return that card your Persona Deck instead.
+[SHATTER]: You may PAY 2. If you do, return this card to your hand.","dcs_03_025_sr"
+"dcs03037p","DCS 03 037 P","Recalibrate Equipment","Blue","Deck","2","Action","","Dawn of the Celestial Shadow","","","enter","FALSE","1","FALSE","Target Character triggers its [ENTER] ability.","dcs_03_037_p"
+"dcs04001ex","DCS 04 001 EX","Satsuki, Ordinary Student","Pink","Protagonist","2","Protagonist","Student","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","turn_start","FALSE","1","FALSE","You cannot play Spells and/or Enchantments.
+[TURN START]: Look at the top 3 cards of your deck. Put any number of them on the top of your deck in any order, then put the rest on the bottom of your deck.","dcs_04_001_ex"
+"dcs04002ex","DCS 04 002 EX","Seraph Azalea, Magical Girl","Pink","Persona","2","Protagonist","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","alter_ego, barrier, enter, heal","FALSE","1","FALSE","[ALTER EGO 3] [BARRIER]
+[ENTER]: [HEAL 3] target card, then draw 1 card.
+Whenever you play a Spell, increase each numeric instance in its effect by 1.","dcs_04_002_ex"
+"dcs04003ex","DCS 04 003 EX","Seraph Azalea, Second Form","Pink","Persona","2","Protagonist","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","alter_ego, barrier, enter","FALSE","1","FALSE","[ALTER EGO 7] [BARRIER]
+[ENTER]: Add a Spell from your Persona Deck to your hand.
+Whenever you play a Spell, increase each numeric instance in its effect by 1, then create a copy. You may choose new targets for the copy.","dcs_04_003_ex"
+"dcs04004ex","DCS 04 004 EX","Seraph Azalea, Final Form","Pink","Persona","2","Protagonist","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","alter_ego, barrier, shield, enter","FALSE","1","FALSE","[ALTER EGO 10] [BARRIER] [SHIELD 1]
+[ENTER]: Put a Magical Wand from your Persona Deck into play.
+Whenever you play a Spell, increase each numeric instance in its effect by 1, then create two copies. You may choose new targets for the copies.","dcs_04_004_ex"
+"dcs04005ex","DCS 04 005 EX","Rin, Gloomy Hikikomori","Pink","Protagonist","5","Protagonist","Student","Dawn of the Celestial Shadow","","","shield","FALSE","1","FALSE","You cannot play Spells and/or Enchantments.
+If you don’t control a Character, this card gets [SHIELD 1].
+Discard 1 Character or Scenography: Look at the top 2 cards of your deck. Add one to your hand, then put the other into your graveyard. Activate this ability only once per turn.","dcs_04_005_ex"
+"dcs04006ex","DCS 04 006 EX","Seraph Aster, Lone Paladin","Pink","Persona","5","Protagonist","Mage","Dawn of the Celestial Shadow","","","alter_ego, barrier, shield","FALSE","1","FALSE","[ALTER EGO 3] [BARRIER] [SHIELD 1]
+If you don’t control a Character, this card gets
+“Whenever a Spell and/or Enchantment you control would affect your Protagonist, increase each numeric instance in its effect by 1”.","dcs_04_006_ex"
+"dcs04007ex","DCS 04 007 EX","Seraph Aster, Redeemed","Pink","Persona","5","Protagonist","Mage","Dawn of the Celestial Shadow","","","alter_ego, barrier, shield, enter","FALSE","1","FALSE","[ALTER EGO 8] [BARRIER] [SHIELD 1]
+[ENTER]: Put a Magical Wand from your Persona Deck into play, then add a Spell from your Persona Deck to your hand.
+Whenever a Spell and/or Enchantment you control would affect your Protagonist, increase each numeric instance in its effect by 2.","dcs_04_007_ex"
+"dcs04008ex","DCS 04 008 EX","Shining Seraph Wand","Pink","Persona","7","Scenography","Magical Wand","Dawn of the Celestial Shadow","","","imperishable, worn, breakthrough","FALSE","1","FALSE","[IMPERISHABLE]
+[WORN Mage]: The wearer of this card gets +2 ATK and [BREAKTHROUGH].","dcs_04_008_ex"
+"dcs04009ex","DCS 04 009 EX","Angel Glowing Restoration!","Pink","Persona","8","Action","Spell","Dawn of the Celestial Shadow","","","heal","FALSE","1","FALSE","Choose 2:
+• [HEAL 2] target card.
+• Return target Mage from your graveyard to play.
+• Return all Scenographies from your graveyard to play.
+• Draw 1 card.","dcs_04_009_ex"
+"dcs04010ex","DCS 04 010 EX","Angel Shining Bloom!","Pink","Persona","8","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","heal","FALSE","1","FALSE","Choose 1:
+• Deal 5 damage to target card.
+• Deal 1 damage to all opposing Characters.
+• [HEAL 1] target card.
+• Draw 1 card.","dcs_04_010_ex"
+"dcs04011ex","DCS 04 011 EX","Angel Starry Flowering!","Pink","Persona","8","Action","Spell","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Choose 2:
+• Deal 2 damage to all opposing cards.
+• Return up to three target Mages from your graveyard to play.
+• Play a copy of a Spell from your graveyard.","dcs_04_011_ex"
+"dcs04012n","DCS 04 012 N","Amateur Web Reporter","Pink","Deck","1","Character","Influencer","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Whenever an Action you control resolves, place 1 Hype counter on this card.
+Remove X Hype counters: Set aside X cards from your hand, then draw that many cards. Put the set aside cards on the top of your deck in any order.","dcs_04_012_n"
+"dcs04013n","DCS 04 013 N","Arcane Familiar","Pink","Deck","1","Character","Familiar","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","enter","FALSE","1","FALSE","[ENTER]: Search your deck for a Seraph! Change! or a Spell or Enchantment that costs 2 or less, reveal it, and add it to your hand.","dcs_04_013_n"
+"dcs04013p","DCS 04 013 P","Arcane Familiar","Pink","Deck","1","Character","Familiar","Dawn of the Celestial Shadow","","","enter","FALSE","1","FALSE","[ENTER]: Search your deck for a Seraph! Change! or a Spell or Enchantment that costs 2 or less, reveal it, and add it to your hand.","dcs_04_013_p"
+"dcs04014n","DCS 04 014 N","Protective Barrier","Pink","Deck","2","Character","Barrier","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","guard","FALSE","1","FALSE","[GUARD]","dcs_04_014_n"
+"dcs04015n","DCS 04 015 N","Seraph Lycoris, Magical Girl","Pink","Deck","5","Character","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","barrier, shield, enter","FALSE","1","FALSE","[BARRIER] [SHIELD 1]
+[ENTER]: Return target Spell from your graveyard to your hand.","dcs_04_015_n"
+"dcs04015sr","DCS 04 015 SR","Seraph Lycoris, Magical Girl","Pink","Deck","5","Character","Mage","Dawn of the Celestial Shadow","","","barrier, shield, enter","FALSE","1","FALSE","[BARRIER] [SHIELD 1]
+[ENTER]: Return target Spell from your graveyard to your hand.","dcs_04_015_sr"
+"dcs04016n","DCS 04 016 N","Seraph Freesia, Magical Girl","Pink","Deck","5","Character","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","barrier, shield, enter","FALSE","1","FALSE","[BARRIER] [SHIELD 1]
+[ENTER]: Deal 4 damage to target Character.","dcs_04_016_n"
+"dcs04017n","DCS 04 017 N","Seraph Iris, Magical Girl","Pink","Deck","5","Character","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","barrier, shield, enter","FALSE","1","FALSE","[BARRIER] [SHIELD 1]
+[ENTER]: Look at the top 2 cards of your deck. Add one to your hand, then put the other on the top or bottom of your deck.","dcs_04_017_n"
+"dcs04018n","DCS 04 018 N","Seraph Aster, Magical Girl","Pink","Deck","6","Character","Mage","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","barrier, shield","FALSE","1","FALSE","[BARRIER] [SHIELD 1]
+Whenever a Spell you control resolves, this card gets +1 ATK until end of turn.","dcs_04_018_n"
+"dcs04019n","DCS 04 019 N","Energy Drink","Pink","Deck","1","Scenography","Drink","Dawn of the Celestial Shadow","","","heal","FALSE","1","FALSE","PAY 1, shatter this card: Choose 1:
+• [HEAL 1] target card.
+• Draw 1 card.","dcs_04_019_n"
+"dcs04020n","DCS 04 020 N","Radiant Aura","Pink","Deck","1","Scenography","Enchantment","Dawn of the Celestial Shadow","","","worn, shield","FALSE","1","FALSE","[WORN Mage]: The wearer of this card gets [SHIELD 1] against the first source of damage each turn.","dcs_04_020_n"
+"dcs04021n","DCS 04 021 N","Deflecting Enchantment","Pink","Deck","2","Scenography","Enchantment","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Whenever a Mage you control would take damage from an opposing Action or ability, you may deal that many damage to this card instead.
+Whenever another Scenography you control would be shattered, you may shatter this card instead.","dcs_04_021_n"
+"dcs04022n","DCS 04 022 N","Light Saber","Pink","Deck","2","Scenography","Enchantment","Dawn of the Celestial Shadow","","","worn","FALSE","1","FALSE","[WORN Mage or Rebel]: The wearer of this card gets +1 ATK.","dcs_04_022_n"
+"dcs04023n","DCS 04 023 N","Urban Surveillance","Pink","Deck","4","Scenography","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Whenever a Character enters play under your opponent’s control, recover 1 Fragment.","dcs_04_023_n"
+"dcs04024n","DCS 04 024 N","Seraph Warriors in Action!","Pink","Deck","7","Scenography","Enchantment","Dawn of the Celestial Shadow","","","rapid_recovery","FALSE","1","FALSE","Mages you control get [RAPID RECOVERY].
+Whenever a Mage you control attacks, it deals 1 damage to target card.","dcs_04_024_n"
+"dcs04025n","DCS 04 025 N","Celestial Ribbon","Pink","Deck","0","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","","FALSE","1","FALSE","Target Character gets -1 ATK until end of turn.","dcs_04_025_n"
+"dcs04026n","DCS 04 026 N","Dramatic Entrance","Pink","Deck","1","Action","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Return target Character you control to your hand, then put a Character with the same cost as that card from your hand into play.","dcs_04_026_n"
+"dcs04027n","DCS 04 027 N","Enchanted Arrow","Pink","Deck","1","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","","FALSE","1","FALSE","Deal 1 damage to target Character.","dcs_04_027_n"
+"dcs04028n","DCS 04 028 N","Healing Glow","Pink","Deck","1","Action","Spell","Dawn of the Celestial Shadow","","","heal","FALSE","1","FALSE","[HEAL 1] target card.","dcs_04_028_n"
+"dcs04029n","DCS 04 029 N","Mystic Reflection","Pink","Deck","1","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","","FALSE","1","FALSE","Look at the top 2 cards of your deck. Add one to your hand, then put the other on the top or bottom of your deck.","dcs_04_029_n"
+"dcs04030n","DCS 04 030 N","Defense Shield","Pink","Deck","2","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","shield","FALSE","1","FALSE","Target card gets [SHIELD 1] until end of turn.","dcs_04_030_n"
+"dcs04031n","DCS 04 031 N","Rapid Unraveling","Pink","Deck","2","Action","Spell","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Deal 3 damage to target Scenography.","dcs_04_031_n"
+"dcs04032n","DCS 04 032 N","Light Shower","Pink","Deck","3","Action","Spell","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","","FALSE","1","FALSE","Deal 1 damage to all opposing Characters.","dcs_04_032_n"
+"dcs04033n","DCS 04 033 N","Piercing Bolt","Pink","Deck","3","Action","Spell","Dawn of the Celestial Shadow","","","shield","FALSE","1","FALSE","Deal 2 damage to target Character or Scenography. Ignore [SHIELD].","dcs_04_033_n"
+"dcs04034n","DCS 04 034 N","Renegade's Wrath","Pink","Deck","3","Action","","Dawn of the Celestial Shadow","","","enter","FALSE","1","FALSE","Discard 1 Mage: Triggers the [ENTER] ability of the card discarded this way.","dcs_04_034_n"
+"dcs04035n","DCS 04 035 N","Seraph! Change!","Pink","Deck","3","Action","","Dawn of the Celestial Shadow, Structure Deck: Seraph Transform","","","alter_ego","FALSE","1","FALSE","If your Protagonist is a Student or a Mage, put the card with the lowest [ALTER EGO] value from your Persona Deck into play, then replace your Protagonist with it.","dcs_04_035_n"
+"dcs04035p","DCS 04 035 P","Seraph! Change!","Pink","Deck","3","Action","","Dawn of the Celestial Shadow","","","alter_ego","FALSE","1","FALSE","If your Protagonist is a Student or a Mage, put the card with the lowest [ALTER EGO] value from your Persona Deck into play, then replace your Protagonist with it.","dcs_04_035_p"
+"dcs04036n","DCS 04 036 N","Entwined Magical Attack","Pink","Deck","4","Action","Spell","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Deal X+1 damage to target Character, where X is the number of Mages you control.
+Target Mage gets +1 ATK until end of turn.","dcs_04_036_n"
+"dcs04037n","DCS 04 037 N","Mirror Image","Pink","Deck","5","Action","Spell","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Choose 1:
+• Change the target of an attack.
+• Choose the targets and/or the modes of the next Action or ability.","dcs_04_037_n"
+"dcs04038n","DCS 04 038 N","Confinement Bond","Pink","Deck","6","Action","Spell","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Obliviate target Character that costs 6 or less.","dcs_04_038_n"
+"dcs05001ex","DCS 05 001 EX","Jianyi, Prophet of the End","Purple","Protagonist","3","Protagonist","Herald","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","","FALSE","1","FALSE","Whenever you discard a card to pay a cost or as part of the effect of a card you control, place 1 Omen counter on this card.
+Remove 5 Omen counters: Put target Herald from your Persona Deck into play, then replace this card with it.","dcs_05_001_ex"
+"dcs05002ex","DCS 05 002 EX","Jianyi, Fractured Vessel","Purple","Persona","3","Protagonist","Herald","Dawn of the Celestial Shadow","","","alter_ego, enter","FALSE","1","FALSE","[ALTER EGO 4]
+[ENTER]: Put a Ritual from your Persona Deck into play, then draw X cards, where X is 5 minus the number of cards in your hand.
+FRAZZLE: Target Character loses 1 keyword until end of turn.","dcs_05_002_ex"
+"dcs05003ex","DCS 05 003 EX","Jianyi, Herald of Consumption","Purple","Persona","3","Protagonist","Herald","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","alter_ego, enter","FALSE","1","FALSE","[ALTER EGO 4]
+[ENTER]: Put a Ritual from your Persona Deck into play, then deal X damage to target Character or Scenography, where X is 6 minus the number of cards in your hand.
+FRAZZLE: Deal 1 damage to target Character or Scenography.","dcs_05_003_ex"
+"dcs05004ex","DCS 05 004 EX","Kadatha, Dimensional Wanderer","Purple","Protagonist","5","Protagonist","Cosmic Deity","Dawn of the Celestial Shadow","","","shield","FALSE","1","FALSE","If you control a Ritual, this card gets [SHIELD 1].
+PAY X: Put target Ritual that costs X from your Persona Deck into play.","dcs_05_004_ex"
+"dcs05005ex","DCS 05 005 EX","Rakh'shan, He Who Determines","Purple","Persona","10","Character","Cosmic Deity","Dawn of the Celestial Shadow","","","imperishable, guard","FALSE","1","FALSE","[IMPERISHABLE] [GUARD]
+This card gets +1 ATK and +1 HP for each card in your and your opponent’s oblivion.
+Whenever this card shatters an opposing Character, obliviate it.","dcs_05_005_ex"
+"dcs05006ex","DCS 05 006 EX","Zath-Shotu, He Who Consumes","Purple","Persona","10","Character","Cosmic Deity","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","shatter","FALSE","1","FALSE","Once per turn, this card can take damage instead of your Protagonist.
+[SHATTER]: You may obliviate all Characters you control or your entire hand. If you do, return this card to play with 1 Frazzle counter on it.","dcs_05_006_ex"
+"dcs05007ex","DCS 05 007 EX","Rl'ggkt, He Who Erodes","Purple","Persona","10","Character","Cosmic Deity","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","imperishable, breakthrough","FALSE","1","FALSE","[IMPERISHABLE] [BREAKTHROUGH]
+Whenever a card is put in your or your opponent’s graveyard, obliviate it instead.
+Whenever this card attacks, it deals 4 damage to target card.","dcs_05_007_ex"
+"dcs05008ex","DCS 05 008 EX","Tear in the Fabric of Reality","Purple","Persona","3","Scenography","Ritual","Dawn of the Celestial Shadow","","","imperishable, advent","FALSE","1","FALSE","[IMPERISHABLE]
+Obliviate target card with [ADVENT] from you graveyard: Place 1 Advent counter on this card.
+Remove 13 Advent counters, obliviate this card: Put target Cosmic Deity from your Persona Deck into play.","dcs_05_008_ex"
+"dcs05009ex","DCS 05 009 EX","Gateway to the End’s Advent","Purple","Persona","5","Scenography","Ritual","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","imperishable","FALSE","1","FALSE","[IMPERISHABLE]
+Whenever a card is obliviated, place 1 Advent counter on this card.
+Remove 10 Advent counters, obliviate this card: Put target Cosmic Deity from your Persona Deck into play.","dcs_05_009_ex"
+"dcs05010ex","DCS 05 010 EX","Rift in the Cosmic Balance","Purple","Persona","5","Scenography","Ritual","Dawn of the Celestial Shadow","","","imperishable, advent","FALSE","1","FALSE","[IMPERISHABLE]
+Whenever a card with [ADVENT] is put into play, place 1 Advent counter on this card.
+Remove 6 Advent counters, obliviate this card: Put target Cosmic Deity from your Persona Deck into play.","dcs_05_010_ex"
+"dcs05011ex","DCS 05 011 EX","The Coming of the End","Purple","Persona","0","Action","","Dawn of the Celestial Shadow","","","turn_start","FALSE","1","FALSE","[TURN START]: If you control any number of Cosmic Deities with a combined ATK value of 20 or more, play this card from your Persona Deck. You win the game.","dcs_05_011_ex"
+"dcs05012n","DCS 05 012 N","Cult Recruiter","Purple","Deck","1","Character","Fanatic","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","enter","FALSE","1","FALSE","[ENTER]: If you don’t control another Fanatic, search your deck for a Fanatic, reveal it, and add it to your hand.","dcs_05_012_n"
+"dcs05013n","DCS 05 013 N","Bringer of Intervention","Purple","Deck","1","Character","Fanatic","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","rapid_recovery","FALSE","1","FALSE","[RAPID RECOVERY]
+FRAZZLE, FRAZZLE, discard 1 card: Target card gets -1 ATK until end of turn.","dcs_05_013_n"
+"dcs05014n","DCS 05 014 N","Acolyte of the End","Purple","Deck","2","Character","Fanatic","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","heal","FALSE","1","FALSE","FRAZZLE, discard 1 card: [HEAL 1] target card.","dcs_05_014_n"
+"dcs05015n","DCS 05 015 N","Children of Cosmic Influence","Purple","Deck","2","Character","Aberration","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","advent, enter, shatter","FALSE","1","FALSE","[ADVENT]
+[ENTER]:  Draw 1 card, then PAY 1 or discard 1 card
+[SHATTER]: Draw 1 card, then discard 1 card.","dcs_05_015_n"
+"dcs05015p","DCS 05 015 P","Children of Cosmic Influence","Purple","Deck","2","Character","Aberration","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","[ADVENT]
+[ENTER]:  Draw 1 card, then PAY 1 or discard 1 card
+[SHATTER]: Draw 1 card, then discard 1 card.","dcs_05_015_p"
+"dcs05016n","DCS 05 016 N","Prophet's Bodyguard","Purple","Deck","3","Character","Fanatic","Dawn of the Celestial Shadow","","","shield","FALSE","1","FALSE","[SHIELD 1]
+FRAZZLE, discard 1 card: Change the target of an attack to this card.","dcs_05_016_n"
+"dcs05017n","DCS 05 017 N","Prophet's Attendant","Purple","Deck","3","Character","Fanatic","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","","FALSE","1","FALSE","FRAZZLE, discard 1 card: If your hand is empty, draw 2 cards. Otherwise, draw 1 card.","dcs_05_017_n"
+"dcs05018n","DCS 05 018 N","Unstable Entity","Purple","Deck","3","Character","Entity","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","shield","FALSE","1","FALSE","[SHIELD 1]
+This card can be played as a Response.","dcs_05_018_n"
+"dcs05019n","DCS 05 019 N","Vicar of Distortion","Purple","Deck","5","Character","Aberration","Dawn of the Celestial Shadow","","","advent, guard, enter","FALSE","1","FALSE","[ADVENT] [GUARD]
+[ENTER]: Draw 1 card, then you may discard 1 card. If you do, your opponent discards 1 card.","dcs_05_019_n"
+"dcs05020n","DCS 05 020 N","Kadatha, the Unfathomable","Purple","Deck","5","Character","Cosmic Deity","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","enter, shatter","FALSE","1","FALSE","[ENTER]: Discard 1 card, then draw 1 card.
+[SHATTER]: You may obliviate target Character you control. If you do, return this card from your graveyard or oblivion to play.
+Whenever this card shatters an opposing Character while attacking, obliviate it.","dcs_05_020_n"
+"dcs05021n","DCS 05 021 N","Angel of Zath-Shotu","Purple","Deck","5","Character","Aberration","Dawn of the Celestial Shadow","","","advent, enter","FALSE","1","FALSE","[ADVENT]
+[ENTER]: Deal 1 damage to all Characters. If at least one Character was shattered this way, copy this ability. Then PAY 3 or retire this card.","dcs_05_021_n"
+"dcs05021sr","DCS 05 021 SR","Angel of Zath-Shotu","Purple","Deck","5","Character","Aberration","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","[ADVENT]
+[ENTER]: Deal 1 damage to all Characters. If at least one Character was shattered this way, copy this ability. Then PAY 3 or retire this card.","dcs_05_021_sr"
+"dcs05022n","DCS 05 022 N","Creeper of Buried Memories","Purple","Deck","6","Character","Aberration","Dawn of the Celestial Shadow","","","advent","FALSE","1","FALSE","[ADVENT]
+You can play this card from your oblivion.
+This card gets +1 ATK and +1 HP for each card in your oblivion.","dcs_05_022_n"
+"dcs05023n","DCS 05 023 N","Manifestation of Rl'ggkt","Purple","Deck","7","Character","Aberration","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","advent, breakthrough, enter","FALSE","1","FALSE","[ADVENT] [BREAKTHROUGH]
+[ENTER]: Obliviate target card.","dcs_05_023_n"
+"dcs05024n","DCS 05 024 N","Unfathomable Horror","Purple","Deck","8","Character","Aberration","Dawn of the Celestial Shadow","","","advent, assault","FALSE","1","FALSE","[ADVENT] [ASSAULT]
+Whenever this card shatters an opposing Character, obliviate it.","dcs_05_024_n"
+"dcs05025n","DCS 05 025 N","Offspring of Consumption","Purple","Deck","8","Character","Aberration","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","advent, enter","FALSE","1","FALSE","[ADVENT]
+[ENTER]: You may obliviate a Character you control and/or a Character in your hand. If you do, this card gets all their keywords.","dcs_05_025_n"
+"dcs05026n","DCS 05 026 N","Fragmented Scourge","Purple","Deck","9","Character","Aberration","Dawn of the Celestial Shadow","","","advent, enter","FALSE","1","FALSE","[ADVENT]
+[ENTER]: Search your deck, hand, and graveyard for any number of Fragmented Scourge and put them into play.","dcs_05_026_n"
+"dcs05027n","DCS 05 027 N","Devourer of Eternities","Purple","Deck","10","Character","Aberration","Dawn of the Celestial Shadow","","","advent, enter","FALSE","1","FALSE","[ADVENT]
+[ENTER]: Obliviate up to 3 cards from your hand and/or graveyard, then deal that many damage to all Characters.","dcs_05_027_n"
+"dcs05028n","DCS 05 028 N","Shenlou, Palace of the Prophet","Purple","Deck","2","Scenography","Building","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Whenever a card you control is obliviated, look at the top card of your deck. You may put it at the bottom of your deck.
+PAY 4: Draw 1 card, then discard 1 card.","dcs_05_028_n"
+"dcs05029n","DCS 05 029 N","Divine Blessing","Purple","Deck","X","Action","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Obliviate target Fanatic you control: Search your deck for an Aberration that cost X and put it into play, then recover Fragments equal to the cost of the Fanatic obliviated this way.","dcs_05_029_n"
+"dcs05030n","DCS 05 030 N","Reality Distortion","Purple","Deck","1","Action","","Dawn of the Celestial Shadow","","","advent","FALSE","1","FALSE","[ADVENT]
+You may discard 1 card. If you do, your opponent discards 1 card. Otherwise, draw 1 card.","dcs_05_030_n"
+"dcs05031n","DCS 05 031 N","Shattering the Moment","Purple","Deck","1","Action","","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","","FALSE","1","FALSE","Remove up to 2 counters from your Protagonist: Deal 2 damage to target opposing Character for every counter removed this way.","dcs_05_031_n"
+"dcs05032n","DCS 05 032 N","Vision of Catastrophe","Purple","Deck","1","Action","","Dawn of the Celestial Shadow","","","advent","FALSE","1","FALSE","[ADVENT]
+Look at the top 4 cards of your deck. If there is an Aberration, reveal it, and add it to your hand. Then put the rest of the cards on the bottom of your deck.","dcs_05_032_n"
+"dcs05033n","DCS 05 033 N","Seeking Refuge in the Distortion","Purple","Deck","3","Action","","Dawn of the Celestial Shadow","","","enter","FALSE","1","FALSE","Turn target card you control face down, keeping all counters and damage on it. As long as it remains face down, it’s not considered in play.
+If your opponent declares a move, turn it face up. It does not trigger its [ENTER] ability.","dcs_05_033_n"
+"dcs05034n","DCS 05 034 N","Dimensional Cut","Purple","Deck","4","Action","","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","","FALSE","1","FALSE","Discard or obliviate 1 card from your hand: Deal X damage to target Character, where X is the cost of the card discarded or obliviated this way.","dcs_05_034_n"
+"dcs05035n","DCS 05 035 N","Potential Destinies","Purple","Deck","4","Action","","Dawn of the Celestial Shadow","","","heal","FALSE","1","FALSE","Choose 1:
+• Deal 4 damage divided as you choose among 2 adjacent Characters.
+• [HEAL 3] target card, then draw 2 cards.","dcs_05_035_n"
+"dcs05035p","DCS 05 035 P","Potential Destinies","Purple","Deck","4","Action","","Dawn of the Celestial Shadow","","","heal","FALSE","1","FALSE","Choose 1:
+• Deal 4 damage divided as you choose among 2 adjacent Characters.
+• [HEAL 3] target card, then draw 2 cards.","dcs_05_035_p"
+"dcs05036n","DCS 05 036 N","Dimensional Breach Collapse","Purple","Deck","6","Action","","Dawn of the Celestial Shadow, Structure Deck: Beginning of the End","","","","FALSE","1","FALSE","Obliviate target card you control: Deal damage equal to its cost to all Characters and Scenographies, then recover 1 Fragment for each Character shattered this way.","dcs_05_036_n"
+"dcs05037n","DCS 05 037 N","Irrational Genesis","Purple","Deck","7","Action","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Obliviate a card in your hand: Return target Character that costs equal to or less than the Turn Count from your graveyard or oblivion to play with a Frazzle counter on it.","dcs_05_037_n"
+"dcs05038n","DCS 05 038 N","Erase from History","Purple","Deck","8","Action","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE","Obliviate target card and all the other cards with the same name. Search the hand, deck, and graveyard of all players for all cards with the same name and obliviate them.","dcs_05_038_n"
+"dcs06001gr","DCS 06 001 GR","Fragment",,,,"Fragment","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE",,"dcs_06_001_gr"
+"dcs06001n","DCS 06 001 N","Fragment",,,,"Fragment","","Dawn of the Celestial Shadow","","","","FALSE","1","FALSE",,"dcs_06_001_n"
