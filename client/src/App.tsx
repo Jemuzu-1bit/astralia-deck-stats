@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import astraliaLogo from "./assets/logo_astralia_chronicles.png";
 import styles from "./App.module.scss";
 
 function App() {
@@ -7,9 +6,6 @@ function App() {
 
   return (
     <div className={styles.pageRoot}>
-      <a href="https://www.astraliachronicles.com/" target="_blank">
-        <img src={astraliaLogo} className={styles.logo} alt="Astralia logo" />
-      </a>
       <div className={styles.menuLayout}>
         <button
           className={styles.decksButton}
