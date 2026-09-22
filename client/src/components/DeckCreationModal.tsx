@@ -7,6 +7,7 @@ import { createDeck, updateDeck } from "../services/deckService";
 import CardDisplay from "./CardDisplay";
 import CardDetailsModal from "./CardDetailsModal";
 import CardFilters from "./CardFilters";
+import DeckStats from "./DeckStats";
 import FactionSelection from "./FactionSelection";
 import styles from "./DeckCreationModal.module.scss";
 
@@ -708,6 +709,11 @@ export default function DeckCreationModal({
                 )}
               </div>
             </section>
+
+            <DeckStats
+              entries={Object.values(deckSelectionMap)}
+              limit={sectionLimits.deck}
+            />
           </>
         )}
       </div>

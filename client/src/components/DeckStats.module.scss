@@ -1,0 +1,99 @@
+.stats {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 0.25rem 0.25rem;
+}
+
+.header,
+.typeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header h3,
+.content h4 {
+  margin: 0;
+}
+
+.total {
+  background: var(--background-color-secondary);
+  border-radius: 999px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.content h4 {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.costGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.costItem,
+.typeItem {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+}
+
+.costItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.typeList {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.typeItem {
+  padding: 0.55rem 0.65rem;
+}
+
+.typeHeader {
+  font-weight: 700;
+}
+
+.subtypeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.subtype {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  padding: 0.22rem 0.45rem;
+}
+
+.empty {
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0.75rem 0 0;
+}
+
+@media (max-width: 700px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+}
