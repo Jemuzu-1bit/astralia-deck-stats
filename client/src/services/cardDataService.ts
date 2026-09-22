@@ -1,10 +1,10 @@
-import { readCardData } from "../data/cardDataReader.ts";
+import { isAlternativeArt, readCardData } from "../data/cardDataReader.ts";
 import type { Card } from "../types/Card.ts";
 
 export async function getAllCards(): Promise<Card[]> {
   const cards = await readCardData();
 
-  return cards.filter((card) => card.face === 1);
+  return cards.filter((card) => card.face === 1 && !isAlternativeArt(card));
 }
 
 export async function getCardsByField<T extends keyof Card>(

@@ -3,6 +3,10 @@ import type { Card } from "../types/Card.ts";
 
 let cache: Card[] | null = null;
 
+export function isAlternativeArt(card: Pick<Card, "setId">): boolean {
+  return /\s(?:P|SR|SSR)$/i.test(card.setId);
+}
+
 export async function readCardData(): Promise<Card[]> {
   if (cache) return cache;
 

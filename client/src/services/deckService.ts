@@ -1,5 +1,5 @@
 import type { Deck, DeckEntry } from "../types/Deck";
-import { readCardData } from "../data/cardDataReader";
+import { isAlternativeArt, readCardData } from "../data/cardDataReader";
 
 const STORAGE_KEY = "astralia.decks";
 
@@ -112,10 +112,27 @@ async function deflateToBase64Url(value: string): Promise<string> {
 
 async function cardKeysById(): Promise<Map<string, string>> {
   const cards = await readCardData();
+  const canonicalCards = cards.filter(
+    (card) => card.face === 1 && !isAlternativeArt(card)
+  );
+  const printKey = (setId: string) =>
+    setId
+      .replace(/\s(?:N|EX|P|SR|SSR)$/i, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .toLowerCase();
+  const canonicalImageByPrint = new Map(
+    canonicalCards.map((card) => [printKey(card.setId), card.imageId.toUpperCase()])
+  );
+
   return new Map(
     cards
       .filter((card) => card.face === 1)
-      .map((card) => [card.id.toLowerCase(), card.imageId.toUpperCase()])
+      .map((card) => [
+        card.id.toLowerCase(),
+        isAlternativeArt(card)
+          ? canonicalImageByPrint.get(printKey(card.setId)) ?? card.imageId.toUpperCase()
+          : card.imageId.toUpperCase(),
+      ])
   );
 }
 
