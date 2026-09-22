@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import type { Card } from "../types/Card";
 import styles from "./DeckStats.module.scss";
 
@@ -21,20 +21,23 @@ interface TypeStats extends CountItem {
   subtypes: CountItem[];
 }
 
-function sortCosts(a: CountItem, b: CountItem) {
-  const isNumeric = (value: string) => /^\d+$/.test(value);
-  const aIsNumeric = isNumeric(a.label);
-  const bIsNumeric = isNumeric(b.label);
+const MAIN_DECK_COSTS = Array.from({ length: 11 }, (_, cost) => String(cost));
+const TYPE_ORDER = ["Character", "Action", "Scenography"];
 
-  if (aIsNumeric && bIsNumeric) return Number(a.label) - Number(b.label);
-  if (aIsNumeric) return -1;
-  if (bIsNumeric) return 1;
+function sortTypes(a: TypeStats, b: TypeStats) {
+  const aIndex = TYPE_ORDER.indexOf(a.label);
+  const bIndex = TYPE_ORDER.indexOf(b.label);
+  const aRank = aIndex === -1 ? TYPE_ORDER.length : aIndex;
+  const bRank = bIndex === -1 ? TYPE_ORDER.length : bIndex;
+
+  if (aRank !== bRank) return aRank - bRank;
   return a.label.localeCompare(b.label);
 }
 
 export default function DeckStats({ entries, limit }: DeckStatsProps) {
   const { total, costs, types } = useMemo(() => {
     const costCounts = new Map<string, number>();
+    const outsideCurveCounts = new Map<string, number>();
     const typeCounts = new Map<string, number>();
     const subtypeCounts = new Map<string, Map<string, number>>();
     let totalCards = 0;
@@ -47,7 +50,11 @@ export default function DeckStats({ entries, limit }: DeckStatsProps) {
       const type = card.type?.trim() || "Other";
       const subtype = card.subtype?.trim() || "No subtype";
 
-      costCounts.set(cost, (costCounts.get(cost) ?? 0) + qty);
+      if (MAIN_DECK_COSTS.includes(cost)) {
+        costCounts.set(cost, (costCounts.get(cost) ?? 0) + qty);
+      } else {
+        outsideCurveCounts.set(cost, (outsideCurveCounts.get(cost) ?? 0) + qty);
+      }
       typeCounts.set(type, (typeCounts.get(type) ?? 0) + qty);
 
       const bySubtype = subtypeCounts.get(type) ?? new Map<string, number>();
@@ -55,10 +62,15 @@ export default function DeckStats({ entries, limit }: DeckStatsProps) {
       subtypeCounts.set(type, bySubtype);
     }
 
-    const costStats = Array.from(costCounts, ([label, count]) => ({
-      label,
-      count,
-    })).sort(sortCosts);
+    const costStats = [
+      ...MAIN_DECK_COSTS.map((label) => ({
+        label,
+        count: costCounts.get(label) ?? 0,
+      })),
+      ...Array.from(outsideCurveCounts, ([label, count]) => ({ label, count })).sort(
+        (a, b) => a.label.localeCompare(b.label)
+      ),
+    ];
 
     const typeStats = Array.from(typeCounts, ([label, count]) => ({
       label,
@@ -67,10 +79,15 @@ export default function DeckStats({ entries, limit }: DeckStatsProps) {
         label: subtype,
         count: subtypeCount,
       })).sort((a, b) => a.label.localeCompare(b.label)),
-    })).sort((a, b) => a.label.localeCompare(b.label));
+    })).sort(sortTypes);
 
-    return { total: totalCards, costs: costStats, types: typeStats };
+    return {
+      total: totalCards,
+      costs: costStats,
+      types: typeStats,
+    };
   }, [entries]);
+  const highestCostCount = Math.max(...costs.map((cost) => cost.count), 1);
 
   return (
     <section className={styles.stats} aria-labelledby="mainDeckStatsTitle">
@@ -85,11 +102,30 @@ export default function DeckStats({ entries, limit }: DeckStatsProps) {
         <div className={styles.content}>
           <div>
             <h4>Cost curve</h4>
-            <div className={styles.costGrid}>
+            <div
+              className={styles.costChart}
+              role="img"
+              aria-label={`Cost curve: ${costs
+                .map(({ label, count }) => `cost ${label}, ${count} cards`)
+                .join("; ")}`}
+            >
               {costs.map(({ label, count }) => (
-                <div className={styles.costItem} key={label}>
-                  <span>Cost {label}</span>
-                  <strong>{count}</strong>
+                <div className={styles.costColumn} key={label}>
+                  <strong className={styles.costValue}>{count}</strong>
+                  <div className={styles.barArea}>
+                    <div
+                      className={styles.costBar}
+                      style={
+                        {
+                          "--bar-height":
+                            count === 0
+                              ? "0%"
+                              : `${(count / highestCostCount) * 100}%`,
+                        } as CSSProperties
+                      }
+                    />
+                  </div>
+                  <span className={styles.costLabel}>{label}</span>
                 </div>
               ))}
             </div>
