@@ -13,6 +13,11 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, "../client/dist"))); // serve React build
 
+// Let React Router handle client-side routes when they are opened directly.
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(__dirname, "../client/dist/index.html"));
+});
+
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
   socket.on("disconnect", () => console.log("Client disconnected:", socket.id));
