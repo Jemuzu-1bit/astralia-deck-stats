@@ -28,7 +28,7 @@ export default function MyDecksPage() {
   }, []);
 
   const handleShare = async (deck: Deck) => {
-    const code = exportDeck(deck);
+    const code = await exportDeck(deck);
     setShareCode(code);
     setShareTitle(deck.name || "Untitled Deck");
     try {
@@ -49,14 +49,14 @@ export default function MyDecksPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
 
-  const processImport = (code: string) => {
+  const processImport = async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) {
       setImportError("Please paste a deck code.");
       return;
     }
     try {
-      const imported = importDeck(trimmed);
+      const imported = await importDeck(trimmed);
       const saved = createDeck(imported);
       setDecks([saved, ...decks]);
       setShowImport(false);

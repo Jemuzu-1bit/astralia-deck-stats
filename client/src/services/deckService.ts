@@ -1,4 +1,5 @@
 import type { Deck, DeckEntry } from "../types/Deck";
+import { readCardData } from "../data/cardDataReader";
 
 const STORAGE_KEY = "astralia.decks";
 
@@ -55,8 +56,7 @@ export function deleteDeck(id: string): void {
   saveAll(decks);
 }
 
-// Compact share format to keep it human-shareable and URL safe
-// { v:1, n:name, f:faction, p:protagonist, pe:[ids], d:[[id,qty], ...] }
+// Legacy compact format, kept so previously shared codes remain importable.
 interface SharePayloadV1 {
   v: 1;
   n: string;
@@ -64,17 +64,6 @@ interface SharePayloadV1 {
   p?: string | null;
   pe: string[];
   d: [string, number][];
-}
-
-function toSharePayload(deck: Deck): SharePayloadV1 {
-  return {
-    v: 1,
-    n: deck.name,
-    f: deck.faction,
-    p: deck.protagonist ?? null,
-    pe: deck.persona,
-    d: deck.deck.map((e) => [e.id, e.qty]),
-  };
 }
 
 function fromSharePayload(p: SharePayloadV1): Omit<Deck, "id" | "updatedAt"> {
@@ -88,22 +77,179 @@ function fromSharePayload(p: SharePayloadV1): Omit<Deck, "id" | "updatedAt"> {
   };
 }
 
-// Robust Base64 for UTF-8 strings
-function encodeBase64(str: string) {
-  return btoa(unescape(encodeURIComponent(str)));
+interface OfficialSharePayload {
+  deckCards: Record<string, number>;
+  faction: number;
+  hasError: boolean;
+  id: number;
+  image: number;
+  imageKey: string;
+  name: string;
+  personaDeck: Record<string, number>;
+  protagonist: Record<string, number>;
 }
+
+const OFFICIAL_DECK_IMPORT_URL =
+  "https://www.astraliachronicles.com/deck-import?deckData=";
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function deflateToBase64Url(value: string): Promise<string> {
+  const stream = new Blob([value])
+    .stream()
+    .pipeThrough(new CompressionStream("deflate"));
+  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+  return toBase64Url(compressed);
+}
+
+async function cardKeysById(): Promise<Map<string, string>> {
+  const cards = await readCardData();
+  return new Map(
+    cards
+      .filter((card) => card.face === 1)
+      .map((card) => [card.id.toLowerCase(), card.imageId.toUpperCase()])
+  );
+}
+
+function toOfficialCardMap(
+  cardIds: { id: string; qty: number }[],
+  keysById: Map<string, string>
+): Record<string, number> {
+  return cardIds.reduce<Record<string, number>>((result, { id, qty }) => {
+    const officialId = keysById.get(id.toLowerCase());
+    if (!officialId) throw new Error(`Card not found in catalog: ${id}`);
+    if (qty > 0) result[officialId] = qty;
+    return result;
+  }, {});
+}
+
 function decodeBase64(b64: string) {
   return decodeURIComponent(escape(atob(b64)));
 }
 
-export function exportDeck(deck: Deck): string {
-  const payload = toSharePayload(deck);
-  const json = JSON.stringify(payload);
-  return encodeBase64(json);
+function fromBase64Url(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-export function importDeck(code: string): Omit<Deck, "id" | "updatedAt"> {
-  const json = decodeBase64(code.trim());
+async function inflateBase64Url(value: string): Promise<string> {
+  const bytes = fromBase64Url(value);
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
+  const stream = new Blob([buffer])
+    .stream()
+    .pipeThrough(new DecompressionStream("deflate"));
+  return new Response(stream).text();
+}
+
+function getOfficialDeckData(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.searchParams.get("deckData");
+  } catch {
+    return null;
+  }
+}
+
+async function fromOfficialSharePayload(
+  payload: Partial<OfficialSharePayload>
+): Promise<Omit<Deck, "id" | "updatedAt">> {
+  if (!payload.deckCards || !payload.personaDeck || !payload.protagonist) {
+    throw new Error("Unsupported official deck format");
+  }
+
+  const cards = await readCardData();
+  const cardsByOfficialId = new Map(
+    cards
+      .filter((card) => card.face === 1)
+      .map((card) => [card.imageId.toUpperCase(), card])
+  );
+
+  const getCard = (officialId: string) => {
+    const card = cardsByOfficialId.get(officialId.toUpperCase());
+    if (!card) throw new Error(`Card not found in catalog: ${officialId}`);
+    return card;
+  };
+
+  const deck = Object.entries(payload.deckCards)
+    .filter(([, qty]) => Number(qty) > 0)
+    .map(([officialId, qty]) => ({ id: getCard(officialId).id, qty: Number(qty) }));
+
+  const persona = Object.entries(payload.personaDeck)
+    .filter(([, qty]) => Number(qty) > 0)
+    .map(([officialId]) => getCard(officialId).id);
+
+  const protagonistEntry = Object.entries(payload.protagonist).find(
+    ([, qty]) => Number(qty) > 0
+  );
+  const protagonist = protagonistEntry ? getCard(protagonistEntry[0]) : null;
+  const factionSource = protagonist ?? (deck[0] ? getCardFromId(deck[0].id, cards) : null);
+
+  return {
+    name: payload.name?.trim() || "New Deck",
+    faction: factionSource?.faction.toLowerCase() || "red",
+    protagonist: protagonist?.id ?? null,
+    persona,
+    deck,
+    backgroundImage: null,
+  };
+}
+
+function getCardFromId(id: string, cards: Awaited<ReturnType<typeof readCardData>>) {
+  return cards.find((card) => card.face === 1 && card.id === id) ?? null;
+}
+
+export async function exportDeck(deck: Deck): Promise<string> {
+  const keysById = await cardKeysById();
+  const payload: OfficialSharePayload = {
+    deckCards: toOfficialCardMap(deck.deck, keysById),
+    // These fields are Android app resource IDs in links generated by the
+    // official app. Card lists and name are portable; use neutral values for
+    // metadata that is not available in this web app.
+    faction: 0,
+    hasError: false,
+    id: 0,
+    image: 0,
+    imageKey: "",
+    name: deck.name,
+    personaDeck: toOfficialCardMap(
+      deck.persona.map((id) => ({ id, qty: 1 })),
+      keysById
+    ),
+    protagonist: deck.protagonist
+      ? toOfficialCardMap([{ id: deck.protagonist, qty: 1 }], keysById)
+      : {},
+  };
+
+  return `${OFFICIAL_DECK_IMPORT_URL}${await deflateToBase64Url(
+    JSON.stringify(payload)
+  )}`;
+}
+
+export async function importDeck(
+  code: string
+): Promise<Omit<Deck, "id" | "updatedAt">> {
+  const trimmed = code.trim();
+  const officialDeckData = getOfficialDeckData(trimmed);
+
+  if (officialDeckData) {
+    const json = await inflateBase64Url(officialDeckData);
+    return fromOfficialSharePayload(JSON.parse(json) as OfficialSharePayload);
+  }
+
+  const json = decodeBase64(trimmed);
   const parsed = JSON.parse(json) as SharePayloadV1;
   if (!parsed || parsed.v !== 1) throw new Error("Unsupported deck format");
   return fromSharePayload(parsed);
