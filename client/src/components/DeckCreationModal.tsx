@@ -54,6 +54,7 @@ export default function DeckCreationModal({
   const [deckSelectionMap, setDeckSelectionMap] = useState<
     Record<string, SelectedCard>
   >({});
+  const [initialHand, setInitialHand] = useState<Card[]>([]);
 
   const [editing, setEditing] = useState<Record<SectionKey, boolean>>({
     protagonist: false,
@@ -206,6 +207,24 @@ export default function DeckCreationModal({
         (getCardIdentity(item.card) === getCardIdentity(card) ? item.qty : 0),
       0
     );
+
+  useEffect(() => {
+    // A displayed hand should never become misleading after the deck changes.
+    setInitialHand([]);
+  }, [deckSelectionMap]);
+
+  const simulateInitialHand = () => {
+    const deck = Object.values(deckSelectionMap).flatMap(({ card, qty }) =>
+      Array.from({ length: qty }, () => card)
+    );
+
+    for (let i = deck.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+
+    setInitialHand(deck.slice(0, 5));
+  };
 
   const toggleEdit = (section: SectionKey) => {
     setEditing((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -749,6 +768,40 @@ export default function DeckCreationModal({
                   renderSelectedList("deck")
                 )}
               </div>
+            </section>
+
+            <section className={`${styles.section} ${styles.handSimulator}`}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Opening Hand Simulator</h3>
+                  <p className={styles.sectionHint}>
+                    Draw 5 cards from your Main Deck, respecting card quantities.
+                  </p>
+                </div>
+                <button
+                  className={styles.editButton}
+                  onClick={simulateInitialHand}
+                  disabled={getTotalInMap(deckSelectionMap) < 5}
+                >
+                  {initialHand.length ? "Draw Again" : "Simulate Hand"}
+                </button>
+              </div>
+              {initialHand.length > 0 ? (
+                <div className={styles.handGrid} aria-live="polite">
+                  {initialHand.map((card, index) => (
+                    <div
+                      key={`${card.id}-${index}`}
+                      className={styles.handCard}
+                    >
+                      <CardDisplay card={card} onClick={openCardDetails} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>
+                  Add at least 5 Main Deck cards to simulate an opening hand.
+                </div>
+              )}
             </section>
 
             <DeckStats
