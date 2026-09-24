@@ -262,7 +262,18 @@
   min-width: 0;
   width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 0.45rem;
+  padding: 0.35rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+
+  &.mulliganCardSelected {
+    border-color: #e7b84b;
+    background: rgba(231,184,75,0.12);
+  }
 
   :global(.cardDisplay) {
     width: 100%;
@@ -271,6 +282,22 @@
   :global(.cardDisplay img) {
     width: min(100%, 160px);
   }
+}
+
+.mulliganToggle {
+  background: var(--background-color-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
 }
 
 .editGrid {
