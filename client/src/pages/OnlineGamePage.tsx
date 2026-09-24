@@ -68,6 +68,28 @@ function PublicCardStack({ ids }: { ids: string[] }) {
   </div>;
 }
 
+function Hand({ ids }: { ids: string[] }) {
+  const [cards, setCards] = useState<Card[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all(ids.map((id) => getCardFaces(id).then(({ front, back }) => front || back || null)))
+      .then((loaded) => {
+        if (active) setCards(loaded.filter((card): card is Card => Boolean(card)));
+      });
+    return () => { active = false; };
+  }, [ids]);
+
+  return <div className={styles.hand} aria-label="Initial hand">
+    {cards.map((card, index) => <img
+      key={`${card.id}-${index}`}
+      src={getCardImagePath(card, "thumb")}
+      alt={card.name}
+      title={card.name}
+    />)}
+  </div>;
+}
+
 function Zone({ label, children, className = "" }: { label: string; children?: ReactNode; className?: string }) {
   return <div className={`${styles.zone} ${className}`}>
     <span className={styles.zoneLabel}>{label}</span>
@@ -75,7 +97,7 @@ function Zone({ label, children, className = "" }: { label: string; children?: R
   </div>;
 }
 
-function PlayerTable({ player, opponentSide }: { player: LobbyPlayerState | null; opponentSide?: boolean }) {
+function PlayerTable({ player, opponentSide, isLocal }: { player: LobbyPlayerState | null; opponentSide?: boolean; isLocal?: boolean }) {
   const deckCount = useMemo(
     () => player?.mainDeckCards?.reduce((total, entry) => total + entry.qty, 0) || 0,
     [player?.mainDeckCards]
@@ -118,6 +140,7 @@ function PlayerTable({ player, opponentSide }: { player: LobbyPlayerState | null
     </div>
 
     <div className={styles.handLabel}>Hand · {player?.handCards?.length || 0}</div>
+    {isLocal && player?.handCards && <Hand ids={player.handCards} />}
   </section>;
 }
 
@@ -141,7 +164,7 @@ export default function OnlineGamePage() {
     <main className={styles.playmat}>
       <PlayerTable player={opponent} opponentSide />
       <div className={styles.divider}><span>VS</span></div>
-      <PlayerTable player={me} />
+      <PlayerTable player={me} isLocal />
     </main>
   </div>;
 }

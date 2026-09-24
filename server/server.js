@@ -75,6 +75,25 @@ function newPlayer(socket, name, role) {
   };
 }
 
+function shuffle(cards) {
+  for (let index = cards.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [cards[index], cards[swapIndex]] = [cards[swapIndex], cards[index]];
+  }
+  return cards;
+}
+
+function dealOpeningHand(player) {
+  const deck = (player.mainDeckCards || []).flatMap((entry) => {
+    const id = String(entry?.id || "");
+    const qty = Math.max(0, Math.min(100, Number(entry?.qty) || 0));
+    return id ? Array.from({ length: qty }, () => id) : [];
+  });
+  shuffle(deck);
+  player.handCards = deck.slice(0, 5);
+  player.deckCards = deck.slice(5);
+}
+
 function createRoom(socket, name) {
   const code = makeCode();
   const room = { code, host: newPlayer(socket, name, "host"), guest: null, started: false, lastActivity: Date.now() };
@@ -137,7 +156,10 @@ io.on("connection", (socket) => {
   socket.on("lobby:startRequest", () => {
     const room = currentRoom(socket);
     if (!room || room.host?.socketId !== socket.id) return fail(socket, "Only the host can start the match.");
+    if (room.started) return;
     if (!room.guest || !room.host.deckId || !room.guest.deckId) return fail(socket, "Both players must select a deck first.");
+    dealOpeningHand(room.host);
+    dealOpeningHand(room.guest);
     room.started = true; room.lastActivity = Date.now(); emitState(room);
     io.to(room.code).emit("lobby:started", { hostDeckId: room.host.deckId, guestDeckId: room.guest.deckId });
   });

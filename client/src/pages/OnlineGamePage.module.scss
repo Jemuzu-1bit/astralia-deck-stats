@@ -84,6 +84,32 @@
   border-radius: 999px;
 }
 
+.hand {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: .35rem;
+  display: flex;
+  align-items: flex-end;
+  gap: .35rem;
+  transform: translateX(-50%);
+  padding: .35rem .5rem .15rem;
+  background: rgba(5, 8, 18, .72);
+  border: 1px solid rgba(212, 175, 55, .35);
+  border-radius: 8px 8px 0 0;
+
+  img {
+    width: clamp(58px, 6vw, 86px);
+    aspect-ratio: 5 / 7;
+    object-fit: cover;
+    border-radius: 4px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .65);
+    transition: transform .15s ease;
+  }
+
+  img:hover { transform: translateY(-8px); }
+}
+
 .sideZones { display: grid; gap: .7rem; }
 
 .zone {
