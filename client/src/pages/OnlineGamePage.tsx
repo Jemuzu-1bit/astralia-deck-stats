@@ -121,11 +121,11 @@ function PlayerTable({ player, opponentSide }: { player: LobbyPlayerState | null
 
     <div className={styles.sideZones}>
       {opponentSide ? <>
-        <Zone label="Persona · public"><PublicCardStack ids={personaCards} /></Zone>
-        <Zone label="Oblivion · public" />
+        <Zone label="Persona"><PublicCardStack ids={personaCards} /></Zone>
+        <Zone label="Oblivion" />
       </> : <>
-        <Zone label="Oblivion · public" />
-        <Zone label="Persona · public"><PublicCardStack ids={personaCards} /></Zone>
+        <Zone label="Oblivion" />
+        <Zone label="Persona"><PublicCardStack ids={personaCards} /></Zone>
       </>}
     </div>
 
@@ -139,11 +139,11 @@ function PlayerTable({ player, opponentSide }: { player: LobbyPlayerState | null
 
     <div className={styles.sideZones}>
       {opponentSide ? <>
-        <Zone label="Graveyard · public" />
+        <Zone label="Graveyard" />
         <Zone label="Main deck"><DeckStack count={deckCount} /></Zone>
       </> : <>
         <Zone label="Main deck"><DeckStack count={deckCount} /></Zone>
-        <Zone label="Graveyard · public" />
+        <Zone label="Graveyard" />
       </>}
     </div>
 
