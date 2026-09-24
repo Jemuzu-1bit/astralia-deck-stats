@@ -1,0 +1,7 @@
+.root { min-height: 100vh; padding: 1.5rem; box-sizing: border-box; background: #0a0e27; }
+.root header { display: flex; justify-content: space-between; align-items: center; } .root button { padding: .6rem 1rem; cursor: pointer; }
+.root main { min-height: 70vh; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2rem; max-width: 900px; margin: auto; text-align: center; }
+.root section { padding: 3rem 1rem; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
+.root small { opacity: .6; letter-spacing: .1em; } .root h1 { font-size: clamp(1.5rem, 4vw, 3rem); } .vs { font-size: 2rem; font-weight: 800; }
+.notice { max-width: 640px; margin: auto; padding: 1rem; text-align: center; opacity: .7; }
+@media (max-width: 650px) { .root main { grid-template-columns: 1fr; gap: 1rem; min-height: auto; margin-top: 3rem; } .vs { font-size: 1.3rem; } }

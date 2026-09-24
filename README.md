@@ -20,5 +20,36 @@ npm run dev
 
 Apri il browser su `http://localhost:5173`.
 
+## Partite online
+
+Il progetto include una lobby Socket.IO a due giocatori derivata dal flusso
+della repo originale: l'host crea una stanza, condivide il codice mostrato
+nella lobby e il secondo giocatore lo usa per entrare. I mazzi vengono scelti
+tra quelli già salvati nel deck builder locale; il deck builder non viene
+modificato.
+
+Avvio locale:
+
+```bash
+cd server
+npm install
+npm start
+
+# in un altro terminale
+cd client
+npm install
+npm run dev
+```
+
+Apri `http://localhost:5173`, scegli `host game` oppure `join game` e inserisci
+il codice della lobby. Per un hosting pubblico è sufficiente pubblicare il
+server `server/` su un servizio Node/WebSocket e impostare nel client:
+
+```bash
+VITE_SERVER_URL=https://tuo-server.example.com
+```
+
+Il server mantiene le lobby in memoria: il riavvio chiude le partite attive.
+
 ## Contributi
 Progetto open-source, contribuzioni benvenute.
