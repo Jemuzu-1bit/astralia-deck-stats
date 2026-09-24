@@ -62,7 +62,7 @@
   .playerBadge { bottom: .65rem; right: 1rem; text-align: right; }
 }
 
-.dragging .playerHalf .zone:not(.protagonistSlot),
+.dragging .playerHalf .zone,
 .dragging .handDock {
   border-color: #e4c65f;
   box-shadow: inset 0 0 18px rgba(228, 198, 95, .18);
@@ -89,7 +89,11 @@
   letter-spacing: .08em;
   color: #e4c65f;
   background: rgba(5, 8, 18, .72);
+  border: 0;
   border-radius: 999px;
+  cursor: pointer;
+
+  &:hover, &:focus-visible { outline: 1px solid #e4c65f; }
 }
 
 .handDock {
@@ -133,6 +137,7 @@
   padding: .25rem 0;
 
   button {
+    position: relative;
     flex: 0 0 auto;
     padding: 0;
     border: 0;
@@ -186,6 +191,13 @@
   &:focus-visible { outline: 2px solid #e4c65f; outline-offset: 2px; }
 }
 
+.deckZone {
+  cursor: pointer;
+
+  &:hover { border-color: #e4c65f; }
+  &:focus-visible { outline: 2px solid #e4c65f; outline-offset: 2px; }
+}
+
 .zoneLabel {
   position: absolute;
   z-index: 2;
@@ -212,9 +224,29 @@
 
 .battleSlot { border-style: dashed; border-color: rgba(212, 175, 55, .34); }
 .protagonistSlot { border-color: rgba(228, 198, 95, .8); box-shadow: 0 0 18px rgba(212, 175, 55, .13); }
-.protagonistSlot .zoneContent > div { transform: scale(.56); position: absolute; }
+.protagonistSlot .zoneContent { position: relative; }
+.protagonistSlot .zoneLabel { z-index: 4; }
+
+.protagonistBase {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: min(82px, 78%);
+  transform: translate(-50%, -50%) rotate(var(--protagonist-rotation));
+
+  > div img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
+}
+
+.protagonistUnderlay {
+  left: 5px;
+  width: min(64px, 60%);
+  transform: translateY(-50%) rotate(var(--protagonist-rotation));
+  filter: brightness(.72);
+}
 
 .battleCard {
+  position: relative;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -222,6 +254,31 @@
   cursor: grab;
 
   img { display: block; width: 60px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
+}
+
+.battleCard.protagonistOverlayCard {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 62%;
+  transform: translate(-50%, -50%);
+
+  img { width: clamp(76px, 8vw, 94px); box-shadow: 0 4px 15px rgba(0, 0, 0, .8); }
+}
+
+.revealedBadge {
+  position: absolute;
+  z-index: 3;
+  top: 2px;
+  left: 2px;
+  padding: 1px 3px;
+  color: #111522;
+  background: #e4c65f;
+  border-radius: 3px;
+  font-size: .5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
 }
 
 .deckStack {
@@ -320,6 +377,14 @@
   button { display: block; width: 100%; padding: .4rem .55rem; color: inherit; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
   button:hover, button:focus-visible { color: #111522; background: #e4c65f; outline: none; }
   hr { margin: .3rem 0; border: 0; border-top: 1px solid rgba(212, 175, 55, .25); }
+}
+
+.deckMenu {
+  width: 220px;
+
+  label { display: block; margin: .25rem .55rem; color: #e4c65f; font-size: .75rem; }
+  input { display: block; width: calc(100% - 1.1rem); margin: .3rem .55rem .5rem; padding: .35rem; box-sizing: border-box; color: #f5efd7; background: #090e1e; border: 1px solid rgba(212, 175, 55, .5); border-radius: 4px; }
+  button:disabled, button:disabled:hover { color: rgba(245, 239, 215, .4); background: none; cursor: not-allowed; }
 }
 
 .divider {

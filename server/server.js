@@ -44,20 +44,33 @@ function deckData(data) {
     mainDeckCards: Array.isArray(data.mainDeckCards) ? data.mainDeckCards.slice(0, 100) : null,
   };
 }
-function publicPlayer(player) {
+function publicPlayer(player, viewerId) {
   const { token: _token, ...safe } = player;
-  return safe;
-}
-function publicState(room) {
+  const handCount = player.table?.hand.length ?? player.handCards.length;
+  const deckCount = player.table?.deck.length ?? player.deckCards.length;
+  if (player.socketId === viewerId) return { ...safe, handCount, deckCount };
   return {
-    host: room.host ? publicPlayer(room.host) : null,
-    guest: room.guest ? publicPlayer(room.guest) : null,
+    ...safe,
+    mainDeckCards: null,
+    handCards: [],
+    deckCards: [],
+    table: player.table ? { ...player.table, hand: player.table.hand.filter((card) => card.revealed), deck: [] } : undefined,
+    handCount,
+    deckCount,
+  };
+}
+function publicState(room, viewerId) {
+  return {
+    host: room.host ? publicPlayer(room.host, viewerId) : null,
+    guest: room.guest ? publicPlayer(room.guest, viewerId) : null,
     started: room.started,
     code: room.code,
   };
 }
 function emitState(room) {
-  io.to(room.code).emit("lobby:state", publicState(room));
+  for (const player of [room.host, room.guest]) {
+    if (player?.socketId) io.to(player.socketId).emit("lobby:state", publicState(room, player.socketId));
+  }
 }
 function fail(socket, message) { socket.emit("lobby:error", message); }
 function currentPlayer(socket, room) {
@@ -85,7 +98,7 @@ function shuffle(cards) {
 }
 
 const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle"];
-const cardInstance = (id) => ({ uid: makeId(), id, rotation: 0 });
+const cardInstance = (id) => ({ uid: makeId(), id, rotation: 0, revealed: false });
 
 function syncCardLists(player) {
   const { table } = player;
@@ -118,6 +131,7 @@ function dealOpeningHand(player) {
     graveyard: [],
     oblivion: [],
     battle: Array(6).fill(null),
+    protagonistRotation: 0,
   };
   syncCardLists(player);
 }
@@ -210,8 +224,16 @@ io.on("connection", (socket) => {
     const degrees = Number(payload?.degrees);
     if (degrees !== 90 && degrees !== 180) return;
     const found = findCard(player.table, String(payload?.uid || ""));
-    if (!found || found.zone === "deck") return;
+    if (!found) return;
     found.card.rotation = (found.card.rotation + degrees) % 360;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:rotateProtagonist", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const degrees = Number(payload?.degrees);
+    if (degrees !== 90 && degrees !== 180) return;
+    player.table.protagonistRotation = ((player.table.protagonistRotation || 0) + degrees) % 360;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:moveCard", (payload) => {
@@ -220,7 +242,7 @@ io.on("connection", (socket) => {
     const table = player.table;
     const found = findCard(table, String(payload?.uid || ""));
     const target = String(payload?.to || "");
-    if (!found || found.zone === "deck" || !CARD_ZONES.includes(target)) return;
+    if (!found || !CARD_ZONES.includes(target)) return;
     if (target === "battle") {
       const slot = Number(payload?.slot);
       if (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length) return;
@@ -229,7 +251,10 @@ io.on("connection", (socket) => {
       if (found.zone === "battle") table.battle[found.index] = displaced;
       else {
         table[found.zone].splice(found.index, 1);
-        if (displaced) table[found.zone].splice(found.index, 0, displaced);
+        if (displaced) {
+          displaced.revealed = false;
+          table[found.zone].splice(found.index, 0, displaced);
+        }
       }
       table.battle[slot] = found.card;
     } else {
@@ -237,6 +262,35 @@ io.on("connection", (socket) => {
       else table[found.zone].splice(found.index, 1);
       if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(found.card);
       else table[target].push(found.card);
+    }
+    found.card.revealed = false;
+    syncCardLists(player);
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:revealCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const card = player.table.hand.find((entry) => entry.uid === String(payload?.uid || ""));
+    if (!card) return;
+    card.revealed = payload?.revealed === true;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:deckAction", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const { deck } = player.table;
+    const action = String(payload?.action || "");
+    if (action === "shuffle") {
+      shuffle(deck);
+    } else {
+      if (!(["draw", "discard", "oblivion"].includes(action))) return;
+      const requested = Number(payload?.count);
+      if (!Number.isInteger(requested) || requested < 1 || deck.length === 0) return;
+      const cards = deck.splice(0, Math.min(requested, deck.length));
+      cards.forEach((card) => { card.revealed = false; });
+      const destination = action === "draw" ? player.table.hand
+        : action === "discard" ? player.table.graveyard : player.table.oblivion;
+      destination.push(...cards);
     }
     syncCardLists(player);
     room.lastActivity = Date.now(); emitState(room);

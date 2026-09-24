@@ -5,6 +5,7 @@ import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
   gameConnection,
+  type DeckAction,
   type GameCard,
   type GameTable,
   type GameZone,
@@ -16,17 +17,25 @@ import normalCardBack from "../assets/N_Back.png";
 import styles from "./OnlineGamePage.module.scss";
 
 type InspectCard = (card: Card | null) => void;
-type ZoneName = "persona" | "graveyard" | "oblivion";
+type ZoneName = "persona" | "graveyard" | "oblivion" | "hand";
 type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
 type ResolvedCard = { gameCard: GameCard; card: Card };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard) => void;
+type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
+
+const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> = [
+  { action: "draw", label: "Draw X" },
+  { action: "discard", label: "Discard X" },
+  { action: "look", label: "Look at top X" },
+  { action: "oblivion", label: "Send X to Oblivion" },
+];
 
 const EMPTY_TABLE: GameTable = {
-  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], battle: [null, null, null, null, null],
+  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], battle: [null, null, null, null, null, null], protagonistRotation: 0,
 };
 const ZONE_NAMES: Record<ZoneName, string> = {
-  persona: "Persona", graveyard: "Graveyard", oblivion: "Oblivion",
+  persona: "Persona", graveyard: "Graveyard", oblivion: "Oblivion", hand: "Hand",
 };
 
 function playerTable(player: LobbyPlayerState | null): GameTable {
@@ -44,7 +53,8 @@ function playerTable(player: LobbyPlayerState | null): GameTable {
     persona: legacyCards(player.personaCards, "persona"),
     graveyard: legacyCards(player.graveyardCards, "graveyard"),
     oblivion: legacyCards(player.oblivionCards, "oblivion"),
-    battle: [null, null, null, null, null],
+    battle: [null, null, null, null, null, null],
+    protagonistRotation: 0,
   };
 }
 
@@ -64,10 +74,14 @@ function useResolvedCards(items: GameCard[]): ResolvedCard[] {
     return () => { active = false; };
   }, [items]);
 
-  return cards;
+  const currentItems = new Map(items.map((item) => [item.uid, item]));
+  return cards.flatMap(({ gameCard, card }) => {
+    const current = currentItems.get(gameCard.uid);
+    return current ? [{ gameCard: current, card }] : [];
+  });
 }
 
-function Protagonist({ id, onInspect }: { id?: string | null; onInspect: InspectCard }) {
+function Protagonist({ id, rotation, covered, onInspect }: { id?: string | null; rotation: number; covered: boolean; onInspect: InspectCard }) {
   const [card, setCard] = useState<Card | null>(null);
 
   useEffect(() => {
@@ -79,7 +93,10 @@ function Protagonist({ id, onInspect }: { id?: string | null; onInspect: Inspect
     return () => { active = false; };
   }, [id]);
 
-  return card ? <CardDisplay card={card} onInspect={onInspect} /> : <span className={styles.emptyText}>Protagonist</span>;
+  return card ? <div
+    className={`${styles.protagonistBase} ${covered ? styles.protagonistUnderlay : ""}`}
+    style={{ "--protagonist-rotation": `${rotation}deg` } as CSSProperties}
+  ><CardDisplay card={card} onInspect={onInspect} /></div> : <span className={styles.emptyText}>Protagonist</span>;
 }
 
 function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, className = "", style }: {
@@ -95,7 +112,7 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, className
     className={className}
     style={style}
     type="button"
-    aria-label={`Inspect ${entry.card.name}`}
+    aria-label={`Inspect ${entry.card.name}${entry.gameCard.revealed ? ", revealed" : ""}`}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
     onDragEnd={onDragEnd}
@@ -112,6 +129,7 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, className
       draggable={false}
       style={{ transform: `rotate(${entry.gameCard.rotation}deg)` }}
     />
+    {entry.gameCard.revealed && <span className={styles.revealedBadge}>Shown</span>}
   </button>;
 }
 
@@ -125,6 +143,32 @@ function DeckStack({ count }: { count: number }) {
       style={{ transform: `translate(${offset * 3}px, ${offset * -3}px)` }}
     />)}
     <b>{count}</b>
+  </div>;
+}
+
+function DeckZone({ count, local, onDraw, onMenu, onDragOver, onDrop }: {
+  count: number;
+  local: boolean;
+  onDraw: () => void;
+  onMenu: (event: MouseEvent<HTMLDivElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLElement>) => void;
+  onDrop?: (event: DragEvent<HTMLElement>) => void;
+}) {
+  return <div
+    className={`${styles.zone} ${local ? styles.deckZone : ""}`}
+    role={local ? "button" : undefined}
+    tabIndex={local ? 0 : undefined}
+    aria-label={local ? `Main deck, ${count} cards. Click to draw one card.` : `Main deck, ${count} cards`}
+    onClick={local && count > 0 ? onDraw : undefined}
+    onKeyDown={local && count > 0 ? (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDraw(); }
+    } : undefined}
+    onContextMenu={local ? onMenu : undefined}
+    onDragOver={onDragOver}
+    onDrop={onDrop}
+  >
+    <span className={styles.zoneLabel}>Main deck</span>
+    <div className={styles.zoneContent}><DeckStack count={count} /></div>
   </div>;
 }
 
@@ -174,14 +218,15 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
   </div>;
 }
 
-function Zone({ label, children, className = "", onDragOver, onDrop }: {
+function Zone({ label, children, className = "", onDragOver, onDrop, onContextMenu }: {
   label: string;
   children?: React.ReactNode;
   className?: string;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
-  return <div className={`${styles.zone} ${className}`} onDragOver={onDragOver} onDrop={onDrop}>
+  return <div className={`${styles.zone} ${className}`} onDragOver={onDragOver} onDrop={onDrop} onContextMenu={onContextMenu}>
     <span className={styles.zoneLabel}>{label}</span>
     <div className={styles.zoneContent}>{children}</div>
   </div>;
@@ -227,12 +272,15 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onProtagonistMenu, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
+  onDrawDeck: () => void;
+  onDeckMenu: (event: MouseEvent<HTMLDivElement>) => void;
+  onProtagonistMenu: (event: MouseEvent<HTMLDivElement>) => void;
   onDragStart: CardDrag;
   onDragEnd: () => void;
   onMenu: CardMenu;
@@ -265,8 +313,16 @@ function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDra
     </div>
     <div className={styles.battleGrid}>
       {Array.from({ length: 6 }).map((_, visualIndex) => {
-        if (visualIndex === protagonistIndex) return <Zone key={visualIndex} label="Protagonist" className={styles.protagonistSlot}>
-          <Protagonist id={player?.protagonistId} onInspect={onInspect} />
+        if (visualIndex === protagonistIndex) return <Zone
+          key={visualIndex}
+          label="Protagonist"
+          className={styles.protagonistSlot}
+          onDragOver={movable ? onDragOver : undefined}
+          onDrop={movable ? (event) => onDrop(event, "battle", 5) : undefined}
+          onContextMenu={movable ? onProtagonistMenu : undefined}
+        >
+          <Protagonist id={player?.protagonistId} rotation={table.protagonistRotation || 0} covered={Boolean(table.battle[5])} onInspect={onInspect} />
+          {table.battle[5] && <BattleCard item={table.battle[5]} movable={movable} onInspect={onInspect} onDragStart={onDragStart} onDragEnd={onDragEnd} onMenu={onMenu} className={styles.protagonistOverlayCard} />}
         </Zone>;
         const slot = battleSlots.indexOf(visualIndex);
         const item = table.battle[slot];
@@ -284,23 +340,36 @@ function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDra
     <div className={styles.sideZones}>
       {opponentSide ? <>
         {sideZone("graveyard")}
-        <Zone label="Main deck"><DeckStack count={table.deck.length} /></Zone>
+        <DeckZone count={player?.deckCount ?? table.deck.length} local={false} onDraw={onDrawDeck} onMenu={onDeckMenu} />
       </> : <>
-        <Zone label="Main deck" onDragOver={movable ? onDragOver : undefined} onDrop={movable ? (event) => onDrop(event, "deck") : undefined}><DeckStack count={table.deck.length} /></Zone>
+        <DeckZone
+          count={player?.deckCount ?? table.deck.length}
+          local={movable}
+          onDraw={onDrawDeck}
+          onMenu={onDeckMenu}
+          onDragOver={movable ? onDragOver : undefined}
+          onDrop={movable ? (event) => onDrop(event, "deck") : undefined}
+        />
         {sideZone("graveyard")}
       </>}
     </div>
-    {opponentSide && <div className={styles.handLabel}>Hand · {table.hand.length}</div>}
+    {opponentSide && <button
+      type="button"
+      className={styles.handLabel}
+      aria-label={`Show revealed cards in opponent hand, ${player?.handCount ?? table.hand.length} cards total`}
+      onClick={() => onOpenZone("hand")}
+    >Hand · {player?.handCount ?? table.hand.length}</button>}
   </section>;
 }
 
-function BattleCard({ item, movable, onInspect, onDragStart, onDragEnd, onMenu }: {
+function BattleCard({ item, movable, onInspect, onDragStart, onDragEnd, onMenu, className = "" }: {
   item: GameCard;
   movable: boolean;
   onInspect: InspectCard;
   onDragStart: CardDrag;
   onDragEnd: () => void;
   onMenu: CardMenu;
+  className?: string;
 }) {
   const items = useMemo(() => [item], [item]);
   const cards = useResolvedCards(items);
@@ -310,7 +379,7 @@ function BattleCard({ item, movable, onInspect, onDragStart, onDragEnd, onMenu }
     onDragStart={movable ? onDragStart : undefined}
     onDragEnd={movable ? onDragEnd : undefined}
     onMenu={movable ? onMenu : undefined}
-    className={styles.battleCard}
+    className={`${styles.battleCard} ${className}`}
   />;
 }
 
@@ -332,11 +401,13 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, onRotate, onMove, onClose }: {
+function ContextMenu({ x, y, revealState, onRotate, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
+  revealState?: boolean;
   onRotate: (degrees: 90 | 180) => void;
-  onMove: (zone: GameZone, position?: "top" | "bottom") => void;
+  onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
+  onToggleReveal?: () => void;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -347,16 +418,80 @@ function ContextMenu({ x, y, onRotate, onMove, onClose }: {
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
   }, [onClose]);
 
-  return <div className={styles.contextMenu} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 215)), top: Math.max(8, Math.min(y, window.innerHeight - 340)) }} onPointerDown={(event) => event.stopPropagation()}>
+  return <div className={styles.contextMenu} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 215)), top: Math.max(8, Math.min(y, window.innerHeight - (onMove ? 340 : 110))) }} onPointerDown={(event) => event.stopPropagation()}>
     <button type="button" role="menuitem" onClick={() => onRotate(90)}>Rotate 90°</button>
     <button type="button" role="menuitem" onClick={() => onRotate(180)}>Rotate 180°</button>
-    <hr />
-    <button type="button" role="menuitem" onClick={() => onMove("deck", "top")}>Top of deck</button>
-    <button type="button" role="menuitem" onClick={() => onMove("deck", "bottom")}>Bottom of deck</button>
-    <button type="button" role="menuitem" onClick={() => onMove("oblivion")}>Oblivion</button>
-    <button type="button" role="menuitem" onClick={() => onMove("persona")}>Persona</button>
-    <button type="button" role="menuitem" onClick={() => onMove("hand")}>Hand</button>
-    <button type="button" role="menuitem" onClick={() => onMove("graveyard")}>Graveyard</button>
+    {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
+    {onMove && <>
+      <hr />
+      <button type="button" role="menuitem" onClick={() => onMove("deck", "top")}>Top of deck</button>
+      <button type="button" role="menuitem" onClick={() => onMove("deck", "bottom")}>Bottom of deck</button>
+      <button type="button" role="menuitem" onClick={() => onMove("oblivion")}>Oblivion</button>
+      <button type="button" role="menuitem" onClick={() => onMove("persona")}>Persona</button>
+      <button type="button" role="menuitem" onClick={() => onMove("hand")}>Hand</button>
+      <button type="button" role="menuitem" onClick={() => onMove("graveyard")}>Graveyard</button>
+    </>}
+  </div>;
+}
+
+function DeckContextMenu({ x, y, deckCount, onAction, onLook, onClose }: {
+  x: number;
+  y: number;
+  deckCount: number;
+  onAction: (action: DeckAction, count?: number) => void;
+  onLook: (count: number) => void;
+  onClose: () => void;
+}) {
+  const [selectedAction, setSelectedAction] = useState<CountedDeckAction | null>(null);
+  const [amount, setAmount] = useState("1");
+  const count = Number(amount);
+  const validCount = Number.isInteger(count) && count >= 1 && count <= deckCount;
+  const submitSelected = () => {
+    if (!selectedAction || !validCount) return;
+    if (selectedAction === "look") onLook(count);
+    else onAction(selectedAction, count);
+  };
+
+  useEffect(() => {
+    const close = () => onClose();
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
+  }, [onClose]);
+
+  return <div
+    className={`${styles.contextMenu} ${styles.deckMenu}`}
+    role="menu"
+    style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedAction ? 175 : 285))) }}
+    onPointerDown={(event) => event.stopPropagation()}
+  >
+    {selectedAction ? <form onSubmit={(event) => { event.preventDefault(); submitSelected(); }}>
+      <button type="button" onClick={() => setSelectedAction(null)}>← Actions</button>
+      <label htmlFor="deck-action-count">{COUNTED_DECK_ACTIONS.find(({ action }) => action === selectedAction)?.label}</label>
+      <input
+        id="deck-action-count"
+        type="number"
+        min={1}
+        max={deckCount}
+        step={1}
+        value={amount}
+        onChange={(event) => setAmount(event.target.value)}
+        autoFocus
+      />
+      <button type="submit" disabled={!validCount}>Confirm</button>
+    </form> : <>
+      <button type="button" role="menuitem" onClick={() => onAction("shuffle")} disabled={deckCount === 0}>Shuffle</button>
+      <button type="button" role="menuitem" onClick={() => onAction("draw", 1)} disabled={deckCount === 0}>Draw one card</button>
+      <hr />
+      {COUNTED_DECK_ACTIONS.map(({ action, label }) => <button
+        key={action}
+        type="button"
+        role="menuitem"
+        disabled={deckCount === 0}
+        onClick={() => setSelectedAction(action)}
+      >{label}</button>)}
+    </>}
   </div>;
 }
 
@@ -365,7 +500,10 @@ export default function OnlineGamePage() {
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
+  const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ uid: string; x: number; y: number } | null>(null);
+  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
+  const [protagonistMenu, setProtagonistMenu] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
 
@@ -377,18 +515,29 @@ export default function OnlineGamePage() {
   const myTable = useMemo(() => playerTable(me), [me]);
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
   const openCards = openZone ? (openZone.owner === "self" ? myTable : opponentTable)[openZone.name] : EMPTY_TABLE.hand;
-  const railCards = openZone ? openCards : myTable.hand;
+  const peekCards = useMemo(() => peekedUids === null ? EMPTY_TABLE.hand : myTable.deck.filter((card) => peekedUids.includes(card.uid)), [myTable.deck, peekedUids]);
+  const railCards = peekedUids !== null ? peekCards : openZone ? openCards : myTable.hand;
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
+  const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
+  const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
+    : openZone?.owner === "opponent" && openZone.name === "hand"
+      ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
+      : openZone ? `${openZone.owner === "self" ? "Your" : "Opponent"} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
+        : `Hand · ${myTable.hand.length}`;
 
-  const closeZone = () => { setOpenZone(null); setInspectedCard(null); };
+  const showHand = () => { setOpenZone(null); setPeekedUids(null); setInspectedCard(null); };
   useEffect(() => {
-    if (!openZone) return;
+    if (openZone?.owner === "opponent" && openZone.name === "hand" && inspectedCard
+      && !openCards.some((card) => card.id === inspectedCard.id)) setInspectedCard(null);
+  }, [openZone, openCards, inspectedCard]);
+  useEffect(() => {
+    if (!openZone && peekedUids === null) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setOpenZone(null); setInspectedCard(null); }
+      if (event.key === "Escape") { setOpenZone(null); setPeekedUids(null); setInspectedCard(null); }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [openZone]);
+  }, [openZone, peekedUids]);
   const startDrag: CardDrag = (event, card) => {
     draggedUid.current = card.uid;
     event.dataTransfer.effectAllowed = "move";
@@ -409,6 +558,28 @@ export default function OnlineGamePage() {
   const showMenu: CardMenu = (event, card) => {
     event.preventDefault(); event.stopPropagation();
     setMenu({ uid: card.uid, x: event.clientX, y: event.clientY });
+    setDeckMenu(null);
+    setProtagonistMenu(null);
+  };
+  const showDeckMenu = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault(); event.stopPropagation();
+    setDeckMenu({ x: event.clientX, y: event.clientY });
+    setMenu(null);
+    setProtagonistMenu(null);
+  };
+  const showProtagonistMenu = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault(); event.stopPropagation();
+    setProtagonistMenu({ x: event.clientX, y: event.clientY });
+    setMenu(null); setDeckMenu(null);
+  };
+  const deckAction = (action: DeckAction, count?: number) => {
+    gameConnection.deckAction(action, count);
+    setDeckMenu(null); showHand();
+  };
+  const drawOne = () => { if (myTable.deck.length > 0) deckAction("draw", 1); };
+  const lookAtTop = (count: number) => {
+    setPeekedUids(myTable.deck.slice(0, count).map((card) => card.uid));
+    setOpenZone(null); setInspectedCard(null); setDeckMenu(null);
   };
 
   return <div className={`${styles.root} ${dragging ? styles.dragging : ""}`}>
@@ -422,7 +593,10 @@ export default function OnlineGamePage() {
         table={opponentTable}
         opponentSide
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setOpenZone({ owner: "opponent", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "opponent", name }); }}
+        onDrawDeck={drawOne}
+        onDeckMenu={showDeckMenu}
+        onProtagonistMenu={showProtagonistMenu}
         onDragStart={startDrag}
         onDragEnd={endDrag}
         onMenu={showMenu}
@@ -434,21 +608,22 @@ export default function OnlineGamePage() {
         player={me}
         table={myTable}
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setOpenZone({ owner: "self", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "self", name }); }}
+        onDrawDeck={drawOne}
+        onDeckMenu={showDeckMenu}
+        onProtagonistMenu={showProtagonistMenu}
         onDragStart={startDrag}
         onDragEnd={endDrag}
         onMenu={showMenu}
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={styles.handDock} aria-label={openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={dragOver} onDrop={(event) => drop(event, "hand")}>
-        {openZone && <button className={styles.handDockBack} type="button" onClick={closeZone}>← Hand · {myTable.hand.length}</button>}
-        <div className={styles.handDockLabel}>
-          {openZone ? `${openZone.owner === "self" ? "Your" : "Opponent"} ${ZONE_NAMES[openZone.name]} · ${openCards.length}` : `Hand · ${myTable.hand.length}`}
-        </div>
+      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={dragOver} onDrop={(event) => drop(event, "hand")}>
+        {(openZone || peekedUids !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
+        <div className={styles.handDockLabel}>{railTitle}</div>
         <CardRail
           items={railCards}
-          label={openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
+          label={peekedUids !== null ? "Top cards of your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
           onInspect={setInspectedCard}
           onDragStart={railMovable ? startDrag : undefined}
           onDragEnd={railMovable ? endDrag : undefined}
@@ -460,9 +635,28 @@ export default function OnlineGamePage() {
     {menu && <ContextMenu
       x={menu.x}
       y={menu.y}
+      revealState={menuHandCard ? Boolean(menuHandCard.revealed) : undefined}
       onRotate={(degrees) => { gameConnection.rotateCard(menu.uid, degrees); setMenu(null); }}
       onMove={(zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }}
+      onToggleReveal={() => {
+        if (menuHandCard) gameConnection.setCardRevealed(menu.uid, !menuHandCard.revealed);
+        setMenu(null); setInspectedCard(null);
+      }}
       onClose={() => setMenu(null)}
+    />}
+    {deckMenu && <DeckContextMenu
+      x={deckMenu.x}
+      y={deckMenu.y}
+      deckCount={myTable.deck.length}
+      onAction={deckAction}
+      onLook={lookAtTop}
+      onClose={() => setDeckMenu(null)}
+    />}
+    {protagonistMenu && <ContextMenu
+      x={protagonistMenu.x}
+      y={protagonistMenu.y}
+      onRotate={(degrees) => { gameConnection.rotateProtagonist(degrees); setProtagonistMenu(null); }}
+      onClose={() => setProtagonistMenu(null)}
     />}
   </div>;
 }
