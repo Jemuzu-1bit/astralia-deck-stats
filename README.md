@@ -51,5 +51,15 @@ VITE_SERVER_URL=https://tuo-server.example.com
 
 Il server mantiene le lobby in memoria: il riavvio chiude le partite attive.
 
+Per ora i pulsanti online sono nascosti dalla home. Sono disponibili usando
+il link riservato:
+
+```text
+https://tuo-sito.example.com/?online=1
+```
+
+Per mostrarli nuovamente a tutti, imposta `VITE_ENABLE_ONLINE_MENU=true` nelle
+variabili d'ambiente del frontend e avvia un nuovo deploy.
+
 ## Contributi
 Progetto open-source, contribuzioni benvenute.
