@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "optimize:cards": "node scripts/optimize-card-images.mjs",
     "optimize:cards:clean": "node scripts/optimize-card-images.mjs --clean",
+    "prepare:cursors": "node scripts/prepare-cursors.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

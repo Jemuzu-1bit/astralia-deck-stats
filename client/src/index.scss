@@ -3,6 +3,11 @@ html, body {
   padding: 0;
 }
 
+html.custom-cursor-active,
+html.custom-cursor-active * {
+  cursor: none !important;
+}
+
 button {
   color: var(--color-text-primary);
   font-family: var(--font-primary);
