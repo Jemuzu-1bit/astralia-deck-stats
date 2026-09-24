@@ -1,15 +1,22 @@
 import type { Card } from "../types/Card.ts";
 
-export function getCardImagePath(card: Card): string {
+export type CardImageVariant = "thumb" | "full";
+
+export function getCardImagePath(
+  card: Card,
+  variant: CardImageVariant = "thumb"
+): string {
   const faction = card.faction.toLowerCase();
   const imageId = card.imageId.toLowerCase();
-  const extension = imageId.startsWith("apx_") ? "webp" : "png";
 
-  return new URL(`/src/assets/${faction}/${imageId}.${extension}`, import.meta.url).href;
+  return `/cards/${faction}/${imageId}-${variant}.webp`;
 }
 
-export function getImagePath(faction: string, imageId: string): string {
+export function getImagePath(
+  faction: string,
+  imageId: string,
+  variant: CardImageVariant = "thumb"
+): string {
   const normalizedImageId = imageId.toLowerCase();
-  const extension = normalizedImageId.startsWith("apx_") ? "webp" : "png";
-  return new URL(`/src/assets/${faction.toLowerCase()}/${normalizedImageId}.${extension}`, import.meta.url).href;
+  return `/cards/${faction.toLowerCase()}/${normalizedImageId}-${variant}.webp`;
 }

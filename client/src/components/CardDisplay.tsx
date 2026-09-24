@@ -39,9 +39,15 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
   return (
     <div className={styles.cardDisplay} onClick={handleClick}>
       <img
-        src={getCardImagePath(currentFace)}
+        src={getCardImagePath(currentFace, "thumb")}
+        srcSet={`${getCardImagePath(currentFace, "thumb")} 320w`}
+        sizes="(max-width: 640px) 92px, 160px"
         alt={currentFace.name}
         className={styles.cardImage}
+        loading="lazy"
+        decoding="async"
+        width={160}
+        height={224}
       />
       {backFace && enableFlip && (
         <button

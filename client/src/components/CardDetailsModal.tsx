@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Card } from "../types/Card";
 import { getCardImagePath } from "../services/cardImageService";
 import styles from "./CardDetailsModal.module.scss";
@@ -9,9 +9,11 @@ interface Props {
 }
 
 export default function CardDetailsModal({ card, onClose }: Props) {
-  if (!card) return null;
-
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [card.id]);
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -28,7 +30,7 @@ export default function CardDetailsModal({ card, onClose }: Props) {
         <div className={styles.content}>
           {!imageLoaded && <div className={styles.loading}>Loading...</div>}
           <img
-            src={getCardImagePath(card)}
+            src={getCardImagePath(card, "full")}
             alt={card.name}
             className={styles.image}
             onLoad={() => setImageLoaded(true)}
