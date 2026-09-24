@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import CardDisplay from "../components/CardDisplay";
+import CardDetailsModal from "../components/CardDetailsModal";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
@@ -70,6 +71,7 @@ function PublicCardStack({ ids }: { ids: string[] }) {
 
 function Hand({ ids }: { ids: string[] }) {
   const [cards, setCards] = useState<Card[]>([]);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -80,14 +82,20 @@ function Hand({ ids }: { ids: string[] }) {
     return () => { active = false; };
   }, [ids]);
 
-  return <div className={styles.hand} aria-label="Initial hand">
-    {cards.map((card, index) => <img
-      key={`${card.id}-${index}`}
-      src={getCardImagePath(card, "thumb")}
-      alt={card.name}
-      title={card.name}
-    />)}
-  </div>;
+  return <>
+    <div className={styles.hand} aria-label="Your cards">
+      {cards.map((card, index) => <button
+        key={`${card.id}-${index}`}
+        type="button"
+        aria-label={`View ${card.name}`}
+        title={card.name}
+        onClick={() => setSelectedCard(card)}
+      >
+        <img src={getCardImagePath(card, "thumb")} alt="" />
+      </button>)}
+    </div>
+    {selectedCard && <CardDetailsModal card={selectedCard} onClose={() => setSelectedCard(null)} />}
+  </>;
 }
 
 function Zone({ label, children, className = "" }: { label: string; children?: ReactNode; className?: string }) {
@@ -97,7 +105,7 @@ function Zone({ label, children, className = "" }: { label: string; children?: R
   </div>;
 }
 
-function PlayerTable({ player, opponentSide, isLocal }: { player: LobbyPlayerState | null; opponentSide?: boolean; isLocal?: boolean }) {
+function PlayerTable({ player, opponentSide }: { player: LobbyPlayerState | null; opponentSide?: boolean }) {
   const deckCount = useMemo(
     () => player?.mainDeckCards?.reduce((total, entry) => total + entry.qty, 0) || 0,
     [player?.mainDeckCards]
@@ -139,8 +147,7 @@ function PlayerTable({ player, opponentSide, isLocal }: { player: LobbyPlayerSta
       </>}
     </div>
 
-    <div className={styles.handLabel}>Hand · {player?.handCards?.length || 0}</div>
-    {isLocal && player?.handCards && <Hand ids={player.handCards} />}
+    {opponentSide && <div className={styles.handLabel}>Hand · {player?.handCards?.length || 0}</div>}
   </section>;
 }
 
@@ -164,7 +171,11 @@ export default function OnlineGamePage() {
     <main className={styles.playmat}>
       <PlayerTable player={opponent} opponentSide />
       <div className={styles.divider}><span>VS</span></div>
-      <PlayerTable player={me} isLocal />
+      <PlayerTable player={me} />
+      <section className={styles.handDock} aria-label="Your hand">
+        <div className={styles.handDockLabel}>Hand · {me?.handCards?.length || 0}</div>
+        {me?.handCards && <Hand ids={me.handCards} />}
+      </section>
     </main>
   </div>;
 }
