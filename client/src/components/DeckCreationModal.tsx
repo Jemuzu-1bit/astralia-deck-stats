@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getCardsByField } from "../services/cardDataService";
+import { getCardIdentity } from "../data/cardDataReader";
 import type { Card } from "../types/Card.ts";
 import type { AugCard } from "../types/AugCard";
 import type { Deck } from "../types/Deck";
@@ -151,13 +152,26 @@ export default function DeckCreationModal({
       const pMap: Record<string, { card: Card; qty: number }> = {};
       for (const id of initialDeck.persona) {
         const faces = await getCardFaces(id);
-        if (faces.front) pMap[id] = { card: faces.front, qty: 1 };
+        if (faces.front) {
+          const key = faces.front.id;
+          pMap[key] = {
+            card: faces.front,
+            qty: Math.min(1, (pMap[key]?.qty ?? 0) + 1),
+          };
+        }
       }
       setPersonaSelectionMap(pMap);
       const dMap: Record<string, { card: Card; qty: number }> = {};
       for (const ent of initialDeck.deck) {
         const faces = await getCardFaces(ent.id);
-        if (faces.front) dMap[ent.id] = { card: faces.front, qty: ent.qty };
+        if (faces.front) {
+          const key = faces.front.id;
+          const existing = dMap[key];
+          dMap[key] = {
+            card: faces.front,
+            qty: Math.min(perCardMax, (existing?.qty ?? 0) + ent.qty),
+          };
+        }
       }
       setDeckSelectionMap(dMap);
     };
@@ -181,6 +195,17 @@ export default function DeckCreationModal({
 
   const getTotalInMap = (map: Record<string, SelectedCard>) =>
     Object.values(map).reduce((s, it) => s + it.qty, 0);
+
+  const getTotalForCardIdentity = (
+    map: Record<string, SelectedCard>,
+    card: Card
+  ) =>
+    Object.values(map).reduce(
+      (total, item) =>
+        total +
+        (getCardIdentity(item.card) === getCardIdentity(card) ? item.qty : 0),
+      0
+    );
 
   const toggleEdit = (section: SectionKey) => {
     setEditing((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -301,13 +326,15 @@ export default function DeckCreationModal({
     const total = getTotalInMap(map);
     if (total >= sectionLimits[section]) return;
 
-    const existing = map[card.id];
+    const cardKey = card.id;
+    const existing = map[cardKey];
     const maxForCard = section === "persona" ? 1 : perCardMax;
+    const identityTotal = getTotalForCardIdentity(map, card);
+    if (identityTotal >= maxForCard) return;
     if (existing) {
-      if (existing.qty >= maxForCard) return;
       existing.qty += 1;
     } else {
-      map[card.id] = { card, qty: 1 };
+      map[cardKey] = { card, qty: 1 };
     }
 
     if (section === "persona") setPersonaSelectionMap(map);
@@ -317,7 +344,9 @@ export default function DeckCreationModal({
   const removeCard = (section: SectionKey, card: Card) => {
     if (section === "protagonist") {
       setProtagonistSelection((prev) =>
-        prev && prev.card.id === card.id ? null : prev
+        prev && getCardIdentity(prev.card) === getCardIdentity(card)
+          ? null
+          : prev
       );
       return;
     }
@@ -394,7 +423,9 @@ export default function DeckCreationModal({
         {displayOptions.map((card) => {
           const currentQty =
             section === "protagonist"
-              ? protagonistSelection?.card.id === card.id
+              ? protagonistSelection &&
+                getCardIdentity(protagonistSelection.card) ===
+                  getCardIdentity(card)
                 ? protagonistSelection.qty
                 : 0
               : map[card.id]?.qty ?? 0;
@@ -408,9 +439,13 @@ export default function DeckCreationModal({
 
           const maxForCard =
             section === "protagonist" || section === "persona" ? 1 : perCardMax;
+          const identityTotal =
+            section === "protagonist"
+              ? currentQty
+              : getTotalForCardIdentity(map, card);
 
           const disableAdd =
-            currentQty >= maxForCard ||
+            identityTotal >= maxForCard ||
             (section !== "protagonist" && total >= sectionLimits[section]);
 
           return (
@@ -441,11 +476,17 @@ export default function DeckCreationModal({
   };
 
   function buildDeckPayload(): Omit<Deck, "id" | "updatedAt"> {
-    const personaIds = Object.keys(personaSelectionMap);
-    const deckEntries = Object.values(deckSelectionMap).map((it) => ({
-      id: it.card.id,
-      qty: it.qty,
-    }));
+    const personaIds = Object.values(personaSelectionMap).map(
+      (it) => it.card.id
+    );
+    const remainingByIdentity = new Map<string, number>();
+    const deckEntries = Object.values(deckSelectionMap).flatMap((it) => {
+      const identity = getCardIdentity(it.card);
+      const remaining = remainingByIdentity.get(identity) ?? perCardMax;
+      const qty = Math.min(it.qty, remaining);
+      remainingByIdentity.set(identity, remaining - qty);
+      return qty > 0 ? [{ id: it.card.id, qty }] : [];
+    });
     return {
       name: deckName.trim() || "New Deck",
       faction: selectedFaction || "red",

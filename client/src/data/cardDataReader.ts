@@ -7,6 +7,18 @@ export function isAlternativeArt(card: Pick<Card, "setId">): boolean {
   return /\s(?:P|SR|SSR)$/i.test(card.setId);
 }
 
+/**
+ * Returns the identity used for deck limits. APX has two print variants for
+ * the same card, whose ids differ only by the A/B marker.
+ */
+export function getCardIdentity(cardOrId: Pick<Card, "id"> | string): string {
+  const id = typeof cardOrId === "string" ? cardOrId : cardOrId.id;
+  return id
+    .trim()
+    .toLowerCase()
+    .replace(/^(apx_[^_]+_[^_]+)_[ab](_n)$/i, "$1_a$2");
+}
+
 export async function readCardData(): Promise<Card[]> {
   if (cache) return cache;
 
