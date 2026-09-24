@@ -71,7 +71,8 @@ function newPlayer(socket, name, role) {
   return {
     socketId: socket.id, token: makeId(), name: playerName(name, role === "host" ? "Host" : "Guest"),
     role, deckId: null, faction: null, protagonistId: null, deckName: null,
-    personaCards: null, mainDeckCards: null, handCards: [], deckCards: [], connected: true,
+    personaCards: null, mainDeckCards: null, handCards: [], deckCards: [],
+    graveyardCards: [], oblivionCards: [], connected: true,
   };
 }
 
@@ -83,6 +84,26 @@ function shuffle(cards) {
   return cards;
 }
 
+const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle"];
+const cardInstance = (id) => ({ uid: makeId(), id, rotation: 0 });
+
+function syncCardLists(player) {
+  const { table } = player;
+  player.handCards = table.hand.map((card) => card.id);
+  player.deckCards = table.deck.map((card) => card.id);
+  player.personaCards = table.persona.map((card) => card.id);
+  player.graveyardCards = table.graveyard.map((card) => card.id);
+  player.oblivionCards = table.oblivion.map((card) => card.id);
+}
+
+function findCard(table, uid) {
+  for (const zone of CARD_ZONES) {
+    const index = table[zone].findIndex((card) => card?.uid === uid);
+    if (index !== -1) return { zone, index, card: table[zone][index] };
+  }
+  return null;
+}
+
 function dealOpeningHand(player) {
   const deck = (player.mainDeckCards || []).flatMap((entry) => {
     const id = String(entry?.id || "");
@@ -90,8 +111,15 @@ function dealOpeningHand(player) {
     return id ? Array.from({ length: qty }, () => id) : [];
   });
   shuffle(deck);
-  player.handCards = deck.slice(0, 5);
-  player.deckCards = deck.slice(5);
+  player.table = {
+    hand: deck.slice(0, 5).map(cardInstance),
+    deck: deck.slice(5).map(cardInstance),
+    persona: (player.personaCards || []).map(cardInstance),
+    graveyard: [],
+    oblivion: [],
+    battle: Array(6).fill(null),
+  };
+  syncCardLists(player);
 }
 
 function createRoom(socket, name) {
@@ -138,15 +166,80 @@ io.on("connection", (socket) => {
   });
   socket.on("lobby:setHand", (cards) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
-    if (player && room.started) { player.handCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : []; emitState(room); }
+    if (player && room.started) {
+      player.handCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : [];
+      if (player.table) player.table.hand = player.handCards.map(cardInstance);
+      emitState(room);
+    }
   });
   socket.on("lobby:setDeckCards", (cards) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
-    if (player && room.started) { player.deckCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : []; emitState(room); }
+    if (player && room.started) {
+      player.deckCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : [];
+      if (player.table) player.table.deck = player.deckCards.map(cardInstance);
+      emitState(room);
+    }
   });
   socket.on("lobby:setPersonaCards", (cards) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
-    if (player && room.started) { player.personaCards = Array.isArray(cards) ? cards.slice(0, 30).map(String) : []; emitState(room); }
+    if (player && room.started) {
+      player.personaCards = Array.isArray(cards) ? cards.slice(0, 30).map(String) : [];
+      if (player.table) player.table.persona = player.personaCards.map(cardInstance);
+      emitState(room);
+    }
+  });
+  socket.on("lobby:setGraveyardCards", (cards) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (player && room.started) {
+      player.graveyardCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : [];
+      if (player.table) player.table.graveyard = player.graveyardCards.map(cardInstance);
+      emitState(room);
+    }
+  });
+  socket.on("lobby:setOblivionCards", (cards) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (player && room.started) {
+      player.oblivionCards = Array.isArray(cards) ? cards.slice(0, 100).map(String) : [];
+      if (player.table) player.table.oblivion = player.oblivionCards.map(cardInstance);
+      emitState(room);
+    }
+  });
+  socket.on("game:rotateCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const degrees = Number(payload?.degrees);
+    if (degrees !== 90 && degrees !== 180) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found || found.zone === "deck") return;
+    found.card.rotation = (found.card.rotation + degrees) % 360;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:moveCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const table = player.table;
+    const found = findCard(table, String(payload?.uid || ""));
+    const target = String(payload?.to || "");
+    if (!found || found.zone === "deck" || !CARD_ZONES.includes(target)) return;
+    if (target === "battle") {
+      const slot = Number(payload?.slot);
+      if (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length) return;
+      if (found.zone === "battle" && found.index === slot) return;
+      const displaced = table.battle[slot];
+      if (found.zone === "battle") table.battle[found.index] = displaced;
+      else {
+        table[found.zone].splice(found.index, 1);
+        if (displaced) table[found.zone].splice(found.index, 0, displaced);
+      }
+      table.battle[slot] = found.card;
+    } else {
+      if (found.zone === "battle") table.battle[found.index] = null;
+      else table[found.zone].splice(found.index, 1);
+      if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(found.card);
+      else table[target].push(found.card);
+    }
+    syncCardLists(player);
+    room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("lobby:shuffle", () => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);

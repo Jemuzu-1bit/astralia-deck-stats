@@ -1,5 +1,22 @@
 import { io, type Socket } from "socket.io-client";
 
+export interface GameCard {
+  uid: string;
+  id: string;
+  rotation: number;
+}
+
+export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "battle";
+
+export interface GameTable {
+  hand: GameCard[];
+  deck: GameCard[];
+  persona: GameCard[];
+  graveyard: GameCard[];
+  oblivion: GameCard[];
+  battle: Array<GameCard | null>;
+}
+
 export interface LobbyPlayerState {
   socketId: string;
   name: string;
@@ -9,9 +26,12 @@ export interface LobbyPlayerState {
   protagonistId?: string | null;
   deckName?: string | null;
   personaCards?: string[] | null;
+  graveyardCards?: string[];
+  oblivionCards?: string[];
   mainDeckCards?: Array<{ id: string; qty: number }> | null;
   handCards?: string[];
   deckCards?: string[];
+  table?: GameTable;
 }
 export interface LobbyState {
   host: LobbyPlayerState | null;
@@ -58,6 +78,12 @@ class GameConnection {
   setHand(cards: string[]) { this.socket?.emit("lobby:setHand", cards); }
   setDeckCards(cards: string[]) { this.socket?.emit("lobby:setDeckCards", cards); }
   setPersonaCards(cards: string[]) { this.socket?.emit("lobby:setPersonaCards", cards); }
+  setGraveyardCards(cards: string[]) { this.socket?.emit("lobby:setGraveyardCards", cards); }
+  setOblivionCards(cards: string[]) { this.socket?.emit("lobby:setOblivionCards", cards); }
+  rotateCard(uid: string, degrees: 90 | 180) { this.socket?.emit("game:rotateCard", { uid, degrees }); }
+  moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
+    this.socket?.emit("game:moveCard", { uid, to, ...options });
+  }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }
   startRequest() { this.socket?.emit("lobby:startRequest"); }
   leave() { this.socket?.emit("lobby:leave"); this.socket?.disconnect(); this.socket = null; this.state = { host: null, guest: null, started: false }; }
