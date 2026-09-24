@@ -1,10 +1,37 @@
 .factionSelectionRoot {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.closeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  z-index: 1;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(0, 0, 0, 0.45);
+    transform: scale(1.05);
+  }
 }
 
 .heading {

@@ -139,6 +139,15 @@ export default function DeckCreationModal({
   }, [selectedFaction]);
 
   useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
+  useEffect(() => {
     if (!initialDeck) return;
     if (
       !selectedFaction ||
@@ -593,7 +602,11 @@ export default function DeckCreationModal({
         )}
 
         {!selectedFaction ? (
-          <FactionSelection factions={factions} onSelect={setSelectedFaction} />
+          <FactionSelection
+            factions={factions}
+            onSelect={setSelectedFaction}
+            onClose={onClose}
+          />
         ) : (
           <>
             {(() => {
