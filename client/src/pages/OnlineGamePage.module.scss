@@ -62,6 +62,39 @@
   .playerBadge { bottom: .65rem; right: 1rem; text-align: right; }
 }
 
+.opponentHalf .actionStage { bottom: .5rem; }
+.playerHalf .actionStage { top: .5rem; }
+
+.actionStage {
+  position: absolute;
+  z-index: 12;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  max-width: 45%;
+  padding: .3rem;
+  transform: translateX(-50%);
+  overflow-x: auto;
+  border: 1px solid rgba(228, 198, 95, .72);
+  border-radius: 7px;
+  background: rgba(7, 11, 24, .88);
+  box-shadow: 0 0 18px rgba(228, 198, 95, .25), 0 6px 18px rgba(0, 0, 0, .55);
+}
+
+.actionCard {
+  flex: 0 0 auto;
+  width: 72px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: grab;
+
+  img { display: block; width: 72px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
+}
+
 .dragging .playerHalf .zone,
 .dragging .handDock {
   border-color: #e4c65f;

@@ -84,6 +84,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.persona.length, 2);
     assert.equal(state.host.table.battle.length, 5);
     assert.ok(state.host.table.battle.every((stack) => stack.length === 0));
+    assert.deepEqual(state.host.table.action, []);
     assert.equal(state.host.table.protagonist.length, 1);
     assert.equal(state.host.table.protagonist[0].id, "hero");
     assert.equal(state.host.table.protagonist[0].isProtagonist, true);
@@ -125,6 +126,16 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     state = await inBattle;
     assert.equal(state.host.table.battle[0][0].frazzle, 0);
     assert.equal(state.host.table.graveyard.length, 0);
+
+    const actionUid = state.host.table.hand[0].uid;
+    const actionPlayed = waitForState(guest, (next) => next.host?.table?.action?.[0]?.uid === actionUid);
+    host.emit("game:playAction", { uid: actionUid });
+    state = await actionPlayed;
+    assert.equal(state.host.handCount, 3);
+    const actionDiscarded = waitForState(host, (next) => next.host?.table?.graveyard?.[0]?.uid === actionUid);
+    host.emit("game:moveCard", { uid: actionUid, to: "graveyard" });
+    state = await actionDiscarded;
+    assert.equal(state.host.table.action.length, 0);
 
     const frazzleOne = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 1);
     host.emit("game:setFrazzle", { target: "card", uid, value: 1 });
@@ -240,7 +251,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     host.off("lobby:state", onState);
     assert.equal(latest.host.table.battle[1][0].uid, fourthUid);
     assert.equal(latest.host.table.battle[1][1].uid, thirdUid);
-    assert.equal(latest.host.table.graveyard.length, 0);
+    assert.deepEqual(latest.host.table.graveyard.map((card) => card.uid), [actionUid]);
 
     const beforeShuffle = state.host.table.deck.map((card) => card.uid).sort();
     const shuffled = waitForState(host, (next) => next.host?.table?.deck?.length === beforeShuffle.length);

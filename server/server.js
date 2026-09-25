@@ -116,8 +116,8 @@ function shuffle(cards) {
   return cards;
 }
 
-const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle", "protagonist"];
-const LIST_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion"];
+const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "action", "battle", "protagonist"];
+const LIST_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "action"];
 const cardInstance = (id) => ({ uid: makeId(), id, frazzle: 0, revealed: false });
 const protagonistInstance = (id) => ({ ...cardInstance(id), isProtagonist: true });
 
@@ -162,6 +162,7 @@ function dealOpeningHand(player) {
     persona: (player.personaCards || []).map(cardInstance),
     graveyard: [],
     oblivion: [],
+    action: [],
     battle: Array.from({ length: 5 }, () => []),
     protagonist: player.protagonistId ? [protagonistInstance(player.protagonistId)] : [],
   };
@@ -290,6 +291,17 @@ io.on("connection", (socket) => {
       next = Math.max(0, Math.min(999, found.card[stat] + delta));
     } else return;
     found.card[stat] = next;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:playAction", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found || found.zone !== "hand") return;
+    const card = removeFoundCard(player.table, found);
+    card.revealed = false;
+    player.table.action.push(card);
+    syncCardLists(player);
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:moveCard", (payload) => {

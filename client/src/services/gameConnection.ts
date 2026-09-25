@@ -10,7 +10,7 @@ export interface GameCard {
   isProtagonist?: boolean;
 }
 
-export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "battle" | "protagonist";
+export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "action" | "battle" | "protagonist";
 export type DeckAction = "shuffle" | "draw" | "discard" | "oblivion";
 
 export interface GameTable {
@@ -19,6 +19,7 @@ export interface GameTable {
   persona: GameCard[];
   graveyard: GameCard[];
   oblivion: GameCard[];
+  action: GameCard[];
   battle: GameCard[][];
   protagonist: GameCard[];
 }
@@ -167,6 +168,7 @@ class GameConnection {
   adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
   setCardStat(uid: string, stat: "atk" | "hp", value: number) { this.socket?.emit("game:setStat", { uid, stat, value }); }
   adjustCardStat(uid: string, stat: "atk" | "hp", delta: -1 | 1) { this.socket?.emit("game:setStat", { uid, stat, delta }); }
+  playAction(uid: string) { this.socket?.emit("game:playAction", { uid }); }
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
   }
