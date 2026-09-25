@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import CardDisplay from "../components/CardDisplay";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
@@ -497,6 +497,7 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onClose }: {
 
 export default function OnlineGamePage() {
   const navigate = useNavigate();
+  const { code: routeCode } = useParams();
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
@@ -507,7 +508,15 @@ export default function OnlineGamePage() {
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
 
-  useEffect(() => gameConnection.onState(setState), []);
+  useEffect(() => {
+    const offState = gameConnection.onState(setState);
+    if (routeCode) gameConnection.resume(routeCode);
+    else gameConnection.connect();
+    return offState;
+  }, [routeCode]);
+  useEffect(() => {
+    if (state.code && routeCode !== state.code) navigate(`/game/${state.code}`, { replace: true });
+  }, [state.code, routeCode, navigate]);
 
   const myId = gameConnection.getSocketId();
   const me = state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null;

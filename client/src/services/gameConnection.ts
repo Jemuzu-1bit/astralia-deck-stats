@@ -21,9 +21,10 @@ export interface GameTable {
 }
 
 export interface LobbyPlayerState {
-  socketId: string;
+  socketId: string | null;
   name: string;
   role: "host" | "guest";
+  connected?: boolean;
   deckId: string | null;
   faction: string | null;
   protagonistId?: string | null;
@@ -46,6 +47,39 @@ export interface LobbyState {
 }
 type StateListener = (state: LobbyState) => void;
 type ErrorListener = (message: string) => void;
+type SessionListener = (code: string) => void;
+
+interface StoredSession {
+  code: string;
+  role: "host" | "guest";
+  token: string;
+}
+
+const SESSION_PREFIX = "astralia.gameSession.";
+
+function normalizeCode(code: string) {
+  return code.trim().toUpperCase();
+}
+
+function loadSession(code: string): StoredSession | null {
+  try {
+    const saved = localStorage.getItem(`${SESSION_PREFIX}${normalizeCode(code)}`);
+    if (!saved) return null;
+    const session = JSON.parse(saved) as Partial<StoredSession>;
+    if (!session.token || !session.code || (session.role !== "host" && session.role !== "guest")) return null;
+    return { code: normalizeCode(session.code), role: session.role, token: session.token };
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(session: StoredSession) {
+  try { localStorage.setItem(`${SESSION_PREFIX}${session.code}`, JSON.stringify(session)); } catch { /* storage is optional */ }
+}
+
+function removeSession(code: string) {
+  try { localStorage.removeItem(`${SESSION_PREFIX}${normalizeCode(code)}`); } catch { /* storage is optional */ }
+}
 
 class GameConnection {
   private socket: Socket | null = null;
@@ -53,28 +87,64 @@ class GameConnection {
   private listeners = new Set<StateListener>();
   private errorListeners = new Set<ErrorListener>();
   private connectionListeners = new Set<() => void>();
+  private sessionListeners = new Set<SessionListener>();
+  private resumeCode: string | null = null;
 
-  connect() {
-    if (this.socket) return;
+  connect(code?: string) {
+    if (code) this.resumeCode = normalizeCode(code);
+    if (this.socket) {
+      if (!this.socket.connected) this.socket.connect();
+      else if (code) this.emitResume();
+      return;
+    }
     const url = import.meta.env.VITE_SERVER_URL || undefined;
     this.socket = io(url, { autoConnect: true, transports: ["websocket", "polling"] });
-    this.socket.on("connect", () => this.connectionListeners.forEach((listener) => listener()));
+    this.socket.on("connect", () => {
+      this.emitResume();
+      this.connectionListeners.forEach((listener) => listener());
+    });
+    this.socket.on("lobby:joined", (payload: StoredSession) => {
+      const session = { code: normalizeCode(payload.code), role: payload.role, token: payload.token };
+      this.resumeCode = session.code;
+      saveSession(session);
+      this.sessionListeners.forEach((listener) => listener(session.code));
+    });
     this.socket.on("lobby:state", (state: LobbyState) => {
       this.state = state;
       this.listeners.forEach((listener) => listener(state));
     });
     this.socket.on("lobby:error", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
     this.socket.on("lobby:joinError", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
+    this.socket.on("lobby:resumeError", (message: string) => {
+      if (this.resumeCode) removeSession(this.resumeCode);
+      this.resumeCode = null;
+      this.errorListeners.forEach((listener) => listener(message));
+    });
+  }
+  private emitResume() {
+    if (!this.resumeCode) return;
+    const session = loadSession(this.resumeCode);
+    if (session) this.socket?.emit("lobby:resume", { code: session.code, token: session.token });
   }
   onState(listener: StateListener) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
   onError(listener: ErrorListener) { this.errorListeners.add(listener); return () => { this.errorListeners.delete(listener); }; }
   onConnect(listener: () => void) { this.connectionListeners.add(listener); return () => { this.connectionListeners.delete(listener); }; }
+  onSession(listener: SessionListener) { this.sessionListeners.add(listener); return () => { this.sessionListeners.delete(listener); }; }
   getCurrentState() { return this.state; }
+  getSession(code: string) { return loadSession(code); }
   getSocketId() { return this.socket?.id ?? null; }
   isConnected() { return Boolean(this.socket?.connected); }
   runWhenConnected(callback: () => void) { if (this.isConnected()) callback(); else return this.onConnect(callback); return () => undefined; }
-  host(name: string) { this.socket?.emit("lobby:host", name); }
-  join(name: string, code: string) { this.socket?.emit("lobby:join", { name, code }); }
+  host(name: string) { this.resumeCode = null; this.socket?.emit("lobby:host", name); }
+  join(name: string, code: string) {
+    const normalizedCode = normalizeCode(code);
+    const session = loadSession(normalizedCode);
+    if (session) {
+      this.resumeCode = normalizedCode;
+      this.emitResume();
+    } else this.socket?.emit("lobby:join", { name, code: normalizedCode });
+  }
+  resume(code: string) { this.connect(code); }
   setName(name: string) { this.socket?.emit("lobby:setName", name); }
   setFaction(faction: string | null) { this.socket?.emit("lobby:setFaction", faction); }
   setDeck(deckId: string, deckName: string, faction: string, protagonistId: string | null, personaCards: string[], mainDeckCards: Array<{ id: string; qty: number }>) {
@@ -94,7 +164,15 @@ class GameConnection {
   setCardRevealed(uid: string, revealed: boolean) { this.socket?.emit("game:revealCard", { uid, revealed }); }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }
   startRequest() { this.socket?.emit("lobby:startRequest"); }
-  leave() { this.socket?.emit("lobby:leave"); this.socket?.disconnect(); this.socket = null; this.state = { host: null, guest: null, started: false }; }
+  leave() {
+    const code = this.state.code || this.resumeCode;
+    this.socket?.emit("lobby:leave");
+    this.socket?.disconnect();
+    this.socket = null;
+    if (code) removeSession(code);
+    this.resumeCode = null;
+    this.state = { host: null, guest: null, started: false };
+  }
 }
 
 export const gameConnection = new GameConnection();

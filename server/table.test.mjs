@@ -215,3 +215,86 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     await once(server, "exit");
   }
 });
+
+test("a disconnected player can resume the same game without changing the table or deck order", async () => {
+  const port = await freePort();
+  const url = `http://127.0.0.1:${port}`;
+  const server = spawn(process.execPath, ["server.js"], {
+    cwd: new URL(".", import.meta.url),
+    env: { ...process.env, PORT: String(port) },
+    stdio: "ignore",
+  });
+  const sockets = [];
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      try { ready = (await fetch(`${url}/api/health`)).ok; } catch { /* server is starting */ }
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, "server should start");
+
+    const host = io(url, { transports: ["websocket"] });
+    const guest = io(url, { transports: ["websocket"] });
+    sockets.push(host, guest);
+    await Promise.all([once(host, "connect"), once(guest, "connect")]);
+
+    const hostJoined = once(host, "lobby:joined");
+    host.emit("lobby:host", "Host");
+    const [{ code, token: hostToken }] = await hostJoined;
+    const guestJoined = once(guest, "lobby:joined");
+    guest.emit("lobby:join", { code, name: "Guest" });
+    await guestJoined;
+
+    const readyState = waitForState(host, (state) => Boolean(state.host?.deckId && state.guest?.deckId));
+    host.emit("lobby:setDeck", {
+      deckId: "host-deck", deckName: "Host deck", protagonistId: "host-hero",
+      personaCards: ["persona-a", "persona-b"],
+      mainDeckCards: [{ id: "card-a", qty: 6 }, { id: "card-b", qty: 6 }],
+    });
+    guest.emit("lobby:setDeck", {
+      deckId: "guest-deck", deckName: "Guest deck", protagonistId: "guest-hero",
+      personaCards: ["persona-c"], mainDeckCards: [{ id: "card-c", qty: 12 }],
+    });
+    await readyState;
+
+    const started = waitForState(host, (state) => state.started);
+    host.emit("lobby:startRequest");
+    let state = await started;
+    const movedUid = state.host.table.hand[0].uid;
+    const moved = waitForState(host, (next) => next.host?.table?.battle?.[2]?.uid === movedUid);
+    host.emit("game:moveCard", { uid: movedUid, to: "battle", slot: 2 });
+    await moved;
+    const rotated = waitForState(host, (next) => next.host?.table?.battle?.[2]?.rotation === 90);
+    host.emit("game:rotateCard", { uid: movedUid, degrees: 90 });
+    state = await rotated;
+
+    const tableBeforeDisconnect = structuredClone(state.host.table);
+    const deckOrderBeforeDisconnect = state.host.table.deck.map((card) => card.uid);
+    const offline = waitForState(guest, (next) => next.host?.connected === false);
+    host.disconnect();
+    await offline;
+
+    const resumedHost = io(url, { transports: ["websocket"] });
+    sockets.push(resumedHost);
+    await once(resumedHost, "connect");
+    const resumedJoined = once(resumedHost, "lobby:joined");
+    const resumedState = waitForState(resumedHost, (next) => next.started && next.host?.connected === true);
+    const opponentSeesReconnect = waitForState(guest, (next) => next.host?.connected === true);
+    resumedHost.emit("lobby:resume", { code, token: hostToken });
+    const [joinedPayload, afterResume] = await Promise.all([resumedJoined, resumedState]);
+    await opponentSeesReconnect;
+
+    assert.equal(joinedPayload[0].resumed, true);
+    assert.equal(joinedPayload[0].role, "host");
+    assert.notEqual(afterResume.host.socketId, state.host.socketId);
+    assert.deepEqual(afterResume.host.table, tableBeforeDisconnect);
+    assert.deepEqual(afterResume.host.table.deck.map((card) => card.uid), deckOrderBeforeDisconnect);
+    assert.equal(afterResume.host.table.battle[2].uid, movedUid);
+    assert.equal(afterResume.host.table.battle[2].rotation, 90);
+  } finally {
+    sockets.forEach((socket) => socket.disconnect());
+    server.kill();
+    await once(server, "exit");
+  }
+});

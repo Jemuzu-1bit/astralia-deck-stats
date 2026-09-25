@@ -89,6 +89,25 @@ function newPlayer(socket, name, role) {
   };
 }
 
+function attachPlayer(socket, room, player) {
+  const previousSocketId = player.socketId;
+  if (previousSocketId && previousSocketId !== socket.id) {
+    const previousSocket = io.sockets.sockets.get(previousSocketId);
+    previousSocket?.leave(room.code);
+    if (previousSocket) {
+      delete previousSocket.data.roomCode;
+      delete previousSocket.data.role;
+      previousSocket.emit("lobby:error", "This game session was opened in another tab.");
+    }
+  }
+  player.socketId = socket.id;
+  player.connected = true;
+  room.lastActivity = Date.now();
+  socket.join(room.code);
+  socket.data.roomCode = room.code;
+  socket.data.role = player.role;
+}
+
 function shuffle(cards) {
   for (let index = cards.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(Math.random() * (index + 1));
@@ -140,9 +159,7 @@ function createRoom(socket, name) {
   const code = makeCode();
   const room = { code, host: newPlayer(socket, name, "host"), guest: null, started: false, lastActivity: Date.now() };
   rooms.set(code, room);
-  socket.join(code);
-  socket.data.roomCode = code;
-  socket.data.role = "host";
+  attachPlayer(socket, room, room.host);
   socket.emit("lobby:joined", { code, role: "host", token: room.host.token });
   emitState(room);
 }
@@ -152,17 +169,28 @@ function joinRoom(socket, payload) {
   if (!room) return fail(socket, "Invalid or expired join code.");
   if (room.guest) return fail(socket, "This lobby is full.");
   room.guest = newPlayer(socket, payload?.name, "guest");
-  room.lastActivity = Date.now();
-  socket.join(code);
-  socket.data.roomCode = code;
-  socket.data.role = "guest";
+  attachPlayer(socket, room, room.guest);
   socket.emit("lobby:joined", { code, role: "guest", token: room.guest.token });
   emitState(room);
+}
+
+function resumeRoom(socket, payload) {
+  const code = String(payload?.code || "").trim().toUpperCase();
+  const token = String(payload?.token || "");
+  const room = rooms.get(code);
+  if (!room) return socket.emit("lobby:resumeError", "This game session has expired.");
+  const player = [room.host, room.guest].find((entry) => entry?.token === token);
+  if (!player) return socket.emit("lobby:resumeError", "This game session does not belong to this browser.");
+  attachPlayer(socket, room, player);
+  socket.emit("lobby:joined", { code, role: player.role, token: player.token, resumed: true });
+  emitState(room);
+  if (room.started) socket.emit("lobby:started", { hostDeckId: room.host.deckId, guestDeckId: room.guest?.deckId });
 }
 
 io.on("connection", (socket) => {
   socket.on("lobby:host", (name) => createRoom(socket, name));
   socket.on("lobby:join", (payload) => joinRoom(socket, payload));
+  socket.on("lobby:resume", (payload) => resumeRoom(socket, payload));
   socket.on("lobby:setName", (name) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player || room.started) return;
@@ -318,14 +346,18 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const room = currentRoom(socket); if (!room) return;
     const player = currentPlayer(socket, room); if (player) player.connected = false;
-    if (room.host?.socketId === socket.id) rooms.delete(room.code); else if (room.guest?.socketId === socket.id) room.guest = null;
-    if (rooms.has(room.code)) emitState(room);
+    if (player) player.socketId = null;
+    room.lastActivity = Date.now();
+    emitState(room);
   });
 });
 
 setInterval(() => {
   const now = Date.now();
-  for (const [code, room] of rooms) if (now - room.lastActivity > ROOM_TTL_MS) rooms.delete(code);
+  for (const [code, room] of rooms) {
+    const hasConnectedPlayer = room.host?.connected || room.guest?.connected;
+    if (!hasConnectedPlayer && now - room.lastActivity > ROOM_TTL_MS) rooms.delete(code);
+  }
 }, 60_000).unref();
 
 server.listen(PORT, () => console.log(`Socket.IO server running on http://localhost:${PORT}`));

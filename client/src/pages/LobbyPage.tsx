@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import styles from "./LobbyPage.module.scss";
 import { gameConnection, type LobbyState } from "../services/gameConnection";
 import { listDecks } from "../services/deckService";
@@ -7,6 +7,7 @@ import type { Deck } from "../types/Deck";
 
 export default function LobbyPage() {
   const navigate = useNavigate();
+  const { code: routeCode } = useParams();
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [error, setError] = useState<string | null>(null);
   const [selectedDeck, setSelectedDeck] = useState("");
@@ -16,12 +17,17 @@ export default function LobbyPage() {
   const isHost = me?.role === "host";
 
   useEffect(() => {
-    gameConnection.connect();
     const offState = gameConnection.onState(setState);
     const offError = gameConnection.onError(setError);
+    if (routeCode) gameConnection.resume(routeCode);
+    else gameConnection.connect();
     return () => { offState(); offError(); };
-  }, []);
-  useEffect(() => { if (state.started) navigate("/game"); }, [state.started, navigate]);
+  }, [routeCode]);
+  useEffect(() => {
+    if (!state.code) return;
+    if (state.started) navigate(`/game/${state.code}`, { replace: true });
+    else if (routeCode !== state.code) navigate(`/lobby/${state.code}`, { replace: true });
+  }, [state.code, state.started, routeCode, navigate]);
 
   function chooseDeck(id: string) {
     setSelectedDeck(id);

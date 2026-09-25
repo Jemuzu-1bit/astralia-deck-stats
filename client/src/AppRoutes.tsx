@@ -10,7 +10,9 @@ export default function AppRoutes() {
       <Route path="/" element={<App />} />
       <Route path="/my-decks" element={<MyDecksPage />} />
       <Route path="/lobby" element={<LobbyPage />} />
+      <Route path="/lobby/:code" element={<LobbyPage />} />
       <Route path="/game" element={<OnlineGamePage />} />
+      <Route path="/game/:code" element={<OnlineGamePage />} />
     </Routes>
   );
 }
