@@ -100,7 +100,9 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  min-width: 0;
   min-height: 108px;
+  width: 100%;
   padding: .4rem 1rem;
   box-sizing: border-box;
   background: rgba(5, 8, 18, .92);
@@ -133,8 +135,19 @@
   align-items: center;
   gap: .35rem;
   min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   padding: .25rem 0;
+  scrollbar-color: rgba(228, 198, 95, .72) rgba(255, 255, 255, .08);
+  scrollbar-width: thin;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: rgba(255, 255, 255, .08); border-radius: 999px; }
+  &::-webkit-scrollbar-thumb { background: rgba(228, 198, 95, .72); border-radius: 999px; }
+  &::-webkit-scrollbar-thumb:hover { background: #e4c65f; }
 
   button {
     position: relative;

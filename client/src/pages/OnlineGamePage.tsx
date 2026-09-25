@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type WheelEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import CardDisplay from "../components/CardDisplay";
 import { getCardFaces } from "../services/cardDataService";
@@ -238,7 +238,19 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
   onMenu?: CardMenu;
 }) {
   const cards = useResolvedCards(items);
-  return <div className={styles.hand} aria-label={label}>
+  const scrollHorizontally = (event: WheelEvent<HTMLDivElement>) => {
+    const rail = event.currentTarget;
+    const maxScrollLeft = rail.scrollWidth - rail.clientWidth;
+    if (maxScrollLeft <= 0) return;
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, rail.scrollLeft + delta));
+    if (nextScrollLeft === rail.scrollLeft) return;
+
+    rail.scrollLeft = nextScrollLeft;
+  };
+
+  return <div className={styles.hand} aria-label={label} onWheel={scrollHorizontally}>
     {cards.map((entry) => <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
