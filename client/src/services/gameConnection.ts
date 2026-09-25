@@ -98,7 +98,7 @@ class GameConnection {
       return;
     }
     const url = import.meta.env.VITE_SERVER_URL || undefined;
-    this.socket = io(url, { autoConnect: true, transports: ["websocket", "polling"] });
+    this.socket = io(url, { autoConnect: false, transports: ["websocket", "polling"] });
     this.socket.on("connect", () => {
       this.emitResume();
       this.connectionListeners.forEach((listener) => listener());
@@ -120,6 +120,7 @@ class GameConnection {
       this.resumeCode = null;
       this.errorListeners.forEach((listener) => listener(message));
     });
+    this.socket.connect();
   }
   private emitResume() {
     if (!this.resumeCode) return;
@@ -134,7 +135,11 @@ class GameConnection {
   getSession(code: string) { return loadSession(code); }
   getSocketId() { return this.socket?.id ?? null; }
   isConnected() { return Boolean(this.socket?.connected); }
-  runWhenConnected(callback: () => void) { if (this.isConnected()) callback(); else return this.onConnect(callback); return () => undefined; }
+  runWhenConnected(callback: () => void) {
+    if (this.isConnected()) { callback(); return () => undefined; }
+    const unsubscribe = this.onConnect(() => { unsubscribe(); callback(); });
+    return unsubscribe;
+  }
   host(name: string) { this.resumeCode = null; this.socket?.emit("lobby:host", name); }
   join(name: string, code: string) {
     const normalizedCode = normalizeCode(code);
