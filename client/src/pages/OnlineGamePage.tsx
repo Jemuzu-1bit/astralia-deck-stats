@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import CardDisplay from "../components/CardDisplay";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
@@ -22,7 +21,9 @@ type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
 type ResolvedCard = { gameCard: GameCard; card: Card };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard) => void;
+type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
+type SlottedCard = { card: GameCard; zone: "battle" | "protagonist"; slot?: number; index: number };
 
 const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> = [
   { action: "draw", label: "Draw X" },
@@ -32,7 +33,7 @@ const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> 
 ];
 
 const EMPTY_TABLE: GameTable = {
-  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], battle: [null, null, null, null, null, null], protagonistFrazzle: 0,
+  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], battle: [[], [], [], [], []], protagonist: [],
 };
 const ZONE_NAMES: Record<ZoneName, string> = {
   persona: "Persona", graveyard: "Graveyard", oblivion: "Oblivion", hand: "Hand",
@@ -53,9 +54,20 @@ function playerTable(player: LobbyPlayerState | null): GameTable {
     persona: legacyCards(player.personaCards, "persona"),
     graveyard: legacyCards(player.graveyardCards, "graveyard"),
     oblivion: legacyCards(player.oblivionCards, "oblivion"),
-    battle: [null, null, null, null, null, null],
-    protagonistFrazzle: 0,
+    battle: [[], [], [], [], []],
+    protagonist: player.protagonistId
+      ? [{ uid: `legacy:protagonist:${player.protagonistId}`, id: player.protagonistId, frazzle: 0, isProtagonist: true }]
+      : [],
   };
+}
+
+function findSlottedCard(table: GameTable, uid: string): SlottedCard | undefined {
+  for (let slot = 0; slot < table.battle.length; slot += 1) {
+    const index = table.battle[slot].findIndex((card) => card.uid === uid);
+    if (index !== -1) return { card: table.battle[slot][index], zone: "battle", slot, index };
+  }
+  const index = table.protagonist.findIndex((card) => card.uid === uid);
+  return index === -1 ? undefined : { card: table.protagonist[index], zone: "protagonist", index };
 }
 
 function useResolvedCards(items: GameCard[]): ResolvedCard[] {
@@ -106,39 +118,13 @@ function FrazzleCounter({ value, editable, onAdjust }: {
   >{value}</span>;
 }
 
-function Protagonist({ id, frazzle, covered, movable, onInspect, onFrazzleAdjust }: {
-  id?: string | null;
-  frazzle: number;
-  covered: boolean;
-  movable: boolean;
-  onInspect: InspectCard;
-  onFrazzleAdjust: (delta: -1 | 1) => void;
-}) {
-  const [card, setCard] = useState<Card | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    setCard(null);
-    if (id) getCardFaces(id).then(({ front, back }) => {
-      if (active) setCard(front || back || null);
-    });
-    return () => { active = false; };
-  }, [id]);
-
-  return card ? <div
-    className={`${styles.protagonistBase} ${covered ? styles.protagonistUnderlay : ""}`}
-  >
-    <CardDisplay card={card} onInspect={onInspect} />
-    <FrazzleCounter value={frazzle} editable={movable} onAdjust={onFrazzleAdjust} />
-  </div> : <span className={styles.emptyText}>Protagonist</span>;
-}
-
-function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, className = "", style }: {
+function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
   entry: ResolvedCard;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
   onMenu?: CardMenu;
+  onActivate?: (card: GameCard) => void;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -155,7 +141,7 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, className
     onMouseLeave={() => onInspect(null)}
     onFocus={() => onInspect(entry.card)}
     onBlur={() => onInspect(null)}
-    onClick={() => onInspect(entry.card)}
+    onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(entry.card); }}
   >
     <img
       src={getCardImagePath(entry.card, "thumb")}
@@ -205,8 +191,9 @@ function DeckZone({ count, local, onDraw, onMenu, onDragOver, onDrop }: {
   </div>;
 }
 
-function CardStack({ items, onInspect, onDragStart, onDragEnd, onMenu }: {
+function CardStack({ items, spread = false, onInspect, onDragStart, onDragEnd, onMenu }: {
   items: GameCard[];
+  spread?: boolean;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
@@ -215,16 +202,21 @@ function CardStack({ items, onInspect, onDragStart, onDragEnd, onMenu }: {
   const cards = useResolvedCards(items);
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
   return <div className={styles.publicStack}>
-    {cards.map((entry, index) => <CardThumb
-      key={entry.gameCard.uid}
-      entry={entry}
-      onInspect={onInspect}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onMenu={onMenu}
-      className={styles.stackCard}
-      style={{ left: `${Math.min(index, 6) * 7}px`, zIndex: index + 1 }}
-    />)}
+    {cards.map((entry, index) => {
+      const progress = cards.length === 1 ? .5 : index / (cards.length - 1);
+      return <CardThumb
+        key={entry.gameCard.uid}
+        entry={entry}
+        onInspect={onInspect}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onMenu={onMenu}
+        className={styles.stackCard}
+        style={spread
+          ? { left: `${progress * 100}%`, transform: `translateX(-${progress * 100}%)`, zIndex: index + 1 }
+          : { left: `${Math.min(index, 6) * 7}px`, zIndex: index + 1 }}
+      />;
+    })}
     <b>{items.length}</b>
   </div>;
 }
@@ -316,6 +308,7 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
     <div className={styles.zoneContent}>
       <CardStack
         items={items}
+        spread={name === "persona"}
         onInspect={onInspect}
         onDragStart={movable ? onDragStart : undefined}
         onDragEnd={movable ? onDragEnd : undefined}
@@ -325,17 +318,18 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onProtagonistMenu, onProtagonistFrazzleAdjust, onCardFrazzleAdjust, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
+  attachingUid: string | null;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
   onDrawDeck: () => void;
   onDeckMenu: (event: MouseEvent<HTMLDivElement>) => void;
-  onProtagonistMenu: (event: MouseEvent<HTMLDivElement>) => void;
-  onProtagonistFrazzleAdjust: (delta: -1 | 1) => void;
   onCardFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onAttachDrop: CardAttachDrop;
+  onAttachTarget: (targetUid: string) => void;
   onDragStart: CardDrag;
   onDragEnd: () => void;
   onMenu: CardMenu;
@@ -373,21 +367,24 @@ function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDra
           label="Protagonist"
           className={styles.protagonistSlot}
           onDragOver={movable ? onDragOver : undefined}
-          onDrop={movable ? (event) => onDrop(event, "battle", 5) : undefined}
-          onContextMenu={movable ? onProtagonistMenu : undefined}
+          onDrop={movable ? (event) => onDrop(event, "protagonist") : undefined}
         >
-          <Protagonist
-            id={player?.protagonistId}
-            frazzle={table.protagonistFrazzle || 0}
-            covered={Boolean(table.battle[5])}
+          <SlotStack
+            items={table.protagonist}
+            protagonist
             movable={movable}
+            attachingUid={attachingUid}
             onInspect={onInspect}
-            onFrazzleAdjust={onProtagonistFrazzleAdjust}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onMenu={onMenu}
+            onFrazzleAdjust={onCardFrazzleAdjust}
+            onAttachDrop={onAttachDrop}
+            onAttachTarget={onAttachTarget}
           />
-          {table.battle[5] && <BattleCard item={table.battle[5]} movable={movable} onInspect={onInspect} onDragStart={onDragStart} onDragEnd={onDragEnd} onMenu={onMenu} onFrazzleAdjust={onCardFrazzleAdjust} className={styles.protagonistOverlayCard} />}
         </Zone>;
         const slot = battleSlots.indexOf(visualIndex);
-        const item = table.battle[slot];
+        const items = table.battle[slot] ?? [];
         return <Zone
           key={visualIndex}
           label="Battle"
@@ -395,7 +392,18 @@ function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDra
           onDragOver={movable ? onDragOver : undefined}
           onDrop={movable ? (event) => onDrop(event, "battle", slot) : undefined}
         >
-          {item && <BattleCard item={item} movable={movable} onInspect={onInspect} onDragStart={onDragStart} onDragEnd={onDragEnd} onMenu={onMenu} onFrazzleAdjust={onCardFrazzleAdjust} />}
+          <SlotStack
+            items={items}
+            movable={movable}
+            attachingUid={attachingUid}
+            onInspect={onInspect}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onMenu={onMenu}
+            onFrazzleAdjust={onCardFrazzleAdjust}
+            onAttachDrop={onAttachDrop}
+            onAttachTarget={onAttachTarget}
+          />
         </Zone>;
       })}
     </div>
@@ -424,30 +432,91 @@ function PlayerTable({ player, table, opponentSide, onInspect, onOpenZone, onDra
   </section>;
 }
 
-function BattleCard({ item, movable, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, className = "" }: {
-  item: GameCard;
+function SlotStack({ items, protagonist = false, movable, attachingUid, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onAttachDrop, onAttachTarget }: {
+  items: GameCard[];
+  protagonist?: boolean;
   movable: boolean;
+  attachingUid: string | null;
   onInspect: InspectCard;
   onDragStart: CardDrag;
   onDragEnd: () => void;
   onMenu: CardMenu;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onAttachDrop: CardAttachDrop;
+  onAttachTarget: (targetUid: string) => void;
+}) {
+  if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
+
+  return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""}`}>
+    <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
+      {items.map((item, index) => {
+        const subslotCount = items.length - 1;
+        const progress = subslotCount <= 1 ? 0 : (index - 1) / (subslotCount - 1);
+        const position = index === 0
+          ? items.length === 1
+            ? { left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: items.length + 1 }
+            : { left: "5px", top: "50%", transform: "translateY(-50%)", zIndex: 1 }
+          : { left: `calc(${62 + progress * 38}% - ${progress * (protagonist ? 34 : 26)}px)`, top: "50%", transform: "translate(-50%, -50%)", zIndex: index + 1 };
+        return <BattleCard
+          key={item.uid}
+          item={item}
+          movable={movable && index === 0 && !item.isProtagonist}
+          menuEnabled={movable}
+          frazzleEditable={movable}
+          dropTargetEnabled={movable}
+          attachTargetEnabled={movable && attachingUid !== null && attachingUid !== item.uid}
+          onInspect={onInspect}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onMenu={onMenu}
+          onFrazzleAdjust={onFrazzleAdjust}
+          onAttachDrop={onAttachDrop}
+          onAttachTarget={onAttachTarget}
+          className={index === 0 ? styles.slotMain : styles.attachedCard}
+          style={position}
+        />;
+      })}
+    </div>
+  </div>;
+}
+
+function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
+  item: GameCard;
+  movable: boolean;
+  menuEnabled?: boolean;
+  frazzleEditable?: boolean;
+  dropTargetEnabled?: boolean;
+  attachTargetEnabled?: boolean;
+  onInspect: InspectCard;
+  onDragStart: CardDrag;
+  onDragEnd: () => void;
+  onMenu: CardMenu;
+  onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onAttachDrop: CardAttachDrop;
+  onAttachTarget: (targetUid: string) => void;
   className?: string;
+  style?: CSSProperties;
 }) {
   const items = useMemo(() => [item], [item]);
   const cards = useResolvedCards(items);
-  return cards[0] && <div className={`${styles.battleCardWrap} ${className}`}>
+  return cards[0] && <div
+    className={`${styles.battleCardWrap} ${attachTargetEnabled ? styles.attachTarget : ""} ${className}`}
+    style={style}
+    onDragOver={dropTargetEnabled ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}
+    onDrop={dropTargetEnabled ? (event) => onAttachDrop(event, item.uid) : undefined}
+  >
     <CardThumb
       entry={cards[0]}
       onInspect={onInspect}
       onDragStart={movable ? onDragStart : undefined}
       onDragEnd={movable ? onDragEnd : undefined}
-      onMenu={movable ? onMenu : undefined}
+      onMenu={menuEnabled ? onMenu : undefined}
+      onActivate={attachTargetEnabled ? () => onAttachTarget(item.uid) : undefined}
       className={styles.battleCard}
     />
     <FrazzleCounter
       value={item.frazzle || 0}
-      editable={movable}
+      editable={frazzleEditable}
       onAdjust={(delta) => onFrazzleAdjust(item.uid, delta)}
     />
   </div>;
@@ -471,11 +540,13 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, onSetFrazzle, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, revealState, onAdjustFrazzle, onSwapWithMain, onStartAttach, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
   revealState?: boolean;
-  onSetFrazzle?: (value: 1 | 2) => void;
+  onAdjustFrazzle?: (delta: -1 | 1) => void;
+  onSwapWithMain?: () => void;
+  onStartAttach?: () => void;
   onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
   onToggleReveal?: () => void;
   onClose: () => void;
@@ -489,10 +560,12 @@ function ContextMenu({ x, y, revealState, onSetFrazzle, onMove, onToggleReveal, 
   }, [onClose]);
 
   return <div className={styles.contextMenu} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 215)), top: Math.max(8, Math.min(y, window.innerHeight - (onMove ? 340 : 110))) }} onPointerDown={(event) => event.stopPropagation()}>
-    {onSetFrazzle && <>
-      <button type="button" role="menuitem" onClick={() => onSetFrazzle(1)}>Add Frazzle 1</button>
-      <button type="button" role="menuitem" onClick={() => onSetFrazzle(2)}>Add Frazzle 2</button>
+    {onAdjustFrazzle && <>
+      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(1)}>Add Frazzle</button>
+      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(-1)}>Remove Frazzle</button>
     </>}
+    {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
+    {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
     {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
     {onMove && <>
       <hr />
@@ -576,7 +649,7 @@ export default function OnlineGamePage() {
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ uid: string; x: number; y: number } | null>(null);
   const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
-  const [protagonistMenu, setProtagonistMenu] = useState<{ x: number; y: number } | null>(null);
+  const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
 
@@ -600,7 +673,8 @@ export default function OnlineGamePage() {
   const railCards = peekedUids !== null ? peekCards : openZone ? openCards : myTable.hand;
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
-  const menuBattleCard = menu ? myTable.battle.find((card) => card?.uid === menu.uid) : undefined;
+  const menuSlottedCard = menu ? findSlottedCard(myTable, menu.uid) : undefined;
+  const menuCardCanMove = !menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist);
   const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
     : openZone?.owner === "opponent" && openZone.name === "hand"
       ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
@@ -620,11 +694,18 @@ export default function OnlineGamePage() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [openZone, peekedUids]);
+  useEffect(() => {
+    if (!attachingUid) return;
+    const cancelAttach = (event: KeyboardEvent) => { if (event.key === "Escape") setAttachingUid(null); };
+    window.addEventListener("keydown", cancelAttach);
+    return () => window.removeEventListener("keydown", cancelAttach);
+  }, [attachingUid]);
   const startDrag: CardDrag = (event, card) => {
     draggedUid.current = card.uid;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", card.uid);
     setDragging(true);
+    setAttachingUid(null);
     setMenu(null);
   };
   const endDrag = () => { draggedUid.current = null; setDragging(false); };
@@ -637,22 +718,31 @@ export default function OnlineGamePage() {
     gameConnection.moveCard(draggedUid.current, zone, { slot });
     endDrag(); setInspectedCard(null);
   };
+  const attachCard = (sourceUid: string, targetUid: string) => {
+    if (sourceUid === targetUid) return;
+    gameConnection.attachCard(sourceUid, targetUid);
+    setAttachingUid(null);
+    setInspectedCard(null);
+  };
+  const dropOnCard: CardAttachDrop = (event, targetUid) => {
+    const sourceUid = draggedUid.current;
+    if (!sourceUid || sourceUid === targetUid) return;
+    event.preventDefault(); event.stopPropagation();
+    attachCard(sourceUid, targetUid);
+    endDrag();
+  };
+  const selectAttachTarget = (targetUid: string) => {
+    if (attachingUid) attachCard(attachingUid, targetUid);
+  };
   const showMenu: CardMenu = (event, card) => {
     event.preventDefault(); event.stopPropagation();
     setMenu({ uid: card.uid, x: event.clientX, y: event.clientY });
     setDeckMenu(null);
-    setProtagonistMenu(null);
   };
   const showDeckMenu = (event: MouseEvent<HTMLDivElement>) => {
     event.preventDefault(); event.stopPropagation();
     setDeckMenu({ x: event.clientX, y: event.clientY });
     setMenu(null);
-    setProtagonistMenu(null);
-  };
-  const showProtagonistMenu = (event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault(); event.stopPropagation();
-    setProtagonistMenu({ x: event.clientX, y: event.clientY });
-    setMenu(null); setDeckMenu(null);
   };
   const deckAction = (action: DeckAction, count?: number) => {
     gameConnection.deckAction(action, count);
@@ -674,13 +764,14 @@ export default function OnlineGamePage() {
         player={opponent}
         table={opponentTable}
         opponentSide
+        attachingUid={null}
         onInspect={setInspectedCard}
         onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "opponent", name }); }}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
-        onProtagonistMenu={showProtagonistMenu}
-        onProtagonistFrazzleAdjust={(delta) => gameConnection.adjustProtagonistFrazzle(delta)}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
+        onAttachDrop={dropOnCard}
+        onAttachTarget={selectAttachTarget}
         onDragStart={startDrag}
         onDragEnd={endDrag}
         onMenu={showMenu}
@@ -691,13 +782,14 @@ export default function OnlineGamePage() {
       <PlayerTable
         player={me}
         table={myTable}
+        attachingUid={attachingUid}
         onInspect={setInspectedCard}
         onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "self", name }); }}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
-        onProtagonistMenu={showProtagonistMenu}
-        onProtagonistFrazzleAdjust={(delta) => gameConnection.adjustProtagonistFrazzle(delta)}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
+        onAttachDrop={dropOnCard}
+        onAttachTarget={selectAttachTarget}
         onDragStart={startDrag}
         onDragEnd={endDrag}
         onMenu={showMenu}
@@ -717,13 +809,25 @@ export default function OnlineGamePage() {
         />
       </section>
     </main>
+    {attachingUid && <div className={styles.attachHint} role="status">
+      Select a card on your table to attach to
+      <button type="button" onClick={() => setAttachingUid(null)}>Cancel</button>
+    </div>}
     <Inspector card={inspectedCard} />
     {menu && <ContextMenu
       x={menu.x}
       y={menu.y}
       revealState={menuHandCard ? Boolean(menuHandCard.revealed) : undefined}
-      onSetFrazzle={menuBattleCard ? (value) => { gameConnection.setCardFrazzle(menu.uid, value); setMenu(null); } : undefined}
-      onMove={(zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }}
+      onAdjustFrazzle={menuSlottedCard ? (delta) => { gameConnection.adjustCardFrazzle(menu.uid, delta); setMenu(null); } : undefined}
+      onSwapWithMain={menuSlottedCard && menuSlottedCard.index > 0
+        ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
+        : undefined}
+      onStartAttach={menuCardCanMove
+        ? () => { setAttachingUid(menu.uid); setMenu(null); }
+        : undefined}
+      onMove={menuCardCanMove
+        ? (zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }
+        : undefined}
       onToggleReveal={() => {
         if (menuHandCard) gameConnection.setCardRevealed(menu.uid, !menuHandCard.revealed);
         setMenu(null); setInspectedCard(null);
@@ -737,12 +841,6 @@ export default function OnlineGamePage() {
       onAction={deckAction}
       onLook={lookAtTop}
       onClose={() => setDeckMenu(null)}
-    />}
-    {protagonistMenu && <ContextMenu
-      x={protagonistMenu.x}
-      y={protagonistMenu.y}
-      onSetFrazzle={(value) => { gameConnection.setProtagonistFrazzle(value); setProtagonistMenu(null); }}
-      onClose={() => setProtagonistMenu(null)}
     />}
   </div>;
 }

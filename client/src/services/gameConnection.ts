@@ -5,9 +5,10 @@ export interface GameCard {
   id: string;
   frazzle: number;
   revealed?: boolean;
+  isProtagonist?: boolean;
 }
 
-export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "battle";
+export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "battle" | "protagonist";
 export type DeckAction = "shuffle" | "draw" | "discard" | "oblivion";
 
 export interface GameTable {
@@ -16,8 +17,8 @@ export interface GameTable {
   persona: GameCard[];
   graveyard: GameCard[];
   oblivion: GameCard[];
-  battle: Array<GameCard | null>;
-  protagonistFrazzle: number;
+  battle: GameCard[][];
+  protagonist: GameCard[];
 }
 
 export interface LobbyPlayerState {
@@ -162,11 +163,11 @@ class GameConnection {
   setOblivionCards(cards: string[]) { this.socket?.emit("lobby:setOblivionCards", cards); }
   setCardFrazzle(uid: string, value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "card", uid, value }); }
   adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
-  setProtagonistFrazzle(value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "protagonist", value }); }
-  adjustProtagonistFrazzle(delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "protagonist", delta }); }
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
   }
+  attachCard(uid: string, targetUid: string) { this.socket?.emit("game:attachCard", { uid, targetUid }); }
+  swapSlotCard(uid: string) { this.socket?.emit("game:swapSlotCard", { uid }); }
   deckAction(action: DeckAction, count?: number) { this.socket?.emit("game:deckAction", { action, count }); }
   setCardRevealed(uid: string, revealed: boolean) { this.socket?.emit("game:revealCard", { uid, revealed }); }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }

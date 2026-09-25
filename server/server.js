@@ -116,8 +116,10 @@ function shuffle(cards) {
   return cards;
 }
 
-const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle"];
+const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle", "protagonist"];
+const LIST_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion"];
 const cardInstance = (id) => ({ uid: makeId(), id, frazzle: 0, revealed: false });
+const protagonistInstance = (id) => ({ ...cardInstance(id), isProtagonist: true });
 
 function syncCardLists(player) {
   const { table } = player;
@@ -129,11 +131,22 @@ function syncCardLists(player) {
 }
 
 function findCard(table, uid) {
-  for (const zone of CARD_ZONES) {
-    const index = table[zone].findIndex((card) => card?.uid === uid);
-    if (index !== -1) return { zone, index, card: table[zone][index] };
+  for (const zone of LIST_ZONES) {
+    const index = table[zone].findIndex((card) => card.uid === uid);
+    if (index !== -1) return { zone, index, card: table[zone][index], slotted: false };
   }
+  for (let slot = 0; slot < table.battle.length; slot += 1) {
+    const index = table.battle[slot].findIndex((card) => card.uid === uid);
+    if (index !== -1) return { zone: "battle", slot, index, card: table.battle[slot][index], slotted: true };
+  }
+  const protagonistIndex = table.protagonist.findIndex((card) => card.uid === uid);
+  if (protagonistIndex !== -1) return { zone: "protagonist", index: protagonistIndex, card: table.protagonist[protagonistIndex], slotted: true };
   return null;
+}
+
+function removeFoundCard(table, found) {
+  if (found.zone === "battle") return table.battle[found.slot].splice(found.index, 1)[0];
+  return table[found.zone].splice(found.index, 1)[0];
 }
 
 function dealOpeningHand(player) {
@@ -149,8 +162,8 @@ function dealOpeningHand(player) {
     persona: (player.personaCards || []).map(cardInstance),
     graveyard: [],
     oblivion: [],
-    battle: Array(6).fill(null),
-    protagonistFrazzle: 0,
+    battle: Array.from({ length: 5 }, () => []),
+    protagonist: player.protagonistId ? [protagonistInstance(player.protagonistId)] : [],
   };
   syncCardLists(player);
 }
@@ -249,18 +262,9 @@ io.on("connection", (socket) => {
   socket.on("game:setFrazzle", (payload) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
-    const target = String(payload?.target || "");
-    let current;
-    let apply;
-    if (target === "protagonist") {
-      current = Number(player.table.protagonistFrazzle) || 0;
-      apply = (value) => { player.table.protagonistFrazzle = value; };
-    } else if (target === "card") {
-      const found = findCard(player.table, String(payload?.uid || ""));
-      if (!found || found.zone !== "battle") return;
-      current = Number(found.card.frazzle) || 0;
-      apply = (value) => { found.card.frazzle = value; };
-    } else return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found?.slotted) return;
+    const current = Number(found.card.frazzle) || 0;
 
     const requestedValue = Number(payload?.value);
     const delta = Number(payload?.delta);
@@ -268,7 +272,7 @@ io.on("connection", (socket) => {
     if (Number.isInteger(requestedValue) && requestedValue >= 1 && requestedValue <= 2) next = requestedValue;
     else if (delta === -1 || delta === 1) next = Math.max(0, Math.min(2, current + delta));
     else return;
-    apply(next);
+    found.card.frazzle = next;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:moveCard", (payload) => {
@@ -278,29 +282,51 @@ io.on("connection", (socket) => {
     const found = findCard(table, String(payload?.uid || ""));
     const target = String(payload?.to || "");
     if (!found || !CARD_ZONES.includes(target)) return;
-    if (target === "battle") {
+    if (found.card.isProtagonist || (found.slotted && found.index > 0)) return;
+    if (target === "battle" || target === "protagonist") {
       const slot = Number(payload?.slot);
-      if (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length) return;
-      if (found.zone === "battle" && found.index === slot) return;
-      const displaced = table.battle[slot];
-      if (found.zone === "battle") table.battle[found.index] = displaced;
-      else {
-        table[found.zone].splice(found.index, 1);
-        if (displaced) {
-          displaced.revealed = false;
-          displaced.frazzle = 0;
-          table[found.zone].splice(found.index, 0, displaced);
-        }
-      }
-      table.battle[slot] = found.card;
+      if (target === "battle" && (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length)) return;
+      if ((found.zone === "battle" && target === "battle" && found.slot === slot)
+        || (found.zone === "protagonist" && target === "protagonist")) return;
+      const destination = target === "battle" ? table.battle[slot] : table.protagonist;
+      const card = removeFoundCard(table, found);
+      card.revealed = false;
+      destination.push(card);
     } else {
-      if (found.zone === "battle") table.battle[found.index] = null;
-      else table[found.zone].splice(found.index, 1);
-      found.card.frazzle = 0;
-      if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(found.card);
-      else table[target].push(found.card);
+      const card = removeFoundCard(table, found);
+      card.frazzle = 0;
+      card.revealed = false;
+      if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(card);
+      else table[target].push(card);
     }
-    found.card.revealed = false;
+    syncCardLists(player);
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:swapSlotCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found?.slotted || found.index < 1) return;
+    const stack = found.zone === "battle" ? player.table.battle[found.slot] : player.table.protagonist;
+    [stack[0], stack[found.index]] = [stack[found.index], stack[0]];
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:attachCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const table = player.table;
+    const source = findCard(table, String(payload?.uid || ""));
+    const target = findCard(table, String(payload?.targetUid || ""));
+    if (!source || !target?.slotted || source.card.uid === target.card.uid) return;
+    if (source.card.isProtagonist || (source.slotted && source.index > 0)) return;
+    if (source.slotted && source.zone === target.zone
+      && (source.zone === "protagonist" || source.slot === target.slot)) return;
+
+    const targetStack = target.zone === "battle" ? table.battle[target.slot] : table.protagonist;
+    const card = removeFoundCard(table, source);
+    card.revealed = false;
+    const currentTargetIndex = targetStack.findIndex((entry) => entry.uid === target.card.uid);
+    targetStack.splice(currentTargetIndex + 1, 0, card);
     syncCardLists(player);
     room.lastActivity = Date.now(); emitState(room);
   });

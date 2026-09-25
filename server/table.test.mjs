@@ -33,7 +33,7 @@ function waitForState(socket, predicate) {
   });
 }
 
-test("card moves and Frazzle counters remain synchronized and cannot modify the opponent's cards", async () => {
+test("slot stacks, Frazzle counters, and swaps remain synchronized and cannot modify the opponent's cards", async () => {
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, ["server.js"], {
@@ -82,20 +82,24 @@ test("card moves and Frazzle counters remain synchronized and cannot modify the 
     assert.equal(state.host.table.hand.length, 5);
     assert.equal(state.host.table.deck.length, 3);
     assert.equal(state.host.table.persona.length, 2);
-    assert.equal(state.host.table.battle.length, 6);
-    assert.equal(state.host.table.protagonistFrazzle, 0);
+    assert.equal(state.host.table.battle.length, 5);
+    assert.ok(state.host.table.battle.every((stack) => stack.length === 0));
+    assert.equal(state.host.table.protagonist.length, 1);
+    assert.equal(state.host.table.protagonist[0].id, "hero");
+    assert.equal(state.host.table.protagonist[0].isProtagonist, true);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
     assert.equal(opponentState.host.deckCount, 3);
     assert.equal(opponentState.host.mainDeckCards, null);
     const uid = state.host.table.hand[0].uid;
+    const protagonistUid = state.host.table.protagonist[0].uid;
 
-    const protagonistFrazzleOne = waitForState(guest, (next) => next.host?.table?.protagonistFrazzle === 1);
-    host.emit("game:setFrazzle", { target: "protagonist", value: 1 });
+    const protagonistFrazzleOne = waitForState(guest, (next) => next.host?.table?.protagonist?.[0]?.frazzle === 1);
+    host.emit("game:setFrazzle", { target: "card", uid: protagonistUid, value: 1 });
     await protagonistFrazzleOne;
-    const protagonistFrazzleTwo = waitForState(host, (next) => next.host?.table?.protagonistFrazzle === 2);
-    host.emit("game:setFrazzle", { target: "protagonist", delta: 1 });
+    const protagonistFrazzleTwo = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.frazzle === 2);
+    host.emit("game:setFrazzle", { target: "card", uid: protagonistUid, delta: 1 });
     await protagonistFrazzleTwo;
 
     const revealed = waitForState(guest, (next) => next.host?.table?.hand?.[0]?.uid === uid);
@@ -116,44 +120,68 @@ test("card moves and Frazzle counters remain synchronized and cannot modify the 
     await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(state.host.table.graveyard[0].frazzle, 0);
 
-    const inBattle = waitForState(host, (next) => next.host?.table?.battle?.[0]?.uid === uid);
+    const inBattle = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "battle", slot: 0 });
     state = await inBattle;
-    assert.equal(state.host.table.battle[0].frazzle, 0);
+    assert.equal(state.host.table.battle[0][0].frazzle, 0);
     assert.equal(state.host.table.graveyard.length, 0);
 
-    const frazzleOne = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.frazzle === 1);
+    const frazzleOne = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 1);
     host.emit("game:setFrazzle", { target: "card", uid, value: 1 });
     await frazzleOne;
-    const frazzleTwo = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    const frazzleTwo = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid, delta: 1 });
     state = await frazzleTwo;
-    const frazzleMax = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    const frazzleMax = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid, delta: 1 });
     await frazzleMax;
-    const frazzleBackToOne = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 1);
+    const frazzleBackToOne = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 1);
     host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
     await frazzleBackToOne;
-    const frazzleRemoved = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 0);
+    const frazzleRemoved = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 0);
     host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
     await frazzleRemoved;
-    const frazzleRestored = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    const frazzleRestored = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid, value: 2 });
     state = await frazzleRestored;
 
-    const overProtagonist = waitForState(guest, (next) => next.host?.table?.battle?.[5]?.uid === uid);
-    host.emit("game:moveCard", { uid, to: "battle", slot: 5 });
-    await overProtagonist;
-    const backInBattle = waitForState(host, (next) => next.host?.table?.battle?.[0]?.uid === uid);
+    const inProtagonistSubslot = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.uid === uid);
+    host.emit("game:moveCard", { uid, to: "protagonist" });
+    state = await inProtagonistSubslot;
+    assert.equal(state.host.table.protagonist[0].uid, protagonistUid);
+    assert.equal(state.host.table.protagonist[1].frazzle, 2);
+
+    const subslotFrazzle = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.frazzle === 1);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
+    state = await subslotFrazzle;
+
+    let stateAfterInvalidMove = state;
+    const trackInvalidMove = (next) => { stateAfterInvalidMove = next; };
+    host.on("lobby:state", trackInvalidMove);
+    host.emit("game:moveCard", { uid, to: "deck", position: "top" });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    host.off("lobby:state", trackInvalidMove);
+    assert.equal(stateAfterInvalidMove.host.table.protagonist[1].uid, uid);
+
+    const promoted = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.uid === uid);
+    host.emit("game:swapSlotCard", { uid });
+    state = await promoted;
+    assert.equal(state.host.table.protagonist[1].uid, protagonistUid);
+
+    const backInBattle = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "battle", slot: 0 });
     state = await backInBattle;
-    assert.equal(state.host.table.battle[5], null);
-    assert.equal(state.host.table.battle[0].frazzle, 2);
+    assert.equal(state.host.table.protagonist[0].uid, protagonistUid);
+
+    host.emit("game:moveCard", { uid, to: "battle", slot: 5 });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(state.host.table.battle.length, 5);
+    assert.equal(state.host.table.battle[0][0].uid, uid);
 
     const topOfDeck = waitForState(host, (next) => next.host?.table?.deck?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "deck", position: "top" });
     state = await topOfDeck;
-    assert.equal(state.host.table.battle[0], null);
+    assert.equal(state.host.table.battle[0].length, 0);
     assert.equal(state.host.table.deck[0].frazzle, 0);
 
     const secondUid = state.host.table.hand[0].uid;
@@ -171,14 +199,20 @@ test("card moves and Frazzle counters remain synchronized and cannot modify the 
     state = await inOblivion;
     assert.equal(state.host.table.persona.length, 2);
 
-    const inSecondBattleSlot = waitForState(host, (next) => next.host?.table?.battle?.[1]?.uid === thirdUid);
+    const inSecondBattleSlot = waitForState(host, (next) => next.host?.table?.battle?.[1]?.[0]?.uid === thirdUid);
     host.emit("game:moveCard", { uid: thirdUid, to: "battle", slot: 1 });
     state = await inSecondBattleSlot;
     const fourthUid = state.host.table.hand[0].uid;
-    const swapped = waitForState(host, (next) => next.host?.table?.battle?.[1]?.uid === fourthUid);
-    host.emit("game:moveCard", { uid: fourthUid, to: "battle", slot: 1 });
+    const stacked = waitForState(host, (next) => next.host?.table?.battle?.[1]?.[1]?.uid === fourthUid);
+    host.emit("game:attachCard", { uid: fourthUid, targetUid: thirdUid });
+    state = await stacked;
+    assert.equal(state.host.table.battle[1][0].uid, thirdUid);
+    assert.equal(state.host.table.battle[1].length, 2);
+
+    const swapped = waitForState(host, (next) => next.host?.table?.battle?.[1]?.[0]?.uid === fourthUid);
+    host.emit("game:swapSlotCard", { uid: fourthUid });
     state = await swapped;
-    assert.equal(state.host.table.hand[0].uid, thirdUid);
+    assert.equal(state.host.table.battle[1][1].uid, thirdUid);
 
     let latest = state;
     const onState = (next) => { latest = next; };
@@ -186,8 +220,8 @@ test("card moves and Frazzle counters remain synchronized and cannot modify the 
     guest.emit("game:moveCard", { uid: fourthUid, to: "graveyard" });
     await new Promise((resolve) => setTimeout(resolve, 100));
     host.off("lobby:state", onState);
-    assert.equal(latest.host.table.battle[1].uid, fourthUid);
-    assert.equal(latest.host.table.hand[0].uid, thirdUid);
+    assert.equal(latest.host.table.battle[1][0].uid, fourthUid);
+    assert.equal(latest.host.table.battle[1][1].uid, thirdUid);
     assert.equal(latest.host.table.graveyard.length, 0);
 
     const beforeShuffle = state.host.table.deck.map((card) => card.uid).sort();
@@ -283,10 +317,10 @@ test("a disconnected player can resume the same game without changing the table 
     host.emit("lobby:startRequest");
     let state = await started;
     const movedUid = state.host.table.hand[0].uid;
-    const moved = waitForState(host, (next) => next.host?.table?.battle?.[2]?.uid === movedUid);
+    const moved = waitForState(host, (next) => next.host?.table?.battle?.[2]?.[0]?.uid === movedUid);
     host.emit("game:moveCard", { uid: movedUid, to: "battle", slot: 2 });
     await moved;
-    const marked = waitForState(host, (next) => next.host?.table?.battle?.[2]?.frazzle === 2);
+    const marked = waitForState(host, (next) => next.host?.table?.battle?.[2]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid: movedUid, value: 2 });
     state = await marked;
 
@@ -311,8 +345,8 @@ test("a disconnected player can resume the same game without changing the table 
     assert.notEqual(afterResume.host.socketId, state.host.socketId);
     assert.deepEqual(afterResume.host.table, tableBeforeDisconnect);
     assert.deepEqual(afterResume.host.table.deck.map((card) => card.uid), deckOrderBeforeDisconnect);
-    assert.equal(afterResume.host.table.battle[2].uid, movedUid);
-    assert.equal(afterResume.host.table.battle[2].frazzle, 2);
+    assert.equal(afterResume.host.table.battle[2][0].uid, movedUid);
+    assert.equal(afterResume.host.table.battle[2][0].frazzle, 2);
   } finally {
     sockets.forEach((socket) => socket.disconnect());
     server.kill();
