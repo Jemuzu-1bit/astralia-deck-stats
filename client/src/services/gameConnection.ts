@@ -3,7 +3,7 @@ import { io, type Socket } from "socket.io-client";
 export interface GameCard {
   uid: string;
   id: string;
-  rotation: number;
+  frazzle: number;
   revealed?: boolean;
 }
 
@@ -17,7 +17,7 @@ export interface GameTable {
   graveyard: GameCard[];
   oblivion: GameCard[];
   battle: Array<GameCard | null>;
-  protagonistRotation: number;
+  protagonistFrazzle: number;
 }
 
 export interface LobbyPlayerState {
@@ -155,8 +155,10 @@ class GameConnection {
   setPersonaCards(cards: string[]) { this.socket?.emit("lobby:setPersonaCards", cards); }
   setGraveyardCards(cards: string[]) { this.socket?.emit("lobby:setGraveyardCards", cards); }
   setOblivionCards(cards: string[]) { this.socket?.emit("lobby:setOblivionCards", cards); }
-  rotateCard(uid: string, degrees: 90 | 180) { this.socket?.emit("game:rotateCard", { uid, degrees }); }
-  rotateProtagonist(degrees: 90 | 180) { this.socket?.emit("game:rotateProtagonist", { degrees }); }
+  setCardFrazzle(uid: string, value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "card", uid, value }); }
+  adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
+  setProtagonistFrazzle(value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "protagonist", value }); }
+  adjustProtagonistFrazzle(delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "protagonist", delta }); }
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
   }

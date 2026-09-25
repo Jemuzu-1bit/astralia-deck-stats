@@ -117,7 +117,7 @@ function shuffle(cards) {
 }
 
 const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "battle"];
-const cardInstance = (id) => ({ uid: makeId(), id, rotation: 0, revealed: false });
+const cardInstance = (id) => ({ uid: makeId(), id, frazzle: 0, revealed: false });
 
 function syncCardLists(player) {
   const { table } = player;
@@ -150,7 +150,7 @@ function dealOpeningHand(player) {
     graveyard: [],
     oblivion: [],
     battle: Array(6).fill(null),
-    protagonistRotation: 0,
+    protagonistFrazzle: 0,
   };
   syncCardLists(player);
 }
@@ -246,22 +246,29 @@ io.on("connection", (socket) => {
       emitState(room);
     }
   });
-  socket.on("game:rotateCard", (payload) => {
+  socket.on("game:setFrazzle", (payload) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
-    const degrees = Number(payload?.degrees);
-    if (degrees !== 90 && degrees !== 180) return;
-    const found = findCard(player.table, String(payload?.uid || ""));
-    if (!found) return;
-    found.card.rotation = (found.card.rotation + degrees) % 360;
-    room.lastActivity = Date.now(); emitState(room);
-  });
-  socket.on("game:rotateProtagonist", (payload) => {
-    const room = currentRoom(socket); const player = currentPlayer(socket, room);
-    if (!player?.table || !room.started) return;
-    const degrees = Number(payload?.degrees);
-    if (degrees !== 90 && degrees !== 180) return;
-    player.table.protagonistRotation = ((player.table.protagonistRotation || 0) + degrees) % 360;
+    const target = String(payload?.target || "");
+    let current;
+    let apply;
+    if (target === "protagonist") {
+      current = Number(player.table.protagonistFrazzle) || 0;
+      apply = (value) => { player.table.protagonistFrazzle = value; };
+    } else if (target === "card") {
+      const found = findCard(player.table, String(payload?.uid || ""));
+      if (!found || found.zone !== "battle") return;
+      current = Number(found.card.frazzle) || 0;
+      apply = (value) => { found.card.frazzle = value; };
+    } else return;
+
+    const requestedValue = Number(payload?.value);
+    const delta = Number(payload?.delta);
+    let next;
+    if (Number.isInteger(requestedValue) && requestedValue >= 1 && requestedValue <= 2) next = requestedValue;
+    else if (delta === -1 || delta === 1) next = Math.max(0, Math.min(2, current + delta));
+    else return;
+    apply(next);
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:moveCard", (payload) => {
@@ -281,6 +288,7 @@ io.on("connection", (socket) => {
         table[found.zone].splice(found.index, 1);
         if (displaced) {
           displaced.revealed = false;
+          displaced.frazzle = 0;
           table[found.zone].splice(found.index, 0, displaced);
         }
       }
@@ -288,6 +296,7 @@ io.on("connection", (socket) => {
     } else {
       if (found.zone === "battle") table.battle[found.index] = null;
       else table[found.zone].splice(found.index, 1);
+      found.card.frazzle = 0;
       if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(found.card);
       else table[target].push(found.card);
     }

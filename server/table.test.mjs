@@ -33,7 +33,7 @@ function waitForState(socket, predicate) {
   });
 }
 
-test("card moves and rotations remain synchronized and cannot modify the opponent's cards", async () => {
+test("card moves and Frazzle counters remain synchronized and cannot modify the opponent's cards", async () => {
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, ["server.js"], {
@@ -83,7 +83,7 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     assert.equal(state.host.table.deck.length, 3);
     assert.equal(state.host.table.persona.length, 2);
     assert.equal(state.host.table.battle.length, 6);
-    assert.equal(state.host.table.protagonistRotation, 0);
+    assert.equal(state.host.table.protagonistFrazzle, 0);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
@@ -91,9 +91,12 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     assert.equal(opponentState.host.mainDeckCards, null);
     const uid = state.host.table.hand[0].uid;
 
-    const protagonistRotated = waitForState(guest, (next) => next.host?.table?.protagonistRotation === 90);
-    host.emit("game:rotateProtagonist", { degrees: 90 });
-    await protagonistRotated;
+    const protagonistFrazzleOne = waitForState(guest, (next) => next.host?.table?.protagonistFrazzle === 1);
+    host.emit("game:setFrazzle", { target: "protagonist", value: 1 });
+    await protagonistFrazzleOne;
+    const protagonistFrazzleTwo = waitForState(host, (next) => next.host?.table?.protagonistFrazzle === 2);
+    host.emit("game:setFrazzle", { target: "protagonist", delta: 1 });
+    await protagonistFrazzleTwo;
 
     const revealed = waitForState(guest, (next) => next.host?.table?.hand?.[0]?.uid === uid);
     host.emit("game:revealCard", { uid, revealed: true });
@@ -109,15 +112,34 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     state = await inGraveyard;
     assert.equal(state.host.handCount, 4);
 
-    const rotated = waitForState(host, (next) => next.host?.table?.graveyard?.[0]?.rotation === 90);
-    host.emit("game:rotateCard", { uid, degrees: 90 });
-    state = await rotated;
+    host.emit("game:setFrazzle", { target: "card", uid, value: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(state.host.table.graveyard[0].frazzle, 0);
 
     const inBattle = waitForState(host, (next) => next.host?.table?.battle?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "battle", slot: 0 });
     state = await inBattle;
-    assert.equal(state.host.table.battle[0].rotation, 90);
+    assert.equal(state.host.table.battle[0].frazzle, 0);
     assert.equal(state.host.table.graveyard.length, 0);
+
+    const frazzleOne = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.frazzle === 1);
+    host.emit("game:setFrazzle", { target: "card", uid, value: 1 });
+    await frazzleOne;
+    const frazzleTwo = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: 1 });
+    state = await frazzleTwo;
+    const frazzleMax = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: 1 });
+    await frazzleMax;
+    const frazzleBackToOne = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 1);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
+    await frazzleBackToOne;
+    const frazzleRemoved = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 0);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
+    await frazzleRemoved;
+    const frazzleRestored = waitForState(host, (next) => next.host?.table?.battle?.[0]?.frazzle === 2);
+    host.emit("game:setFrazzle", { target: "card", uid, value: 2 });
+    state = await frazzleRestored;
 
     const overProtagonist = waitForState(guest, (next) => next.host?.table?.battle?.[5]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "battle", slot: 5 });
@@ -126,11 +148,13 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     host.emit("game:moveCard", { uid, to: "battle", slot: 0 });
     state = await backInBattle;
     assert.equal(state.host.table.battle[5], null);
+    assert.equal(state.host.table.battle[0].frazzle, 2);
 
     const topOfDeck = waitForState(host, (next) => next.host?.table?.deck?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "deck", position: "top" });
     state = await topOfDeck;
     assert.equal(state.host.table.battle[0], null);
+    assert.equal(state.host.table.deck[0].frazzle, 0);
 
     const secondUid = state.host.table.hand[0].uid;
     const bottomOfDeck = waitForState(host, (next) => next.host?.table?.deck?.at(-1)?.uid === secondUid);
@@ -173,9 +197,6 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     assert.deepEqual(state.host.table.deck.map((card) => card.uid).sort(), beforeShuffle);
 
     const peekUid = state.host.table.deck[0].uid;
-    const rotatedPeek = waitForState(host, (next) => next.host?.table?.deck?.[0]?.rotation === 90);
-    host.emit("game:rotateCard", { uid: peekUid, degrees: 90 });
-    await rotatedPeek;
     const peekInHand = waitForState(host, (next) => next.host?.table?.hand?.some((card) => card.uid === peekUid));
     host.emit("game:moveCard", { uid: peekUid, to: "hand" });
     state = await peekInHand;
@@ -183,7 +204,7 @@ test("card moves and rotations remain synchronized and cannot modify the opponen
     const peekBackOnTop = waitForState(host, (next) => next.host?.table?.deck?.[0]?.uid === peekUid);
     host.emit("game:moveCard", { uid: peekUid, to: "deck", position: "top" });
     state = await peekBackOnTop;
-    assert.equal(state.host.table.deck[0].rotation, 90);
+    assert.equal(state.host.table.deck[0].frazzle, 0);
 
     const topTwo = state.host.table.deck.slice(0, 2).map((card) => card.uid);
     const drawn = waitForState(host, (next) => next.host?.table?.hand?.at(-2)?.uid === topTwo[0]);
@@ -265,9 +286,9 @@ test("a disconnected player can resume the same game without changing the table 
     const moved = waitForState(host, (next) => next.host?.table?.battle?.[2]?.uid === movedUid);
     host.emit("game:moveCard", { uid: movedUid, to: "battle", slot: 2 });
     await moved;
-    const rotated = waitForState(host, (next) => next.host?.table?.battle?.[2]?.rotation === 90);
-    host.emit("game:rotateCard", { uid: movedUid, degrees: 90 });
-    state = await rotated;
+    const marked = waitForState(host, (next) => next.host?.table?.battle?.[2]?.frazzle === 2);
+    host.emit("game:setFrazzle", { target: "card", uid: movedUid, value: 2 });
+    state = await marked;
 
     const tableBeforeDisconnect = structuredClone(state.host.table);
     const deckOrderBeforeDisconnect = state.host.table.deck.map((card) => card.uid);
@@ -291,7 +312,7 @@ test("a disconnected player can resume the same game without changing the table 
     assert.deepEqual(afterResume.host.table, tableBeforeDisconnect);
     assert.deepEqual(afterResume.host.table.deck.map((card) => card.uid), deckOrderBeforeDisconnect);
     assert.equal(afterResume.host.table.battle[2].uid, movedUid);
-    assert.equal(afterResume.host.table.battle[2].rotation, 90);
+    assert.equal(afterResume.host.table.battle[2].frazzle, 2);
   } finally {
     sockets.forEach((socket) => socket.disconnect());
     server.kill();

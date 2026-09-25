@@ -233,7 +233,7 @@
   top: 50%;
   left: 50%;
   width: min(82px, 78%);
-  transform: translate(-50%, -50%) rotate(var(--protagonist-rotation));
+  transform: translate(-50%, -50%);
 
   > div img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
 }
@@ -241,12 +241,18 @@
 .protagonistUnderlay {
   left: 5px;
   width: min(64px, 60%);
-  transform: translateY(-50%) rotate(var(--protagonist-rotation));
+  transform: translateY(-50%);
   filter: brightness(.72);
 }
 
-.battleCard {
+.battleCardWrap {
   position: relative;
+  width: 60px;
+}
+
+.battleCard {
+  display: block;
+  width: 60px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -256,14 +262,46 @@
   img { display: block; width: 60px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
 }
 
-.battleCard.protagonistOverlayCard {
+.protagonistOverlayCard {
   position: absolute;
   z-index: 2;
   top: 50%;
   left: 62%;
   transform: translate(-50%, -50%);
+  width: clamp(76px, 8vw, 94px);
 
-  img { width: clamp(76px, 8vw, 94px); box-shadow: 0 4px 15px rgba(0, 0, 0, .8); }
+  .battleCard, .battleCard img { width: 100%; }
+  .battleCard img { box-shadow: 0 4px 15px rgba(0, 0, 0, .8); }
+}
+
+.frazzleCounter {
+  position: absolute;
+  z-index: 8;
+  top: -7px;
+  right: -7px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #55c7ff, #0877d1 58%, #034b91);
+  border: 2px solid #a8e3ff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 70, 155, .8), inset 0 0 4px rgba(255, 255, 255, .45);
+  font-size: .78rem;
+  font-weight: 900;
+  line-height: 1;
+  user-select: none;
+}
+
+.editableFrazzleCounter {
+  cursor: pointer;
+
+  &:hover, &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 1px;
+  }
 }
 
 .revealedBadge {
