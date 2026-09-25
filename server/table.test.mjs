@@ -167,13 +167,17 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
     state = await subslotFrazzle;
 
-    let stateAfterInvalidMove = state;
-    const trackInvalidMove = (next) => { stateAfterInvalidMove = next; };
-    host.on("lobby:state", trackInvalidMove);
+    const subslotMovedToDeck = waitForState(host, (next) => next.host?.table?.deck?.[0]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "deck", position: "top" });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    host.off("lobby:state", trackInvalidMove);
-    assert.equal(stateAfterInvalidMove.host.table.protagonist[1].uid, uid);
+    state = await subslotMovedToDeck;
+    assert.equal(state.host.table.protagonist.length, 1);
+    assert.equal(state.host.table.deck[0].frazzle, 0);
+    assert.equal(state.host.table.deck[0].atk, undefined);
+    assert.equal(state.host.table.deck[0].hp, undefined);
+
+    const restoredToSubslot = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.uid === uid);
+    host.emit("game:moveCard", { uid, to: "protagonist" });
+    state = await restoredToSubslot;
 
     const promoted = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.uid === uid);
     host.emit("game:swapSlotCard", { uid });

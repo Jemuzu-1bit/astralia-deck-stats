@@ -299,7 +299,7 @@ io.on("connection", (socket) => {
     const found = findCard(table, String(payload?.uid || ""));
     const target = String(payload?.to || "");
     if (!found || !CARD_ZONES.includes(target)) return;
-    if (found.card.isProtagonist || (found.slotted && found.index > 0)) return;
+    if (found.card.isProtagonist) return;
     if (target === "battle" || target === "protagonist") {
       const slot = Number(payload?.slot);
       if (target === "battle" && (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length)) return;

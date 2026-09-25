@@ -290,16 +290,15 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
   </div>;
 }
 
-function Zone({ label, children, className = "", onDragOver, onDrop, onContextMenu }: {
-  label: string;
+function Zone({ ariaLabel, children, className = "", onDragOver, onDrop, onContextMenu }: {
+  ariaLabel: string;
   children?: React.ReactNode;
   className?: string;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
-  return <div className={`${styles.zone} ${className}`} onDragOver={onDragOver} onDrop={onDrop} onContextMenu={onContextMenu}>
-    <span className={styles.zoneLabel}>{label}</span>
+  return <div className={`${styles.zone} ${className}`} aria-label={ariaLabel} onDragOver={onDragOver} onDrop={onDrop} onContextMenu={onContextMenu}>
     <div className={styles.zoneContent}>{children}</div>
   </div>;
 }
@@ -392,7 +391,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
       {Array.from({ length: 6 }).map((_, visualIndex) => {
         if (visualIndex === protagonistIndex) return <Zone
           key={visualIndex}
-          label="Protagonist"
+          ariaLabel="Protagonist"
           className={styles.protagonistSlot}
           onDragOver={movable ? onDragOver : undefined}
           onDrop={movable ? (event) => onDrop(event, "protagonist") : undefined}
@@ -416,7 +415,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
         const items = table.battle[slot] ?? [];
         return <Zone
           key={visualIndex}
-          label="Battle"
+          ariaLabel="Battle"
           className={styles.battleSlot}
           onDragOver={movable ? onDragOver : undefined}
           onDrop={movable ? (event) => onDrop(event, "battle", slot) : undefined}
@@ -491,7 +490,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
         return <BattleCard
           key={item.uid}
           item={item}
-          movable={movable && index === 0 && !item.isProtagonist}
+          movable={movable && !item.isProtagonist}
           menuEnabled={movable}
           frazzleEditable={movable}
           dropTargetEnabled={movable}
@@ -749,7 +748,8 @@ export default function OnlineGamePage() {
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuSlottedCard = menu ? findSlottedCard(myTable, menu.uid) : undefined;
-  const menuCardCanMove = !menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist);
+  const menuCardCanMove = !menuSlottedCard?.card.isProtagonist;
+  const menuCardCanAttach = !menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist);
   const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
     : openZone?.owner === "opponent" && openZone.name === "hand"
       ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
@@ -902,7 +902,7 @@ export default function OnlineGamePage() {
       onSwapWithMain={menuSlottedCard && menuSlottedCard.index > 0
         ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
         : undefined}
-      onStartAttach={menuCardCanMove
+      onStartAttach={menuCardCanAttach
         ? () => { setAttachingUid(menu.uid); setMenu(null); }
         : undefined}
       onMove={menuCardCanMove
