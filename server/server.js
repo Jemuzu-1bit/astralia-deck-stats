@@ -275,6 +275,23 @@ io.on("connection", (socket) => {
     found.card.frazzle = next;
     room.lastActivity = Date.now(); emitState(room);
   });
+  socket.on("game:setStat", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    const stat = String(payload?.stat || "");
+    if (!found?.slotted || !(stat === "atk" || stat === "hp")) return;
+
+    const requestedValue = Number(payload?.value);
+    const delta = Number(payload?.delta);
+    let next;
+    if (Number.isInteger(requestedValue) && requestedValue >= 0 && requestedValue <= 999) next = requestedValue;
+    else if ((delta === -1 || delta === 1) && Number.isInteger(found.card[stat])) {
+      next = Math.max(0, Math.min(999, found.card[stat] + delta));
+    } else return;
+    found.card[stat] = next;
+    room.lastActivity = Date.now(); emitState(room);
+  });
   socket.on("game:moveCard", (payload) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
@@ -295,6 +312,8 @@ io.on("connection", (socket) => {
     } else {
       const card = removeFoundCard(table, found);
       card.frazzle = 0;
+      delete card.atk;
+      delete card.hp;
       card.revealed = false;
       if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(card);
       else table[target].push(card);

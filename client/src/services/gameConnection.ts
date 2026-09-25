@@ -4,6 +4,8 @@ export interface GameCard {
   uid: string;
   id: string;
   frazzle: number;
+  atk?: number;
+  hp?: number;
   revealed?: boolean;
   isProtagonist?: boolean;
 }
@@ -163,6 +165,8 @@ class GameConnection {
   setOblivionCards(cards: string[]) { this.socket?.emit("lobby:setOblivionCards", cards); }
   setCardFrazzle(uid: string, value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "card", uid, value }); }
   adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
+  setCardStat(uid: string, stat: "atk" | "hp", value: number) { this.socket?.emit("game:setStat", { uid, stat, value }); }
+  adjustCardStat(uid: string, stat: "atk" | "hp", delta: -1 | 1) { this.socket?.emit("game:setStat", { uid, stat, delta }); }
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
   }

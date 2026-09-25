@@ -33,7 +33,7 @@ function waitForState(socket, predicate) {
   });
 }
 
-test("slot stacks, Frazzle counters, and swaps remain synchronized and cannot modify the opponent's cards", async () => {
+test("slot stacks, counters, and swaps remain synchronized and cannot modify the opponent's cards", async () => {
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, ["server.js"], {
@@ -145,6 +145,18 @@ test("slot stacks, Frazzle counters, and swaps remain synchronized and cannot mo
     host.emit("game:setFrazzle", { target: "card", uid, value: 2 });
     state = await frazzleRestored;
 
+    const statsSet = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.atk === 7
+      && next.host?.table?.battle?.[0]?.[0]?.hp === 12);
+    host.emit("game:setStat", { uid, stat: "atk", value: 7 });
+    host.emit("game:setStat", { uid, stat: "hp", value: 12 });
+    await statsSet;
+    const attackRaised = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.atk === 8);
+    host.emit("game:setStat", { uid, stat: "atk", delta: 1 });
+    await attackRaised;
+    const healthLowered = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.hp === 11);
+    host.emit("game:setStat", { uid, stat: "hp", delta: -1 });
+    state = await healthLowered;
+
     const inProtagonistSubslot = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "protagonist" });
     state = await inProtagonistSubslot;
@@ -183,6 +195,8 @@ test("slot stacks, Frazzle counters, and swaps remain synchronized and cannot mo
     state = await topOfDeck;
     assert.equal(state.host.table.battle[0].length, 0);
     assert.equal(state.host.table.deck[0].frazzle, 0);
+    assert.equal(state.host.table.deck[0].atk, undefined);
+    assert.equal(state.host.table.deck[0].hp, undefined);
 
     const secondUid = state.host.table.hand[0].uid;
     const bottomOfDeck = waitForState(host, (next) => next.host?.table?.deck?.at(-1)?.uid === secondUid);

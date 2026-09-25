@@ -23,6 +23,7 @@ type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
+type CardStat = "atk" | "hp";
 type SlottedCard = { card: GameCard; zone: "battle" | "protagonist"; slot?: number; index: number };
 
 const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> = [
@@ -116,6 +117,32 @@ function FrazzleCounter({ value, editable, onAdjust }: {
       if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); adjust(-1); }
     } : undefined}
   >{value}</span>;
+}
+
+function StatCounter({ stat, value, editable, onAdjust }: {
+  stat: CardStat;
+  value: number;
+  editable: boolean;
+  onAdjust: (delta: -1 | 1) => void;
+}) {
+  const label = stat.toUpperCase();
+  const adjust = (delta: -1 | 1) => {
+    if (editable) onAdjust(delta);
+  };
+  return <span
+    className={`${styles.statCounter} ${styles[`${stat}Counter`]} ${editable ? styles.editableStatCounter : ""}`}
+    role={editable ? "button" : undefined}
+    tabIndex={editable ? 0 : undefined}
+    aria-label={editable ? `${label} ${value}. Left click increases it, right click decreases it.` : `${label} ${value}`}
+    title={editable ? `Left click: +1 ${label} · Right click: -1 ${label}` : `${label} ${value}`}
+    onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
+    onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(1); } : undefined}
+    onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(-1); } : undefined}
+    onKeyDown={editable ? (event) => {
+      if (event.key === "ArrowUp" || event.key === "+") { event.preventDefault(); adjust(1); }
+      if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); adjust(-1); }
+    } : undefined}
+  ><small>{label}</small>{value}</span>;
 }
 
 function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
@@ -318,7 +345,7 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
@@ -328,6 +355,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   onDrawDeck: () => void;
   onDeckMenu: (event: MouseEvent<HTMLDivElement>) => void;
   onCardFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onCardStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
   onDragStart: CardDrag;
@@ -379,6 +407,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
             onDragEnd={onDragEnd}
             onMenu={onMenu}
             onFrazzleAdjust={onCardFrazzleAdjust}
+            onStatAdjust={onCardStatAdjust}
             onAttachDrop={onAttachDrop}
             onAttachTarget={onAttachTarget}
           />
@@ -401,6 +430,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
             onDragEnd={onDragEnd}
             onMenu={onMenu}
             onFrazzleAdjust={onCardFrazzleAdjust}
+            onStatAdjust={onCardStatAdjust}
             onAttachDrop={onAttachDrop}
             onAttachTarget={onAttachTarget}
           />
@@ -432,7 +462,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   </section>;
 }
 
-function SlotStack({ items, protagonist = false, movable, attachingUid, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onAttachDrop, onAttachTarget }: {
+function SlotStack({ items, protagonist = false, movable, attachingUid, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
   items: GameCard[];
   protagonist?: boolean;
   movable: boolean;
@@ -442,6 +472,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
   onDragEnd: () => void;
   onMenu: CardMenu;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
 }) {
@@ -470,6 +501,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
           onDragEnd={onDragEnd}
           onMenu={onMenu}
           onFrazzleAdjust={onFrazzleAdjust}
+          onStatAdjust={onStatAdjust}
           onAttachDrop={onAttachDrop}
           onAttachTarget={onAttachTarget}
           className={index === 0 ? styles.slotMain : styles.attachedCard}
@@ -480,7 +512,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
   </div>;
 }
 
-function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
+function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
   item: GameCard;
   movable: boolean;
   menuEnabled?: boolean;
@@ -492,6 +524,7 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
   onDragEnd: () => void;
   onMenu: CardMenu;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
   className?: string;
@@ -519,6 +552,18 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
       editable={frazzleEditable}
       onAdjust={(delta) => onFrazzleAdjust(item.uid, delta)}
     />
+    {item.atk !== undefined && <StatCounter
+      stat="atk"
+      value={item.atk}
+      editable={frazzleEditable}
+      onAdjust={(delta) => onStatAdjust(item.uid, "atk", delta)}
+    />}
+    {item.hp !== undefined && <StatCounter
+      stat="hp"
+      value={item.hp}
+      editable={frazzleEditable}
+      onAdjust={(delta) => onStatAdjust(item.uid, "hp", delta)}
+    />}
   </div>;
 }
 
@@ -540,17 +585,27 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, onAdjustFrazzle, onSwapWithMain, onStartAttach, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, revealState, statValues, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
   revealState?: boolean;
+  statValues?: Partial<Record<CardStat, number>>;
   onAdjustFrazzle?: (delta: -1 | 1) => void;
+  onSetStat?: (stat: CardStat, value: number) => void;
   onSwapWithMain?: () => void;
   onStartAttach?: () => void;
   onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
   onToggleReveal?: () => void;
   onClose: () => void;
 }) {
+  const [selectedStat, setSelectedStat] = useState<CardStat | null>(null);
+  const [amount, setAmount] = useState("0");
+  const statValue = Number(amount);
+  const validStatValue = Number.isInteger(statValue) && statValue >= 0 && statValue <= 999;
+  const selectStat = (stat: CardStat) => {
+    setSelectedStat(stat);
+    setAmount(String(statValues?.[stat] ?? 0));
+  };
   useEffect(() => {
     const close = () => onClose();
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -559,10 +614,29 @@ function ContextMenu({ x, y, revealState, onAdjustFrazzle, onSwapWithMain, onSta
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
   }, [onClose]);
 
-  return <div className={styles.contextMenu} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 215)), top: Math.max(8, Math.min(y, window.innerHeight - (onMove ? 340 : 110))) }} onPointerDown={(event) => event.stopPropagation()}>
+  return <div className={`${styles.contextMenu} ${selectedStat ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : onMove ? 340 : 110))) }} onPointerDown={(event) => event.stopPropagation()}>
+    {selectedStat ? <form onSubmit={(event) => { event.preventDefault(); if (validStatValue) onSetStat?.(selectedStat, statValue); }}>
+      <button type="button" onClick={() => setSelectedStat(null)}>← Actions</button>
+      <label htmlFor="card-stat-value">Set {selectedStat.toUpperCase()}</label>
+      <input
+        id="card-stat-value"
+        type="number"
+        min={0}
+        max={999}
+        step={1}
+        value={amount}
+        onChange={(event) => setAmount(event.target.value)}
+        autoFocus
+      />
+      <button type="submit" disabled={!validStatValue}>Confirm</button>
+    </form> : <>
     {onAdjustFrazzle && <>
       <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(1)}>Add Frazzle</button>
       <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(-1)}>Remove Frazzle</button>
+    </>}
+    {onSetStat && <>
+      <button type="button" role="menuitem" onClick={() => selectStat("atk")}>Set ATK</button>
+      <button type="button" role="menuitem" onClick={() => selectStat("hp")}>Set HP</button>
     </>}
     {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
     {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
@@ -575,6 +649,7 @@ function ContextMenu({ x, y, revealState, onAdjustFrazzle, onSwapWithMain, onSta
       <button type="button" role="menuitem" onClick={() => onMove("persona")}>Persona</button>
       <button type="button" role="menuitem" onClick={() => onMove("hand")}>Hand</button>
       <button type="button" role="menuitem" onClick={() => onMove("graveyard")}>Graveyard</button>
+    </>}
     </>}
   </div>;
 }
@@ -770,6 +845,7 @@ export default function OnlineGamePage() {
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
+        onCardStatAdjust={(uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta)}
         onAttachDrop={dropOnCard}
         onAttachTarget={selectAttachTarget}
         onDragStart={startDrag}
@@ -788,6 +864,7 @@ export default function OnlineGamePage() {
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
+        onCardStatAdjust={(uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta)}
         onAttachDrop={dropOnCard}
         onAttachTarget={selectAttachTarget}
         onDragStart={startDrag}
@@ -815,10 +892,13 @@ export default function OnlineGamePage() {
     </div>}
     <Inspector card={inspectedCard} />
     {menu && <ContextMenu
+      key={`${menu.uid}:${menu.x}:${menu.y}`}
       x={menu.x}
       y={menu.y}
       revealState={menuHandCard ? Boolean(menuHandCard.revealed) : undefined}
+      statValues={menuSlottedCard ? { atk: menuSlottedCard.card.atk, hp: menuSlottedCard.card.hp } : undefined}
       onAdjustFrazzle={menuSlottedCard ? (delta) => { gameConnection.adjustCardFrazzle(menu.uid, delta); setMenu(null); } : undefined}
+      onSetStat={menuSlottedCard ? (stat, value) => { gameConnection.setCardStat(menu.uid, stat, value); setMenu(null); } : undefined}
       onSwapWithMain={menuSlottedCard && menuSlottedCard.index > 0
         ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
         : undefined}
