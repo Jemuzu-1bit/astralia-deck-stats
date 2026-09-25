@@ -150,6 +150,36 @@
   white-space: nowrap;
 }
 
+.deckSearchControl {
+  flex: 0 0 clamp(150px, 18vw, 240px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+
+  span {
+    color: #e4c65f;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+}
+
+.deckSearchInput {
+  width: 100%;
+  padding: .42rem .6rem;
+  box-sizing: border-box;
+  color: #f5efd7;
+  background: #090e1e;
+  border: 1px solid rgba(212, 175, 55, .55);
+  border-radius: 6px;
+  font: inherit;
+
+  &::placeholder { color: rgba(245, 239, 215, .45); }
+  &:focus { border-color: #e4c65f; outline: 2px solid rgba(228, 198, 95, .2); }
+}
+
 .handDockBack {
   flex: 0 0 auto;
   padding: .35rem .6rem;

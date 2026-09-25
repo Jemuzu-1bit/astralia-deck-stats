@@ -249,9 +249,11 @@ function CardStack({ items, spread = false, onInspect, onDragStart, onDragEnd, o
   </div>;
 }
 
-function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
+function CardRail({ items, label, searchQuery, sortByName = false, onInspect, onDragStart, onDragEnd, onMenu }: {
   items: GameCard[];
   label: string;
+  searchQuery?: string;
+  sortByName?: boolean;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
@@ -259,6 +261,18 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
 }) {
   const cards = useResolvedCards(items);
   const railRef = useRef<HTMLDivElement>(null);
+  const visibleCards = useMemo(() => {
+    const query = searchQuery?.trim().toLocaleLowerCase();
+    const filtered = query
+      ? cards.filter(({ card }) => [
+        card.name, card.setId, card.type, card.subtype, card.keywords, card.description,
+      ].some((value) => value?.toLocaleLowerCase().includes(query)))
+      : cards;
+    if (!sortByName) return filtered;
+    return [...filtered].sort((a, b) =>
+      a.card.name.localeCompare(b.card.name, undefined, { sensitivity: "base" })
+      || a.card.setId.localeCompare(b.card.setId, undefined, { sensitivity: "base" }));
+  }, [cards, searchQuery, sortByName]);
 
   useEffect(() => {
     const rail = railRef.current;
@@ -279,7 +293,7 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
   }, []);
 
   return <div ref={railRef} className={styles.hand} aria-label={label}>
-    {cards.map((entry) => <CardThumb
+    {visibleCards.map((entry) => <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
       onInspect={onInspect}
@@ -288,6 +302,7 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
       onMenu={onMenu}
     />)}
     {items.length === 0 && <span className={styles.emptyText}>Empty</span>}
+    {items.length > 0 && cards.length > 0 && visibleCards.length === 0 && <span className={styles.emptyText}>No matches</span>}
   </div>;
 }
 
@@ -688,12 +703,13 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
   </div>;
 }
 
-function DeckContextMenu({ x, y, deckCount, onAction, onLook, onClose }: {
+function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose }: {
   x: number;
   y: number;
   deckCount: number;
   onAction: (action: DeckAction, count?: number) => void;
   onLook: (count: number) => void;
+  onSearch: () => void;
   onClose: () => void;
 }) {
   const [selectedAction, setSelectedAction] = useState<CountedDeckAction | null>(null);
@@ -717,7 +733,7 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onClose }: {
   return <div
     className={`${styles.contextMenu} ${styles.deckMenu}`}
     role="menu"
-    style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedAction ? 175 : 285))) }}
+    style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedAction ? 175 : 325))) }}
     onPointerDown={(event) => event.stopPropagation()}
   >
     {selectedAction ? <form onSubmit={(event) => { event.preventDefault(); submitSelected(); }}>
@@ -745,6 +761,8 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onClose }: {
         disabled={deckCount === 0}
         onClick={() => setSelectedAction(action)}
       >{label}</button>)}
+      <hr />
+      <button type="button" role="menuitem" disabled={deckCount === 0} onClick={onSearch}>Search deck</button>
     </>}
   </div>;
 }
@@ -756,6 +774,7 @@ export default function OnlineGamePage() {
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
+  const [deckSearchQuery, setDeckSearchQuery] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean } | null>(null);
   const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
@@ -779,7 +798,7 @@ export default function OnlineGamePage() {
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
   const openCards = openZone ? (openZone.owner === "self" ? myTable : opponentTable)[openZone.name] : EMPTY_TABLE.hand;
   const peekCards = useMemo(() => peekedUids === null ? EMPTY_TABLE.hand : myTable.deck.filter((card) => peekedUids.includes(card.uid)), [myTable.deck, peekedUids]);
-  const railCards = peekedUids !== null ? peekCards : openZone ? openCards : myTable.hand;
+  const railCards = peekedUids !== null ? peekCards : deckSearchQuery !== null ? myTable.deck : openZone ? openCards : myTable.hand;
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuActionCard = menu ? myTable.action.find((card) => card.uid === menu.uid) : undefined;
@@ -788,24 +807,25 @@ export default function OnlineGamePage() {
   const menuCardCanAttach = !menuActionCard
     && (!menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist));
   const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
-    : openZone?.owner === "opponent" && openZone.name === "hand"
+    : deckSearchQuery !== null ? `Deck search · ${myTable.deck.length} cards`
+      : openZone?.owner === "opponent" && openZone.name === "hand"
       ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
       : openZone ? `${openZone.owner === "self" ? "Your" : "Opponent"} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
         : `Hand · ${myTable.hand.length}`;
 
-  const showHand = () => { setOpenZone(null); setPeekedUids(null); setInspectedCard(null); };
+  const showHand = () => { setOpenZone(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); };
   useEffect(() => {
     if (openZone?.owner === "opponent" && openZone.name === "hand" && inspectedCard
       && !openCards.some((card) => card.id === inspectedCard.id)) setInspectedCard(null);
   }, [openZone, openCards, inspectedCard]);
   useEffect(() => {
-    if (!openZone && peekedUids === null) return;
+    if (!openZone && peekedUids === null && deckSearchQuery === null) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setOpenZone(null); setPeekedUids(null); setInspectedCard(null); }
+      if (event.key === "Escape") { setOpenZone(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [openZone, peekedUids]);
+  }, [openZone, peekedUids, deckSearchQuery]);
   useEffect(() => {
     if (!attachingUid) return;
     const cancelAttach = (event: KeyboardEvent) => { if (event.key === "Escape") setAttachingUid(null); };
@@ -863,7 +883,11 @@ export default function OnlineGamePage() {
   const drawOne = () => { if (myTable.deck.length > 0) deckAction("draw", 1); };
   const lookAtTop = (count: number) => {
     setPeekedUids(myTable.deck.slice(0, count).map((card) => card.uid));
-    setOpenZone(null); setInspectedCard(null); setDeckMenu(null);
+    setOpenZone(null); setDeckSearchQuery(null); setInspectedCard(null); setDeckMenu(null);
+  };
+  const searchDeck = () => {
+    setDeckSearchQuery("");
+    setPeekedUids(null); setOpenZone(null); setInspectedCard(null); setDeckMenu(null);
   };
 
   return <div className={`${styles.root} ${dragging ? styles.dragging : ""}`}>
@@ -878,7 +902,7 @@ export default function OnlineGamePage() {
         opponentSide
         attachingUid={null}
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "opponent", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenZone({ owner: "opponent", name }); }}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
@@ -897,7 +921,7 @@ export default function OnlineGamePage() {
         table={myTable}
         attachingUid={attachingUid}
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setOpenZone({ owner: "self", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenZone({ owner: "self", name }); }}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
@@ -910,12 +934,25 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={dragOver} onDrop={(event) => drop(event, "hand")}>
-        {(openZone || peekedUids !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
-        <div className={styles.handDockLabel}>{railTitle}</div>
+      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={dragOver} onDrop={(event) => drop(event, "hand")}>
+        {(openZone || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
+        {deckSearchQuery === null && <div className={styles.handDockLabel}>{railTitle}</div>}
+        {deckSearchQuery !== null && <label className={styles.deckSearchControl}>
+          <span>Search Card</span>
+          <input
+            className={styles.deckSearchInput}
+            type="search"
+            value={deckSearchQuery}
+            onChange={(event) => setDeckSearchQuery(event.target.value)}
+            placeholder="Name or card text…"
+            autoFocus
+          />
+        </label>}
         <CardRail
           items={railCards}
-          label={peekedUids !== null ? "Top cards of your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
+          label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck, sorted by name" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
+          searchQuery={deckSearchQuery ?? undefined}
+          sortByName={deckSearchQuery !== null}
           onInspect={setInspectedCard}
           onDragStart={railMovable ? startDrag : undefined}
           onDragEnd={railMovable ? endDrag : undefined}
@@ -960,6 +997,7 @@ export default function OnlineGamePage() {
       deckCount={myTable.deck.length}
       onAction={deckAction}
       onLook={lookAtTop}
+      onSearch={searchDeck}
       onClose={() => setDeckMenu(null)}
     />}
   </div>;
