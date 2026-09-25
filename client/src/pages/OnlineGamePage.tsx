@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type WheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import CardDisplay from "../components/CardDisplay";
 import { getCardFaces } from "../services/cardDataService";
@@ -238,19 +238,27 @@ function CardRail({ items, label, onInspect, onDragStart, onDragEnd, onMenu }: {
   onMenu?: CardMenu;
 }) {
   const cards = useResolvedCards(items);
-  const scrollHorizontally = (event: WheelEvent<HTMLDivElement>) => {
-    const rail = event.currentTarget;
-    const maxScrollLeft = rail.scrollWidth - rail.clientWidth;
-    if (maxScrollLeft <= 0) return;
+  const railRef = useRef<HTMLDivElement>(null);
 
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, rail.scrollLeft + delta));
-    if (nextScrollLeft === rail.scrollLeft) return;
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
 
-    rail.scrollLeft = nextScrollLeft;
-  };
+    const scrollHorizontally = (event: WheelEvent) => {
+      if (rail.scrollWidth <= rail.clientWidth) return;
 
-  return <div className={styles.hand} aria-label={label} onWheel={scrollHorizontally}>
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (delta === 0) return;
+
+      event.preventDefault();
+      rail.scrollLeft += delta;
+    };
+
+    rail.addEventListener("wheel", scrollHorizontally, { passive: false });
+    return () => rail.removeEventListener("wheel", scrollHorizontally);
+  }, []);
+
+  return <div ref={railRef} className={styles.hand} aria-label={label}>
     {cards.map((entry) => <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
