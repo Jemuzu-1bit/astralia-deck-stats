@@ -1,13 +1,27 @@
 import { useState, useEffect } from "react";
-import { getCardsByField } from "../services/cardDataService";
 import { getCardIdentity } from "../data/cardDataReader";
+import { getCardFaces } from "../services/cardDataService";
 import type { Card } from "../types/Card.ts";
-import type { AugCard } from "../types/AugCard";
 import type { Deck } from "../types/Deck";
 import { createDeck, updateDeck } from "../services/deckService";
+import {
+  addToSelection,
+  buildDeckPayload,
+  COPIES_PER_CARD,
+  countSelectedCards,
+  FACTIONS,
+  removeFromSelection,
+  SECTION_LIMITS,
+  shuffleCards,
+  type CardSelection,
+  type DeckSection,
+  type SelectedCard,
+} from "../domain/deckBuilder";
+import { useCardFilters } from "../hooks/useCardFilters";
+import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 import CardDisplay from "./CardDisplay";
 import CardDetailsModal from "./CardDetailsModal";
-import CardFilters from "./CardFilters";
+import DeckBuilderSection from "./DeckBuilderSection";
 import DeckStats from "./DeckStats";
 import FactionSelection from "./FactionSelection";
 import styles from "./DeckCreationModal.module.scss";
@@ -16,15 +30,6 @@ interface DeckCreationModalProps {
   onClose: () => void;
   initialDeck?: Deck;
   onSaved?: (deck: Deck) => void;
-}
-
-const factions = ["red", "blue", "green", "purple", "pink"];
-
-type SectionKey = "protagonist" | "persona" | "deck";
-
-interface SelectedCard {
-  card: Card;
-  qty: number;
 }
 
 export default function DeckCreationModal({
@@ -42,24 +47,20 @@ export default function DeckCreationModal({
     initialDeck?.backgroundImage ?? null
   );
 
-  const [protagonistOptions, setProtagonistOptions] = useState<AugCard[]>([]);
-  const [personaOptions, setPersonaOptions] = useState<AugCard[]>([]);
-  const [deckOptions, setDeckOptions] = useState<AugCard[]>([]);
+  const cardOptions = useDeckCardOptions(selectedFaction);
 
   const [protagonistSelection, setProtagonistSelection] =
     useState<SelectedCard | null>(null);
-  const [personaSelectionMap, setPersonaSelectionMap] = useState<
-    Record<string, SelectedCard>
-  >({});
-  const [deckSelectionMap, setDeckSelectionMap] = useState<
-    Record<string, SelectedCard>
-  >({});
+  const [personaSelectionMap, setPersonaSelectionMap] =
+    useState<CardSelection>({});
+  const [deckSelectionMap, setDeckSelectionMap] =
+    useState<CardSelection>({});
   const [initialHand, setInitialHand] = useState<Card[]>([]);
   const [remainingDeck, setRemainingDeck] = useState<Card[]>([]);
   const [mulliganIndexes, setMulliganIndexes] = useState<number[]>([]);
   const [mulliganUsed, setMulliganUsed] = useState(false);
 
-  const [editing, setEditing] = useState<Record<SectionKey, boolean>>({
+  const [editing, setEditing] = useState<Record<DeckSection, boolean>>({
     protagonist: false,
     persona: false,
     deck: false,
@@ -68,75 +69,6 @@ export default function DeckCreationModal({
   const [detailCard, setDetailCard] = useState<Card | null>(null);
   const openCardDetails = (card: Card) => setDetailCard(card);
   const closeCardDetails = () => setDetailCard(null);
-
-  useEffect(() => {
-    if (!selectedFaction) return;
-
-    (async () => {
-      const [pros, personas, deckCards] = await Promise.all([
-        getCardsByField("mainDeck", "Protagonist"),
-        getCardsByField("mainDeck", "Persona"),
-        getCardsByField("mainDeck", "Deck"),
-      ]);
-
-      const low = selectedFaction.toLowerCase();
-      const mergeList = async (list: Card[]) => {
-        const { getCardFaces } = await import("../services/cardDataService");
-
-        const out: AugCard[] = await Promise.all(
-          list
-            .filter((c) => c.faction.toLowerCase() === low)
-            .map(async (c) => {
-              try {
-                const faces = await getCardFaces(c.id);
-                const back = faces.back;
-                const frontKeys = (c.keywords || "").trim();
-                const backKeys = (back?.keywords || "").trim();
-                const mergedKeys = [frontKeys, backKeys]
-                  .filter(Boolean)
-                  .join(",")
-                  .split(",")
-                  .map((k: string) => k.trim())
-                  .filter(Boolean)
-                  .join(",");
-
-                const frontAtk = (c.atk || "").trim();
-                const backAtk = (back?.atk || "").trim();
-                const mergedAtk = [frontAtk, backAtk]
-                  .filter(Boolean)
-                  .map((a: string) => a.trim())
-                  .filter((v, i, arr) => arr.indexOf(v) === i)
-                  .join(",");
-
-                const frontHp = (c.hp || "").trim();
-                const backHp = (back?.hp || "").trim();
-                const mergedHp = [frontHp, backHp]
-                  .filter(Boolean)
-                  .map((h: string) => h.trim())
-                  .filter((v, i, arr) => arr.indexOf(v) === i)
-                  .join(",");
-
-                const aug: AugCard = {
-                  ...c,
-                  mergedKeywords: mergedKeys,
-                  mergedAtk,
-                  mergedHp,
-                };
-                return aug;
-              } catch {
-                return { ...c } as AugCard;
-              }
-            })
-        );
-
-        return out;
-      };
-
-      setProtagonistOptions(await mergeList(pros));
-      setPersonaOptions(await mergeList(personas));
-      setDeckOptions(await mergeList(deckCards));
-    })();
-  }, [selectedFaction]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -148,77 +80,58 @@ export default function DeckCreationModal({
   }, [onClose]);
 
   useEffect(() => {
-    if (!initialDeck) return;
+    let active = true;
+    if (!initialDeck) {
+      return () => {
+        active = false;
+      };
+    }
     if (
       !selectedFaction ||
       selectedFaction.toLowerCase() !== initialDeck.faction.toLowerCase()
     )
-      return;
+      return () => {
+        active = false;
+      };
+
     const tryPrefill = async () => {
-      const { getCardFaces } = await import("../services/cardDataService");
-      if (initialDeck.protagonist) {
-        const faces = await getCardFaces(initialDeck.protagonist);
-        if (faces.front) {
-          setProtagonistSelection({ card: faces.front, qty: 1 });
-        }
+      const [protagonistFaces, personaFaces, deckFaces] = await Promise.all([
+        initialDeck.protagonist
+          ? getCardFaces(initialDeck.protagonist)
+          : Promise.resolve<{ front?: Card; back?: Card }>({}),
+        Promise.all(initialDeck.persona.map(getCardFaces)),
+        Promise.all(initialDeck.deck.map((entry) => getCardFaces(entry.id))),
+      ]);
+      if (!active) return;
+
+      setProtagonistSelection(
+        protagonistFaces.front ? { card: protagonistFaces.front, qty: 1 } : null
+      );
+      const pMap: CardSelection = {};
+      for (const { front } of personaFaces) {
+        if (front) pMap[front.id] = { card: front, qty: 1 };
       }
-      const pMap: Record<string, { card: Card; qty: number }> = {};
-      for (const id of initialDeck.persona) {
-        const faces = await getCardFaces(id);
-        if (faces.front) {
-          const key = faces.front.id;
-          pMap[key] = {
-            card: faces.front,
-            qty: Math.min(1, (pMap[key]?.qty ?? 0) + 1),
-          };
-        }
-      }
-      setPersonaSelectionMap(pMap);
-      const dMap: Record<string, { card: Card; qty: number }> = {};
-      for (const ent of initialDeck.deck) {
-        const faces = await getCardFaces(ent.id);
-        if (faces.front) {
-          const key = faces.front.id;
-          const existing = dMap[key];
-          dMap[key] = {
-            card: faces.front,
-            qty: Math.min(perCardMax, (existing?.qty ?? 0) + ent.qty),
-          };
-        }
-      }
+      const dMap: CardSelection = {};
+      deckFaces.forEach(({ front }, index) => {
+        if (!front) return;
+        const existing = dMap[front.id];
+        dMap[front.id] = {
+          card: front,
+          qty: Math.min(
+            COPIES_PER_CARD,
+            (existing?.qty ?? 0) + initialDeck.deck[index].qty
+          ),
+        };
+      });
       setDeckSelectionMap(dMap);
+      setPersonaSelectionMap(pMap);
+      setBackgroundImage(initialDeck.backgroundImage ?? null);
     };
-    tryPrefill();
-    setBackgroundImage(initialDeck.backgroundImage ?? null);
-  }, [
-    initialDeck,
-    selectedFaction,
-    personaOptions.length,
-    deckOptions.length,
-    protagonistOptions.length,
-  ]);
-
-  const sectionLimits: Record<SectionKey, number> = {
-    protagonist: 1,
-    persona: 5,
-    deck: 45,
-  };
-
-  const perCardMax = 4;
-
-  const getTotalInMap = (map: Record<string, SelectedCard>) =>
-    Object.values(map).reduce((s, it) => s + it.qty, 0);
-
-  const getTotalForCardIdentity = (
-    map: Record<string, SelectedCard>,
-    card: Card
-  ) =>
-    Object.values(map).reduce(
-      (total, item) =>
-        total +
-        (getCardIdentity(item.card) === getCardIdentity(card) ? item.qty : 0),
-      0
-    );
+    void tryPrefill();
+    return () => {
+      active = false;
+    };
+  }, [initialDeck, selectedFaction]);
 
   useEffect(() => {
     // A displayed hand should never become misleading after the deck changes.
@@ -229,14 +142,11 @@ export default function DeckCreationModal({
   }, [deckSelectionMap]);
 
   const simulateInitialHand = () => {
-    const deck = Object.values(deckSelectionMap).flatMap(({ card, qty }) =>
-      Array.from({ length: qty }, () => card)
+    const deck = shuffleCards(
+      Object.values(deckSelectionMap).flatMap(({ card, qty }) =>
+        Array.from({ length: qty }, () => card)
+      )
     );
-
-    for (let i = deck.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
 
     setInitialHand(deck.slice(0, 5));
     setRemainingDeck(deck.slice(5));
@@ -268,14 +178,9 @@ export default function DeckCreationModal({
       selected.has(index) ? replacementCards[replacementIndex++] ?? card : card
     );
     const cardsToReturn = initialHand.filter((_, index) => selected.has(index));
-    const nextDeck = remainingDeck
-      .slice(mulliganIndexes.length)
-      .concat(cardsToReturn);
-
-    for (let i = nextDeck.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [nextDeck[i], nextDeck[j]] = [nextDeck[j], nextDeck[i]];
-    }
+    const nextDeck = shuffleCards(
+      remainingDeck.slice(mulliganIndexes.length).concat(cardsToReturn)
+    );
 
     setInitialHand(nextHand);
     setRemainingDeck(nextDeck);
@@ -283,141 +188,30 @@ export default function DeckCreationModal({
     setMulliganUsed(true);
   };
 
-  const toggleEdit = (section: SectionKey) => {
+  const toggleEdit = (section: DeckSection) => {
     setEditing((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  function useFilters() {
-    const [searchText, setSearchText] = useState("");
-    const [selectedCosts, setSelectedCosts] = useState<string[]>([]);
-    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-    const [selectedSubtypes, setSelectedSubtypes] = useState<string[]>([]);
-    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-    const [selectedAtks, setSelectedAtks] = useState<string[]>([]);
-    const [selectedHps, setSelectedHps] = useState<string[]>([]);
+  const protagonistFilters = useCardFilters();
+  const personaFilters = useCardFilters();
+  const deckFilters = useCardFilters();
 
-    const clearFilters = () => {
-      setSearchText("");
-      setSelectedCosts([]);
-      setSelectedTypes([]);
-      setSelectedSubtypes([]);
-      setSelectedKeywords([]);
-      setSelectedAtks([]);
-      setSelectedHps([]);
-    };
-
-    return {
-      searchText,
-      setSearchText,
-      selectedCosts,
-      setSelectedCosts,
-      selectedTypes,
-      setSelectedTypes,
-      selectedSubtypes,
-      setSelectedSubtypes,
-      selectedKeywords,
-      setSelectedKeywords,
-      selectedAtks,
-      setSelectedAtks,
-      selectedHps,
-      setSelectedHps,
-      clearFilters,
-    };
-  }
-
-  const protagonistFilters = useFilters();
-  const personaFilters = useFilters();
-  const deckFilters = useFilters();
-
-  const applyFilters = (
-    cards: Card[] | (Card & { mergedKeywords?: string })[],
-    f: ReturnType<typeof useFilters>
-  ) => {
-    const q = f.searchText.trim().toLowerCase();
-
-    return cards.filter((card) => {
-      if (q) {
-        const nameMatch = card.name.toLowerCase().includes(q);
-        const idMatch = card.id.toLowerCase().includes(q);
-        if (!nameMatch && !idMatch) return false;
-      }
-
-      if (
-        f.selectedCosts.length > 0 &&
-        !f.selectedCosts.includes(String(card.cost))
-      )
-        return false;
-      if (f.selectedTypes.length > 0 && !f.selectedTypes.includes(card.type))
-        return false;
-      if (
-        f.selectedSubtypes.length > 0 &&
-        !f.selectedSubtypes.includes(card.subtype)
-      )
-        return false;
-
-      if (f.selectedKeywords.length > 0) {
-        const rawKeywords =
-          (card as any).mergedKeywords ?? (card.keywords || "");
-        const cardKeys = rawKeywords
-          .split(",")
-          .map((k: string) => k.trim().toLowerCase())
-          .filter(Boolean);
-        if (!f.selectedKeywords.some((k) => cardKeys.includes(k.toLowerCase())))
-          return false;
-      }
-
-      if (f.selectedAtks.length > 0) {
-        const rawAtks = (card as any).mergedAtk ?? card.atk ?? "";
-        const cardAtkVals = String(rawAtks)
-          .split(",")
-          .map((a: string) => a.trim())
-          .filter(Boolean);
-        if (!f.selectedAtks.some((a) => cardAtkVals.includes(a))) return false;
-      }
-
-      if (f.selectedHps.length > 0) {
-        const rawHps = (card as any).mergedHp ?? card.hp ?? "";
-        const cardHpVals = String(rawHps)
-          .split(",")
-          .map((h: string) => h.trim())
-          .filter(Boolean);
-        if (!f.selectedHps.some((h) => cardHpVals.includes(h))) return false;
-      }
-
-      return true;
-    });
-  };
-
-  const addCard = (section: SectionKey, card: Card) => {
+  const addCard = (section: DeckSection, card: Card) => {
     if (section === "protagonist") {
       setProtagonistSelection({ card, qty: 1 });
       return;
     }
 
-    const map =
-      section === "persona"
-        ? { ...personaSelectionMap }
-        : { ...deckSelectionMap };
-
-    const total = getTotalInMap(map);
-    if (total >= sectionLimits[section]) return;
-
-    const cardKey = card.id;
-    const existing = map[cardKey];
-    const maxForCard = section === "persona" ? 1 : perCardMax;
-    const identityTotal = getTotalForCardIdentity(map, card);
-    if (identityTotal >= maxForCard) return;
-    if (existing) {
-      existing.qty += 1;
-    } else {
-      map[cardKey] = { card, qty: 1 };
-    }
-
-    if (section === "persona") setPersonaSelectionMap(map);
-    else setDeckSelectionMap(map);
+    const updateSelection = section === "persona"
+      ? setPersonaSelectionMap
+      : setDeckSelectionMap;
+    const identityLimit = section === "persona" ? 1 : COPIES_PER_CARD;
+    updateSelection((current) =>
+      addToSelection(current, card, SECTION_LIMITS[section], identityLimit)
+    );
   };
 
-  const removeCard = (section: SectionKey, card: Card) => {
+  const removeCard = (section: DeckSection, card: Card) => {
     if (section === "protagonist") {
       setProtagonistSelection((prev) =>
         prev && getCardIdentity(prev.card) === getCardIdentity(card)
@@ -427,151 +221,11 @@ export default function DeckCreationModal({
       return;
     }
 
-    const map =
-      section === "persona"
-        ? { ...personaSelectionMap }
-        : { ...deckSelectionMap };
-    const existing = map[card.id];
-    if (!existing) return;
-    existing.qty -= 1;
-    if (existing.qty <= 0) delete map[card.id];
-
-    if (section === "persona") setPersonaSelectionMap(map);
-    else setDeckSelectionMap(map);
+    const updateSelection = section === "persona"
+      ? setPersonaSelectionMap
+      : setDeckSelectionMap;
+    updateSelection((current) => removeFromSelection(current, card));
   };
-
-  const renderSelectedList = (section: SectionKey) => {
-    if (section === "protagonist") {
-      if (!protagonistSelection)
-        return <div className={styles.empty}>No protagonist selected</div>;
-      return (
-        <div className={styles.selectedProtagonist}>
-          <div className={styles.cardWrapper}>
-            <CardDisplay
-              card={protagonistSelection.card}
-              onClick={openCardDetails}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    const map = section === "persona" ? personaSelectionMap : deckSelectionMap;
-    const items = Object.values(map);
-    if (items.length === 0)
-      return <div className={styles.empty}>No cards selected</div>;
-
-    return (
-      <div className={styles.selectedGrid}>
-        {items.map((it) => (
-          <div key={it.card.id} className={styles.selectedItem}>
-            <div className={styles.cardWrapper}>
-              <CardDisplay card={it.card} onClick={openCardDetails} />
-              {section === "deck" && (
-                <div className={styles.qtyBadge}>{it.qty}</div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderEditGrid = (section: SectionKey) => {
-    const options =
-      section === "protagonist"
-        ? protagonistOptions
-        : section === "persona"
-        ? personaOptions
-        : deckOptions;
-    const map = section === "persona" ? personaSelectionMap : deckSelectionMap;
-    const filters =
-      section === "protagonist"
-        ? protagonistFilters
-        : section === "persona"
-        ? personaFilters
-        : deckFilters;
-
-    const displayOptions = applyFilters(options, filters);
-
-    return (
-      <div className={styles.editGrid}>
-        {displayOptions.map((card) => {
-          const currentQty =
-            section === "protagonist"
-              ? protagonistSelection &&
-                getCardIdentity(protagonistSelection.card) ===
-                  getCardIdentity(card)
-                ? protagonistSelection.qty
-                : 0
-              : map[card.id]?.qty ?? 0;
-
-          const total =
-            section === "persona"
-              ? getTotalInMap(personaSelectionMap)
-              : section === "deck"
-              ? getTotalInMap(deckSelectionMap)
-              : 0;
-
-          const maxForCard =
-            section === "protagonist" || section === "persona" ? 1 : perCardMax;
-          const identityTotal =
-            section === "protagonist"
-              ? currentQty
-              : getTotalForCardIdentity(map, card);
-
-          const disableAdd =
-            identityTotal >= maxForCard ||
-            (section !== "protagonist" && total >= sectionLimits[section]);
-
-          return (
-            <div key={card.id} className={styles.editRow}>
-              <div className={styles.cardWrapper}>
-                <CardDisplay card={card} onClick={openCardDetails} />
-              </div>
-              <div className={styles.controls}>
-                <button
-                  onClick={() => removeCard(section, card)}
-                  disabled={currentQty <= 0}
-                >
-                  -
-                </button>
-                <span className={styles.qty}>{currentQty}</span>
-                <button
-                  onClick={() => addCard(section, card)}
-                  disabled={disableAdd}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  function buildDeckPayload(): Omit<Deck, "id" | "updatedAt"> {
-    const personaIds = Object.values(personaSelectionMap).map(
-      (it) => it.card.id
-    );
-    const remainingByIdentity = new Map<string, number>();
-    const deckEntries = Object.values(deckSelectionMap).flatMap((it) => {
-      const identity = getCardIdentity(it.card);
-      const remaining = remainingByIdentity.get(identity) ?? perCardMax;
-      const qty = Math.min(it.qty, remaining);
-      remainingByIdentity.set(identity, remaining - qty);
-      return qty > 0 ? [{ id: it.card.id, qty }] : [];
-    });
-    return {
-      name: deckName.trim() || "New Deck",
-      faction: selectedFaction || "red",
-      protagonist: protagonistSelection?.card.id ?? null,
-      persona: personaIds,
-      deck: deckEntries,
-      backgroundImage: backgroundImage ?? null,
-    };
-  }
 
   const handleSave = () => {
     if (!selectedFaction) {
@@ -579,7 +233,14 @@ export default function DeckCreationModal({
       return;
     }
 
-    const payload = buildDeckPayload();
+    const payload = buildDeckPayload({
+      name: deckName,
+      faction: selectedFaction,
+      protagonist: protagonistSelection,
+      persona: personaSelectionMap,
+      deck: deckSelectionMap,
+      backgroundImage,
+    });
     let saved: Deck;
     if (initialDeck) {
       saved = updateDeck({
@@ -603,7 +264,7 @@ export default function DeckCreationModal({
 
         {!selectedFaction ? (
           <FactionSelection
-            factions={factions}
+            factions={[...FACTIONS]}
             onSelect={setSelectedFaction}
             onClose={onClose}
           />
@@ -683,153 +344,48 @@ export default function DeckCreationModal({
               </div>
             </div>
 
-            <section className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <h3>
-                  Protagonist
-                  <span className={styles.sectionCount}>
-                    {protagonistSelection ? protagonistSelection.qty : 0}/
-                    {sectionLimits.protagonist}
-                  </span>
-                </h3>
-                <div>
-                  <button
-                    className={styles.editButton}
-                    onClick={() => toggleEdit("protagonist")}
-                  >
-                    {editing.protagonist ? "Done" : "Edit"}
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.sectionBody}>
-                {editing.protagonist ? (
-                  <>
-                    <CardFilters
-                      options={protagonistOptions}
-                      searchText={protagonistFilters.searchText}
-                      setSearchText={protagonistFilters.setSearchText}
-                      selectedCosts={protagonistFilters.selectedCosts}
-                      setSelectedCosts={protagonistFilters.setSelectedCosts}
-                      selectedTypes={protagonistFilters.selectedTypes}
-                      setSelectedTypes={protagonistFilters.setSelectedTypes}
-                      selectedSubtypes={protagonistFilters.selectedSubtypes}
-                      setSelectedSubtypes={
-                        protagonistFilters.setSelectedSubtypes
-                      }
-                      selectedKeywords={protagonistFilters.selectedKeywords}
-                      setSelectedKeywords={
-                        protagonistFilters.setSelectedKeywords
-                      }
-                      selectedAtks={protagonistFilters.selectedAtks}
-                      setSelectedAtks={protagonistFilters.setSelectedAtks}
-                      selectedHps={protagonistFilters.selectedHps}
-                      setSelectedHps={protagonistFilters.setSelectedHps}
-                      clearFilters={protagonistFilters.clearFilters}
-                      hideTypeFilter
-                    />
-                    {renderEditGrid("protagonist")}
-                  </>
-                ) : (
-                  renderSelectedList("protagonist")
-                )}
-              </div>
-            </section>
-
-            <section className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <h3>
-                  Persona Cards
-                  <span className={styles.sectionCount}>
-                    {getTotalInMap(personaSelectionMap)}/{sectionLimits.persona}
-                  </span>
-                </h3>
-                <div>
-                  <button
-                    className={styles.editButton}
-                    onClick={() => toggleEdit("persona")}
-                  >
-                    {editing.persona ? "Done" : "Edit"}
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.sectionBody}>
-                {editing.persona ? (
-                  <>
-                    <CardFilters
-                      options={personaOptions}
-                      searchText={personaFilters.searchText}
-                      setSearchText={personaFilters.setSearchText}
-                      selectedCosts={personaFilters.selectedCosts}
-                      setSelectedCosts={personaFilters.setSelectedCosts}
-                      selectedTypes={personaFilters.selectedTypes}
-                      setSelectedTypes={personaFilters.setSelectedTypes}
-                      selectedSubtypes={personaFilters.selectedSubtypes}
-                      setSelectedSubtypes={personaFilters.setSelectedSubtypes}
-                      selectedKeywords={personaFilters.selectedKeywords}
-                      setSelectedKeywords={personaFilters.setSelectedKeywords}
-                      selectedAtks={personaFilters.selectedAtks}
-                      setSelectedAtks={personaFilters.setSelectedAtks}
-                      selectedHps={personaFilters.selectedHps}
-                      setSelectedHps={personaFilters.setSelectedHps}
-                      clearFilters={personaFilters.clearFilters}
-                    />
-                    {renderEditGrid("persona")}
-                  </>
-                ) : (
-                  renderSelectedList("persona")
-                )}
-              </div>
-            </section>
-
-            <section className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <h3>
-                  Deck Cards
-                  <span className={styles.sectionCount}>
-                    {getTotalInMap(deckSelectionMap)}/{sectionLimits.deck}
-                  </span>
-                </h3>
-                <div>
-                  <button
-                    className={styles.editButton}
-                    onClick={() => toggleEdit("deck")}
-                  >
-                    {editing.deck ? "Done" : "Edit"}
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.sectionBody}>
-                {editing.deck ? (
-                  <>
-                    <CardFilters
-                      options={deckOptions}
-                      searchText={deckFilters.searchText}
-                      setSearchText={deckFilters.setSearchText}
-                      selectedCosts={deckFilters.selectedCosts}
-                      setSelectedCosts={deckFilters.setSelectedCosts}
-                      selectedTypes={deckFilters.selectedTypes}
-                      setSelectedTypes={deckFilters.setSelectedTypes}
-                      selectedSubtypes={deckFilters.selectedSubtypes}
-                      setSelectedSubtypes={deckFilters.setSelectedSubtypes}
-                      selectedKeywords={deckFilters.selectedKeywords}
-                      setSelectedKeywords={deckFilters.setSelectedKeywords}
-                      selectedAtks={deckFilters.selectedAtks}
-                      setSelectedAtks={deckFilters.setSelectedAtks}
-                      selectedHps={deckFilters.selectedHps}
-                      setSelectedHps={deckFilters.setSelectedHps}
-                      clearFilters={deckFilters.clearFilters}
-                    />
-
-                    {renderEditGrid("deck")}
-                  </>
-                ) : (
-                  renderSelectedList("deck")
-                )}
-              </div>
-            </section>
+            <DeckBuilderSection
+              section="protagonist"
+              title="Protagonist"
+              editing={editing.protagonist}
+              options={cardOptions.protagonist}
+              filters={protagonistFilters}
+              protagonist={protagonistSelection}
+              selection={{}}
+              identityLimit={1}
+              onToggleEdit={() => toggleEdit("protagonist")}
+              onAddCard={(card) => addCard("protagonist", card)}
+              onRemoveCard={(card) => removeCard("protagonist", card)}
+              onOpenCard={openCardDetails}
+            />
+            <DeckBuilderSection
+              section="persona"
+              title="Persona Cards"
+              editing={editing.persona}
+              options={cardOptions.persona}
+              filters={personaFilters}
+              protagonist={protagonistSelection}
+              selection={personaSelectionMap}
+              identityLimit={1}
+              onToggleEdit={() => toggleEdit("persona")}
+              onAddCard={(card) => addCard("persona", card)}
+              onRemoveCard={(card) => removeCard("persona", card)}
+              onOpenCard={openCardDetails}
+            />
+            <DeckBuilderSection
+              section="deck"
+              title="Deck Cards"
+              editing={editing.deck}
+              options={cardOptions.deck}
+              filters={deckFilters}
+              protagonist={protagonistSelection}
+              selection={deckSelectionMap}
+              identityLimit={COPIES_PER_CARD}
+              onToggleEdit={() => toggleEdit("deck")}
+              onAddCard={(card) => addCard("deck", card)}
+              onRemoveCard={(card) => removeCard("deck", card)}
+              onOpenCard={openCardDetails}
+            />
 
             <section className={`${styles.section} ${styles.handSimulator}`}>
               <div className={styles.sectionHeader}>
@@ -850,7 +406,7 @@ export default function DeckCreationModal({
                       ? performMulligan()
                       : simulateInitialHand()
                   }
-                  disabled={getTotalInMap(deckSelectionMap) < 5}
+                  disabled={countSelectedCards(deckSelectionMap) < 5}
                 >
                   {!initialHand.length || mulliganUsed || mulliganIndexes.length === 0
                     ? "New Hand"
@@ -890,7 +446,7 @@ export default function DeckCreationModal({
 
             <DeckStats
               entries={Object.values(deckSelectionMap)}
-              limit={sectionLimits.deck}
+              limit={SECTION_LIMITS.deck}
             />
           </>
         )}

@@ -58,11 +58,11 @@ export default function MyDecksPage() {
     try {
       const imported = await importDeck(trimmed);
       const saved = createDeck(imported);
-      setDecks([saved, ...decks]);
+      setDecks((currentDecks) => [saved, ...currentDecks]);
       setShowImport(false);
       setImportCode("");
       setImportError(null);
-    } catch (e) {
+    } catch {
       setImportError("Invalid or unsupported deck code");
     }
   };

@@ -73,7 +73,7 @@ export default function DeckCard({
                 className={`${styles.action} ${styles.primary}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  deck && onShare?.(deck);
+                  if (deck) onShare?.(deck);
                 }}
               >
                 Share
@@ -82,7 +82,7 @@ export default function DeckCard({
                 className={`${styles.action} ${styles.danger}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  deck && onDelete?.(deck);
+                  if (deck) onDelete?.(deck);
                 }}
               >
                 Delete
