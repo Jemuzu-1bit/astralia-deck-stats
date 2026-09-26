@@ -165,6 +165,7 @@ function dealOpeningHand(player) {
     action: [],
     battle: Array.from({ length: 5 }, () => []),
     protagonist: player.protagonistId ? [protagonistInstance(player.protagonistId)] : [],
+    fragments: [],
   };
   syncCardLists(player);
 }
@@ -291,6 +292,42 @@ io.on("connection", (socket) => {
       next = Math.max(0, Math.min(999, found.card[stat] + delta));
     } else return;
     found.card[stat] = next;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:updateFragments", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const fragments = Array.isArray(player.table.fragments) ? player.table.fragments : [];
+    player.table.fragments = fragments;
+    const action = String(payload?.action || "");
+    const index = Number(payload?.index);
+
+    if (action === "add") {
+      if (fragments.length >= 10) return;
+      fragments.push(false);
+    } else if (action === "remove") {
+      if (fragments.length === 0) return;
+      fragments.pop();
+    } else if (action === "spend") {
+      const availableIndex = fragments.indexOf(false);
+      if (availableIndex === -1) return;
+      fragments[availableIndex] = true;
+    } else if (action === "recover") {
+      const spentIndex = fragments.lastIndexOf(true);
+      if (spentIndex === -1) return;
+      fragments[spentIndex] = false;
+    } else if (action === "spendAll") {
+      if (!fragments.includes(false)) return;
+      fragments.fill(true);
+    } else if (action === "recoverAll") {
+      if (!fragments.includes(true)) return;
+      fragments.fill(false);
+    } else if (action === "set") {
+      if (!Number.isInteger(index) || index < 0 || index >= fragments.length || typeof payload?.spent !== "boolean") return;
+      if (fragments[index] === payload.spent) return;
+      fragments[index] = payload.spent;
+    } else return;
+
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:playAction", (payload) => {

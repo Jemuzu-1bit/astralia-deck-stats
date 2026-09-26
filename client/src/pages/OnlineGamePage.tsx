@@ -13,6 +13,7 @@ import {
 } from "../services/gameConnection";
 import type { Card } from "../types/Card";
 import normalCardBack from "../assets/N_Back.png";
+import fragmentCard from "../assets/fragment.png";
 import styles from "./OnlineGamePage.module.scss";
 
 type InspectCard = (card: Card | null) => void;
@@ -34,7 +35,7 @@ const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> 
 ];
 
 const EMPTY_TABLE: GameTable = {
-  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], action: [], battle: [[], [], [], [], []], protagonist: [],
+  hand: [], deck: [], persona: [], graveyard: [], oblivion: [], action: [], battle: [[], [], [], [], []], protagonist: [], fragments: [],
 };
 const ZONE_NAMES: Record<ZoneName, string> = {
   persona: "Persona", graveyard: "Graveyard", oblivion: "Oblivion", hand: "Hand",
@@ -42,7 +43,7 @@ const ZONE_NAMES: Record<ZoneName, string> = {
 
 function playerTable(player: LobbyPlayerState | null): GameTable {
   if (!player) return EMPTY_TABLE;
-  if (player.table) return player.table;
+  if (player.table) return { ...player.table, fragments: player.table.fragments ?? [] };
 
   const legacyCards = (ids: string[] | null | undefined, zone: GameZone): GameCard[] =>
     (ids || []).map((id, index) => ({ uid: `legacy:${zone}:${index}:${id}`, id, frazzle: 0 }));
@@ -60,7 +61,43 @@ function playerTable(player: LobbyPlayerState | null): GameTable {
     protagonist: player.protagonistId
       ? [{ uid: `legacy:protagonist:${player.protagonistId}`, id: player.protagonistId, frazzle: 0, isProtagonist: true }]
       : [],
+    fragments: [],
   };
+}
+
+function FragmentDock({ fragments }: { fragments: boolean[] }) {
+  const available = fragments.filter((spent) => !spent).length;
+  const spent = fragments.length - available;
+
+  return <section className={styles.fragmentDock} aria-label={`Fragments, ${available} available and ${spent} spent`}>
+    <div className={styles.fragmentHeader}>
+      <div>
+        <strong>Fragment</strong>
+        <span>{available} ready · {spent} spent</span>
+      </div>
+      <div className={styles.fragmentControls}>
+        <button type="button" onClick={() => gameConnection.updateFragments("remove")} disabled={fragments.length === 0} aria-label="Remove a fragment">−</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("add")} disabled={fragments.length >= 10} aria-label="Add a fragment">+</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("spend")} disabled={available === 0}>Spend</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("recover")} disabled={spent === 0}>Recover</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("spendAll")} disabled={available === 0}>Spend all</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("recoverAll")} disabled={spent === 0}>Recover all</button>
+      </div>
+    </div>
+    <div className={styles.fragmentRail}>
+      {fragments.map((isSpent, index) => <button
+        key={index}
+        type="button"
+        className={isSpent ? styles.spentFragment : ""}
+        onClick={() => gameConnection.setFragmentSpent(index, !isSpent)}
+        aria-label={`Fragment ${index + 1}, ${isSpent ? "spent. Recover it" : "available. Spend it"}`}
+        title={isSpent ? "Spent · click to recover" : "Available · click to spend"}
+      >
+        <img src={fragmentCard} alt="" draggable={false} />
+      </button>)}
+      {fragments.length === 0 && <span className={styles.fragmentEmpty}>Add a Fragment</span>}
+    </div>
+  </section>;
 }
 
 function findSlottedCard(table: GameTable, uid: string): SlottedCard | undefined {
@@ -404,6 +441,8 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   onDrop: (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number) => void;
 }) {
   const movable = !opponentSide && Boolean(player?.table);
+  const readyFragments = table.fragments.filter((spent) => !spent).length;
+  const spentFragments = table.fragments.length - readyFragments;
   const protagonistIndex = opponentSide ? 1 : 4;
   const battleSlots = opponentSide ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 5];
   const sideZone = (name: ZoneName) => <CardZone
@@ -506,6 +545,9 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
       aria-label={`Show revealed cards in opponent hand, ${player?.handCount ?? table.hand.length} cards total`}
       onClick={() => onOpenZone("hand")}
     >Hand · {player?.handCount ?? table.hand.length}</button>}
+    {opponentSide && <div className={styles.opponentFragmentStatus} aria-label={`Opponent fragments: ${readyFragments} ready and ${spentFragments} spent`}>
+      <strong>Fragment</strong><span>{readyFragments} ready · {spentFragments} spent</span>
+    </div>}
   </section>;
 }
 
@@ -958,6 +1000,7 @@ export default function OnlineGamePage() {
           onDragEnd={railMovable ? endDrag : undefined}
           onMenu={railMovable ? showMenu : undefined}
         />
+        <FragmentDock fragments={myTable.fragments} />
       </section>
     </main>
     {attachingUid && <div className={styles.attachHint} role="status">

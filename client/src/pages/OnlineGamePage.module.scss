@@ -55,6 +55,7 @@
   background: linear-gradient(180deg, rgba(147, 73, 102, .15), transparent 72%);
   .playerBadge { top: .65rem; left: 1rem; }
   .handLabel { top: .7rem; right: 1rem; }
+  .opponentFragmentStatus { top: 2.65rem; right: 1rem; }
 }
 
 .playerHalf {
@@ -129,6 +130,23 @@
   &:hover, &:focus-visible { outline: 1px solid #e4c65f; }
 }
 
+.opponentFragmentStatus {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  gap: .45rem;
+  padding: .3rem .65rem;
+  color: rgba(245, 239, 215, .82);
+  background: rgba(5, 8, 18, .72);
+  border: 1px solid rgba(212, 175, 55, .28);
+  border-radius: 999px;
+  font-size: .72rem;
+  white-space: nowrap;
+
+  strong { color: #e4c65f; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+}
+
 .handDock {
   display: flex;
   align-items: center;
@@ -141,6 +159,95 @@
   background: rgba(5, 8, 18, .92);
   border-top: 1px solid rgba(212, 175, 55, .35);
 }
+
+.fragmentDock {
+  flex: 0 0 clamp(360px, 37vw, 460px);
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(212, 175, 55, .35);
+}
+
+.fragmentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .35rem;
+
+  > div:first-child { display: flex; align-items: baseline; gap: .45rem; min-width: 0; }
+  strong { color: #e4c65f; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+  span { opacity: .76; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+}
+
+.fragmentControls {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: .2rem;
+  max-width: none;
+  white-space: nowrap;
+  transform: translateY(-3px);
+
+  button {
+    min-width: 23px;
+    padding: .2rem .3rem;
+    color: #f5efd7;
+    background: #242b3d;
+    border: 1px solid rgba(212, 175, 55, .38);
+    border-radius: 4px;
+    font-size: .58rem;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled), button:focus-visible { border-color: #e4c65f; outline: none; }
+  button:disabled { opacity: .28; cursor: not-allowed; }
+}
+
+.fragmentRail {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  transform: translateY(-1px);
+
+  button {
+    position: relative;
+    flex: 0 0 46px;
+    width: 46px;
+    height: 64px;
+    margin-right: -17px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    transition: margin .18s ease, filter .18s ease;
+  }
+
+  button:last-of-type { margin-right: 0; }
+  button:hover, button:focus-visible { z-index: 12; margin-right: -5px; outline: none; filter: brightness(1.18); }
+  img {
+    display: block;
+    width: 46px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 3px;
+    box-shadow: 0 3px 9px rgba(0, 0, 0, .72);
+    transition: transform .22s ease, opacity .22s ease;
+  }
+}
+
+.fragmentRail .spentFragment {
+  z-index: 1;
+
+  img { transform: rotate(90deg) scale(.82); opacity: .64; filter: grayscale(.2); }
+}
+
+.fragmentEmpty { opacity: .3; font-size: .62rem; letter-spacing: .07em; text-transform: uppercase; }
 
 .handDockLabel {
   color: #e4c65f;
@@ -606,4 +713,8 @@
 @media (max-width: 1060px) {
   .playmat { width: calc(100% - 240px); }
   .inspector { width: 240px; }
+}
+
+@media (max-width: 900px) {
+  .fragmentDock { flex-basis: 360px; }
 }

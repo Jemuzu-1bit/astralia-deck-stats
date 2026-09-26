@@ -88,11 +88,41 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.protagonist.length, 1);
     assert.equal(state.host.table.protagonist[0].id, "hero");
     assert.equal(state.host.table.protagonist[0].isProtagonist, true);
+    assert.deepEqual(state.host.table.fragments, []);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
     assert.equal(opponentState.host.deckCount, 3);
     assert.equal(opponentState.host.mainDeckCards, null);
+
+    const tenFragments = waitForState(host, (next) => next.host?.table?.fragments?.length === 10);
+    const opponentSeesFragments = waitForState(guest, (next) => next.host?.table?.fragments?.length === 10);
+    for (let index = 0; index < 11; index += 1) host.emit("game:updateFragments", { action: "add" });
+    state = await tenFragments;
+    await opponentSeesFragments;
+    assert.equal(state.host.table.fragments.length, 10, "fragments are capped at ten");
+    assert.ok(state.host.table.fragments.every((spent) => spent === false));
+
+    const twoSpent = waitForState(host, (next) => next.host?.table?.fragments?.filter(Boolean).length === 2);
+    host.emit("game:updateFragments", { action: "spend" });
+    host.emit("game:updateFragments", { action: "spend" });
+    state = await twoSpent;
+    assert.deepEqual(state.host.table.fragments.slice(0, 2), [true, true]);
+
+    const selectedRecovered = waitForState(host, (next) => next.host?.table?.fragments?.[0] === false);
+    host.emit("game:updateFragments", { action: "set", index: 0, spent: false });
+    state = await selectedRecovered;
+    assert.equal(state.host.table.fragments[1], true);
+
+    const allSpent = waitForState(host, (next) => next.host?.table?.fragments?.every(Boolean));
+    host.emit("game:updateFragments", { action: "spendAll" });
+    await allSpent;
+    const allRecovered = waitForState(host, (next) => next.host?.table?.fragments?.every((spent) => !spent));
+    host.emit("game:updateFragments", { action: "recoverAll" });
+    await allRecovered;
+    const oneRemoved = waitForState(host, (next) => next.host?.table?.fragments?.length === 9);
+    host.emit("game:updateFragments", { action: "remove" });
+    state = await oneRemoved;
     const uid = state.host.table.hand[0].uid;
     const protagonistUid = state.host.table.protagonist[0].uid;
 
@@ -352,6 +382,9 @@ test("a disconnected player can resume the same game without changing the table 
     const marked = waitForState(host, (next) => next.host?.table?.battle?.[2]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid: movedUid, value: 2 });
     state = await marked;
+    const fragmentAdded = waitForState(host, (next) => next.host?.table?.fragments?.length === 1);
+    host.emit("game:updateFragments", { action: "add" });
+    state = await fragmentAdded;
 
     const tableBeforeDisconnect = structuredClone(state.host.table);
     const deckOrderBeforeDisconnect = state.host.table.deck.map((card) => card.uid);

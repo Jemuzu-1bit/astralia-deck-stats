@@ -22,6 +22,7 @@ export interface GameTable {
   action: GameCard[];
   battle: GameCard[][];
   protagonist: GameCard[];
+  fragments: boolean[];
 }
 
 export interface LobbyPlayerState {
@@ -168,6 +169,12 @@ class GameConnection {
   adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
   setCardStat(uid: string, stat: "atk" | "hp", value: number) { this.socket?.emit("game:setStat", { uid, stat, value }); }
   adjustCardStat(uid: string, stat: "atk" | "hp", delta: -1 | 1) { this.socket?.emit("game:setStat", { uid, stat, delta }); }
+  updateFragments(action: "add" | "remove" | "spend" | "recover" | "spendAll" | "recoverAll") {
+    this.socket?.emit("game:updateFragments", { action });
+  }
+  setFragmentSpent(index: number, spent: boolean) {
+    this.socket?.emit("game:updateFragments", { action: "set", index, spent });
+  }
   playAction(uid: string) { this.socket?.emit("game:playAction", { uid }); }
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
