@@ -117,20 +117,14 @@
   .playerBadge { bottom: .65rem; right: 1rem; text-align: right; }
 }
 
-.opponentHalf .actionStage { bottom: .5rem; }
-.playerHalf .actionStage { top: .5rem; }
-
 .actionStage {
-  position: absolute;
-  z-index: 12;
-  left: 50%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: .35rem;
-  max-width: 45%;
+  max-width: min(340px, 38vw);
   padding: .3rem;
-  transform: translateX(-50%);
   overflow-x: auto;
   border: 1px solid rgba(228, 198, 95, .72);
   border-radius: 7px;
@@ -756,7 +750,20 @@
   z-index: 5;
   background: linear-gradient(90deg, transparent, #d4af37 20%, #d4af37 80%, transparent);
   box-shadow: 0 0 12px rgba(212, 175, 55, .55);
-  span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: .2rem .55rem; font-size: .62rem; font-weight: 900; color: #111522; background: #d4af37; border-radius: 999px; }
+  > span { position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: .2rem .55rem; font-size: .62rem; font-weight: 900; color: #111522; background: #d4af37; border-radius: 999px; }
+}
+
+.centerActionArea {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  max-width: min(720px, 88vw);
+  transform: translate(-50%, -50%);
 }
 
 @media (max-width: 1200px) {

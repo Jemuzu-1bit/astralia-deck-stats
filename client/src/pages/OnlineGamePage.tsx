@@ -636,14 +636,6 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
       <strong>{player?.name || "Waiting…"}</strong>
       <span>{player?.deckName || "No deck"}</span>
     </div>
-    <ActionStage
-      items={table.action}
-      local={movable}
-      onInspect={onInspect}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onMenu={onMenu}
-    />
     <div className={styles.sideZones}>
       {opponentSide ? <>{sideZone("persona")}{sideZone("oblivion")}</> : <>{sideZone("oblivion")}{sideZone("persona")}</>}
     </div>
@@ -1160,7 +1152,27 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <div className={styles.divider}><span>VS</span></div>
+      <div className={styles.divider}>
+        <span>VS</span>
+        <div className={styles.centerActionArea}>
+          <ActionStage
+            items={opponentTable.action}
+            local={false}
+            onInspect={setInspectedCard}
+            onDragStart={startDrag}
+            onDragEnd={endDrag}
+            onMenu={showMenu}
+          />
+          <ActionStage
+            items={myTable.action}
+            local={Boolean(me?.table)}
+            onInspect={setInspectedCard}
+            onDragStart={startDrag}
+            onDragEnd={endDrag}
+            onMenu={showMenu}
+          />
+        </div>
+      </div>
       <PlayerTable
         player={me}
         table={myTable}
