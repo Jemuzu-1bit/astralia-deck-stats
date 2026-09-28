@@ -170,6 +170,31 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(state.host.table.battle[0][0].flipped, false);
 
+    const targetUid = state.guest.table.protagonist[0].uid;
+    const targetSetForOwner = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === targetUid);
+    const targetSetForOpponent = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === targetUid);
+    host.emit("game:setTarget", { uid, targetUid });
+    state = await targetSetForOwner;
+    await targetSetForOpponent;
+    assert.ok(state.host.table.battle[0][0].targetExpiresAt > Date.now());
+    assert.ok(state.host.table.battle[0][0].targetExpiresAt <= Date.now() + 5000);
+
+    guest.emit("game:setTarget", { uid, targetUid: state.host.table.protagonist[0].uid });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(state.host.table.battle[0][0].targetUid, targetUid);
+
+    const targetCleared = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === undefined);
+    host.emit("game:setTarget", { uid, targetUid: null });
+    state = await targetCleared;
+
+    const selfTargeted = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === uid);
+    host.emit("game:setTarget", { uid, targetUid: uid });
+    state = await selfTargeted;
+    assert.equal(state.host.table.battle[0][0].targetUid, uid);
+    const selfTargetCleared = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === undefined);
+    host.emit("game:setTarget", { uid, targetUid: null });
+    state = await selfTargetCleared;
+
     const actionUid = state.host.table.hand[0].uid;
     const actionPlayed = waitForState(guest, (next) => next.host?.table?.action?.[0]?.uid === actionUid);
     host.emit("game:playAction", { uid: actionUid });

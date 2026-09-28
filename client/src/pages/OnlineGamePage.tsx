@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type RefObject } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
@@ -26,6 +26,8 @@ type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
 type SlottedCard = { card: GameCard; zone: "battle" | "protagonist"; slot?: number; index: number };
+type TargetLink = { sourceUid: string; targetUid: string; expiresAt: number };
+type TargetPath = TargetLink & { path: string; startX: number; startY: number };
 
 const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> = [
   { action: "draw", label: "Draw X" },
@@ -63,6 +65,173 @@ function playerTable(player: LobbyPlayerState | null): GameTable {
       : [],
     fragments: [],
   };
+}
+
+function tableCards(table: GameTable): GameCard[] {
+  return [
+    ...table.hand,
+    ...table.deck,
+    ...table.persona,
+    ...table.graveyard,
+    ...table.oblivion,
+    ...table.action,
+    ...table.battle.flat(),
+    ...table.protagonist,
+  ];
+}
+
+function TargetArrows({ links, containerRef }: { links: TargetLink[]; containerRef: RefObject<HTMLDivElement | null> }) {
+  const [paths, setPaths] = useState<TargetPath[]>([]);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    let frame = 0;
+    let retry = 0;
+    let retryTimer: number | undefined;
+    let expiryTimer: number | undefined;
+
+    const update = () => {
+      const now = Date.now();
+      const activeLinks = links.filter((link) => link.expiresAt > now);
+      const bounds = container.getBoundingClientRect();
+      const elements = new Map<string, HTMLElement>();
+      container.querySelectorAll<HTMLElement>("[data-card-uid]").forEach((element) => {
+        const uid = element.dataset.cardUid;
+        if (uid && !elements.has(uid)) elements.set(uid, element);
+      });
+
+      const nextPaths = activeLinks.flatMap((link) => {
+        const source = elements.get(link.sourceUid)?.getBoundingClientRect();
+        const target = elements.get(link.targetUid)?.getBoundingClientRect();
+        if (!source || !target) return [];
+
+        const sourceX = source.left - bounds.left + source.width / 2;
+        const sourceY = source.top - bounds.top + source.height / 2;
+        const targetX = target.left - bounds.left + target.width / 2;
+        const targetY = target.top - bounds.top + target.height / 2;
+        if (link.sourceUid === link.targetUid) {
+          const direction = sourceX < bounds.width * .68 ? 1 : -1;
+          const edgeX = sourceX + direction * (source.width / 2 + 5);
+          const startY = sourceY + source.height * .23;
+          const endY = sourceY - source.height * .23;
+          const controlX = edgeX + direction * Math.max(58, source.width * .72);
+          return [{
+            ...link,
+            startX: edgeX,
+            startY,
+            path: `M ${edgeX} ${startY} C ${controlX} ${sourceY + source.height * .52}, ${controlX} ${sourceY - source.height * .52}, ${edgeX} ${endY}`,
+          }];
+        }
+        const deltaX = targetX - sourceX;
+        const deltaY = targetY - sourceY;
+        const distance = Math.hypot(deltaX, deltaY);
+        if (distance < 1) return [];
+
+        const unitX = deltaX / distance;
+        const unitY = deltaY / distance;
+        const sourceEdge = Math.min(
+          Math.abs(unitX) < .001 ? Infinity : source.width / 2 / Math.abs(unitX),
+          Math.abs(unitY) < .001 ? Infinity : source.height / 2 / Math.abs(unitY),
+        );
+        const targetEdge = Math.min(
+          Math.abs(unitX) < .001 ? Infinity : target.width / 2 / Math.abs(unitX),
+          Math.abs(unitY) < .001 ? Infinity : target.height / 2 / Math.abs(unitY),
+        );
+        if (distance < sourceEdge + targetEdge + 28) {
+          if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+            const direction = Math.sign(deltaX) || 1;
+            const startX = sourceX + direction * Math.min(12, source.width * .16);
+            const startY = source.top - bounds.top - 5;
+            const endX = targetX - direction * Math.min(12, target.width * .16);
+            const endY = target.top - bounds.top - 10;
+            const controlX = (startX + endX) / 2;
+            const controlY = Math.min(startY, endY) - Math.min(62, Math.max(34, distance * .55));
+            return [{
+              ...link,
+              startX,
+              startY,
+              path: `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`,
+            }];
+          }
+
+          const direction = sourceX < bounds.width * .68 ? 1 : -1;
+          const startX = sourceX + direction * (source.width / 2 + 5);
+          const startY = sourceY + Math.sign(deltaY) * Math.min(12, source.height * .12);
+          const endX = targetX + direction * (target.width / 2 + 10);
+          const endY = targetY - Math.sign(deltaY) * Math.min(12, target.height * .12);
+          const controlX = Math.max(startX * direction, endX * direction) * direction + direction * 45;
+          const controlY = (startY + endY) / 2;
+          return [{
+            ...link,
+            startX,
+            startY,
+            path: `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`,
+          }];
+        }
+        const startX = sourceX + unitX * (sourceEdge + 5);
+        const startY = sourceY + unitY * (sourceEdge + 5);
+        const endX = targetX - unitX * (targetEdge + 11);
+        const endY = targetY - unitY * (targetEdge + 11);
+        const bend = Math.min(92, Math.max(28, distance * .16));
+        const curveDirection = link.sourceUid < link.targetUid ? 1 : -1;
+        const normalX = -unitY * bend * curveDirection;
+        const normalY = unitX * bend * curveDirection;
+        const controlX = (startX + endX) / 2 + normalX;
+        const controlY = (startY + endY) / 2 + normalY;
+
+        return [{
+          ...link,
+          startX,
+          startY,
+          path: `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`,
+        }];
+      });
+
+      setSize({ width: container.scrollWidth, height: container.scrollHeight });
+      setPaths(nextPaths);
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      const nextExpiry = activeLinks.reduce((earliest, link) => Math.min(earliest, link.expiresAt), Infinity);
+      if (Number.isFinite(nextExpiry)) expiryTimer = window.setTimeout(scheduleUpdate, Math.max(0, nextExpiry - now + 20));
+      if (nextPaths.length < activeLinks.length && retry < 20) {
+        retry += 1;
+        retryTimer = window.setTimeout(scheduleUpdate, 150);
+      }
+    };
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(update);
+    };
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
+    resizeObserver.observe(container);
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("scroll", scheduleUpdate, true);
+    scheduleUpdate();
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+    };
+  }, [containerRef, links]);
+
+  if (paths.length === 0) return null;
+  return <svg className={styles.targetArrows} width={size.width} height={size.height} aria-hidden="true">
+    <defs>
+      <marker id="target-arrow-head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+    </defs>
+    {paths.map(({ sourceUid, targetUid, path, startX, startY }) => <g key={`${sourceUid}:${targetUid}`}>
+      <path className={styles.targetArrowGlow} d={path} />
+      <path className={styles.targetArrow} d={path} markerEnd="url(#target-arrow-head)" />
+      <path className={styles.targetArrowFlow} d={path} />
+      <circle className={styles.targetArrowOrigin} cx={startX} cy={startY} r="4" />
+    </g>)}
+  </svg>;
 }
 
 function FragmentDock({ fragments }: { fragments: boolean[] }) {
@@ -197,6 +366,7 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivat
     className={className}
     style={style}
     type="button"
+    data-card-uid={entry.gameCard.uid}
     aria-label={`Inspect ${entry.card.name}${entry.gameCard.revealed ? ", revealed" : ""}`}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
@@ -677,7 +847,7 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onFlip, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onChooseTarget, onClearTarget, onFlip, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
   revealState?: boolean;
@@ -687,6 +857,8 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
   onSetStat?: (stat: CardStat, value: number) => void;
   onSwapWithMain?: () => void;
   onStartAttach?: () => void;
+  onChooseTarget?: () => void;
+  onClearTarget?: () => void;
   onFlip?: () => void;
   onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
   onToggleReveal?: () => void;
@@ -708,7 +880,7 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
   }, [onClose]);
 
-  return <div className={`${styles.contextMenu} ${selectedStat ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : onMove ? 340 : 110))) }} onPointerDown={(event) => event.stopPropagation()}>
+  return <div className={`${styles.contextMenu} ${selectedStat ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : onMove ? 410 : 150))) }} onPointerDown={(event) => event.stopPropagation()}>
     {selectedStat ? <form onSubmit={(event) => { event.preventDefault(); if (validStatValue) onSetStat?.(selectedStat, statValue); }}>
       <button type="button" onClick={() => setSelectedStat(null)}>← Actions</button>
       <label htmlFor="card-stat-value">Set {selectedStat.toUpperCase()}</label>
@@ -735,6 +907,8 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
     {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action</button>}
     {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
     {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
+    {onChooseTarget && <button type="button" role="menuitem" onClick={onChooseTarget}>Choose target...</button>}
+    {onClearTarget && <button type="button" role="menuitem" onClick={onClearTarget}>Clear target</button>}
     {onFlip && <button type="button" role="menuitem" onClick={onFlip}>Flip card</button>}
     {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
     {onMove && <>
@@ -815,6 +989,7 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose 
 }
 
 export default function OnlineGamePage() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { code: routeCode } = useParams();
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
@@ -825,6 +1000,7 @@ export default function OnlineGamePage() {
   const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean; canFlip: boolean } | null>(null);
   const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
+  const [targetingUid, setTargetingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
 
@@ -843,10 +1019,15 @@ export default function OnlineGamePage() {
   const opponent = me?.role === "host" ? state.guest : state.host;
   const myTable = useMemo(() => playerTable(me), [me]);
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
+  const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
+    card.targetUid && card.targetExpiresAt
+      ? [{ sourceUid: card.uid, targetUid: card.targetUid, expiresAt: card.targetExpiresAt }]
+      : []), [myTable, opponentTable]);
   const openCards = openZone ? (openZone.owner === "self" ? myTable : opponentTable)[openZone.name] : EMPTY_TABLE.hand;
   const peekCards = useMemo(() => peekedUids === null ? EMPTY_TABLE.hand : myTable.deck.filter((card) => peekedUids.includes(card.uid)), [myTable.deck, peekedUids]);
   const railCards = peekedUids !== null ? peekCards : deckSearchQuery !== null ? myTable.deck : openZone ? openCards : myTable.hand;
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
+  const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuActionCard = menu ? myTable.action.find((card) => card.uid === menu.uid) : undefined;
   const menuSlottedCard = menu ? findSlottedCard(myTable, menu.uid) : undefined;
@@ -885,6 +1066,7 @@ export default function OnlineGamePage() {
     event.dataTransfer.setData("text/plain", card.uid);
     setDragging(true);
     setAttachingUid(null);
+    setTargetingUid(null);
     setMenu(null);
   };
   const endDrag = () => { draggedUid.current = null; setDragging(false); };
@@ -913,6 +1095,12 @@ export default function OnlineGamePage() {
   const selectAttachTarget = (targetUid: string) => {
     if (attachingUid) attachCard(attachingUid, targetUid);
   };
+  const selectCardTarget = (targetUid: string) => {
+    if (!targetingUid) return;
+    gameConnection.setCardTarget(targetingUid, targetUid);
+    setTargetingUid(null);
+    setInspectedCard(null);
+  };
   const showMenu: CardMenu = (event, card, resolvedCard, canFlip) => {
     event.preventDefault(); event.stopPropagation();
     setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard.type.toLowerCase() === "action", canFlip });
@@ -937,7 +1125,17 @@ export default function OnlineGamePage() {
     setPeekedUids(null); setOpenZone(null); setInspectedCard(null); setDeckMenu(null);
   };
 
-  return <div className={`${styles.root} ${dragging ? styles.dragging : ""}`}>
+  return <div
+    ref={rootRef}
+    className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid ? styles.targeting : ""}`}
+    onClickCapture={targetingUid ? (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>("[data-card-uid]");
+      if (!target?.dataset.cardUid) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectCardTarget(target.dataset.cardUid);
+    } : undefined}
+  >
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>Manual table</span></div>
       <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
@@ -1012,6 +1210,11 @@ export default function OnlineGamePage() {
       Select a card on your table to attach to
       <button type="button" onClick={() => setAttachingUid(null)}>Cancel</button>
     </div>}
+    {targetingUid && <div className={styles.attachHint} role="status">
+      Select a card as target
+      <button type="button" onClick={() => setTargetingUid(null)}>Cancel</button>
+    </div>}
+    <TargetArrows links={targetLinks} containerRef={rootRef} />
     <Inspector card={inspectedCard} />
     {menu && <ContextMenu
       key={`${menu.uid}:${menu.x}:${menu.y}`}
@@ -1028,7 +1231,11 @@ export default function OnlineGamePage() {
         ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
         : undefined}
       onStartAttach={menuCardCanAttach
-        ? () => { setAttachingUid(menu.uid); setMenu(null); }
+        ? () => { setAttachingUid(menu.uid); setTargetingUid(null); setMenu(null); }
+        : undefined}
+      onChooseTarget={() => { setTargetingUid(menu.uid); setAttachingUid(null); setMenu(null); }}
+      onClearTarget={menuCard?.targetUid && (menuCard.targetExpiresAt ?? 0) > Date.now()
+        ? () => { gameConnection.setCardTarget(menu.uid, null); setMenu(null); }
         : undefined}
       onFlip={menu.canFlip
         ? () => { gameConnection.flipCard(menu.uid); setMenu(null); setInspectedCard(null); }

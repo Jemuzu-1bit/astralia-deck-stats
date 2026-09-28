@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || 3000);
 const MAX_PLAYERS = 2;
 const ROOM_TTL_MS = 30 * 60 * 1000;
+const TARGET_DURATION_MS = 5 * 1000;
 
 const app = express();
 const server = http.createServer(app);
@@ -412,6 +413,35 @@ io.on("connection", (socket) => {
     const found = findCard(player.table, String(payload?.uid || ""));
     if (!found) return;
     found.card.flipped = !found.card.flipped;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:setTarget", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const source = findCard(player.table, String(payload?.uid || ""));
+    if (!source) return;
+
+    if (payload?.targetUid === null) {
+      delete source.card.targetUid;
+      delete source.card.targetExpiresAt;
+    }
+    else {
+      const targetUid = String(payload?.targetUid || "");
+      if (!targetUid) return;
+      const target = [room.host, room.guest]
+        .map((candidate) => candidate?.table ? findCard(candidate.table, targetUid) : null)
+        .find(Boolean);
+      if (!target) return;
+      source.card.targetUid = targetUid;
+      source.card.targetExpiresAt = Date.now() + TARGET_DURATION_MS;
+      const expiresAt = source.card.targetExpiresAt;
+      setTimeout(() => {
+        if (source.card.targetUid !== targetUid || source.card.targetExpiresAt !== expiresAt) return;
+        delete source.card.targetUid;
+        delete source.card.targetExpiresAt;
+        emitState(room);
+      }, TARGET_DURATION_MS);
+    }
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:deckAction", (payload) => {

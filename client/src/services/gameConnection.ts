@@ -5,6 +5,8 @@ export interface GameCard {
   id: string;
   frazzle: number;
   flipped?: boolean;
+  targetUid?: string;
+  targetExpiresAt?: number;
   atk?: number;
   hp?: number;
   revealed?: boolean;
@@ -185,6 +187,7 @@ class GameConnection {
   deckAction(action: DeckAction, count?: number) { this.socket?.emit("game:deckAction", { action, count }); }
   setCardRevealed(uid: string, revealed: boolean) { this.socket?.emit("game:revealCard", { uid, revealed }); }
   flipCard(uid: string) { this.socket?.emit("game:flipCard", { uid }); }
+  setCardTarget(uid: string, targetUid: string | null) { this.socket?.emit("game:setTarget", { uid, targetUid }); }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }
   startRequest() { this.socket?.emit("lobby:startRequest"); }
   leave() {
