@@ -19,9 +19,9 @@ import styles from "./OnlineGamePage.module.scss";
 type InspectCard = (card: Card | null) => void;
 type ZoneName = "persona" | "graveyard" | "oblivion" | "hand";
 type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
-type ResolvedCard = { gameCard: GameCard; card: Card };
+type ResolvedCard = { gameCard: GameCard; card: Card; canFlip: boolean };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
-type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card) => void;
+type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card, canFlip: boolean) => void;
 type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
@@ -117,8 +117,8 @@ function useResolvedCards(items: GameCard[]): ResolvedCard[] {
     setCards([]);
     Promise.all(items.map(async (gameCard) => {
       const { front, back } = await getCardFaces(gameCard.id);
-      const card = front || back;
-      return card ? { gameCard, card } : null;
+      const card = gameCard.flipped ? back || front : front || back;
+      return card ? { gameCard, card, canFlip: Boolean(front && back) } : null;
     })).then((loaded) => {
       if (active) setCards(loaded.filter((entry): entry is ResolvedCard => entry !== null));
     });
@@ -126,9 +126,9 @@ function useResolvedCards(items: GameCard[]): ResolvedCard[] {
   }, [items]);
 
   const currentItems = new Map(items.map((item) => [item.uid, item]));
-  return cards.flatMap(({ gameCard, card }) => {
+  return cards.flatMap(({ gameCard, card, canFlip }) => {
     const current = currentItems.get(gameCard.uid);
-    return current ? [{ gameCard: current, card }] : [];
+    return current ? [{ gameCard: current, card, canFlip }] : [];
   });
 }
 
@@ -201,7 +201,7 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivat
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
     onDragEnd={onDragEnd}
-    onContextMenu={(event) => onMenu?.(event, entry.gameCard, entry.card)}
+    onContextMenu={(event) => onMenu?.(event, entry.gameCard, entry.card, entry.canFlip)}
     onMouseEnter={() => onInspect(entry.card)}
     onMouseLeave={() => onInspect(null)}
     onFocus={() => onInspect(entry.card)}
@@ -677,7 +677,7 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onFlip, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
   revealState?: boolean;
@@ -687,6 +687,7 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
   onSetStat?: (stat: CardStat, value: number) => void;
   onSwapWithMain?: () => void;
   onStartAttach?: () => void;
+  onFlip?: () => void;
   onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
   onToggleReveal?: () => void;
   onClose: () => void;
@@ -734,6 +735,7 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
     {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action</button>}
     {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
     {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
+    {onFlip && <button type="button" role="menuitem" onClick={onFlip}>Flip card</button>}
     {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
     {onMove && <>
       <hr />
@@ -820,7 +822,7 @@ export default function OnlineGamePage() {
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [deckSearchQuery, setDeckSearchQuery] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean } | null>(null);
+  const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean; canFlip: boolean } | null>(null);
   const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -911,9 +913,9 @@ export default function OnlineGamePage() {
   const selectAttachTarget = (targetUid: string) => {
     if (attachingUid) attachCard(attachingUid, targetUid);
   };
-  const showMenu: CardMenu = (event, card, resolvedCard) => {
+  const showMenu: CardMenu = (event, card, resolvedCard, canFlip) => {
     event.preventDefault(); event.stopPropagation();
-    setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard.type.toLowerCase() === "action" });
+    setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard.type.toLowerCase() === "action", canFlip });
     setDeckMenu(null);
   };
   const showDeckMenu = (event: MouseEvent<HTMLDivElement>) => {
@@ -1027,6 +1029,9 @@ export default function OnlineGamePage() {
         : undefined}
       onStartAttach={menuCardCanAttach
         ? () => { setAttachingUid(menu.uid); setMenu(null); }
+        : undefined}
+      onFlip={menu.canFlip
+        ? () => { gameConnection.flipCard(menu.uid); setMenu(null); setInspectedCard(null); }
         : undefined}
       onMove={menuCardCanMove
         ? (zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }

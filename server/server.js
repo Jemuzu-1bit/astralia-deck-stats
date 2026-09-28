@@ -118,7 +118,7 @@ function shuffle(cards) {
 
 const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "action", "battle", "protagonist"];
 const LIST_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "action"];
-const cardInstance = (id) => ({ uid: makeId(), id, frazzle: 0, revealed: false });
+const cardInstance = (id) => ({ uid: makeId(), id, frazzle: 0, flipped: false, revealed: false });
 const protagonistInstance = (id) => ({ ...cardInstance(id), isProtagonist: true });
 
 function syncCardLists(player) {
@@ -404,6 +404,14 @@ io.on("connection", (socket) => {
     const card = player.table.hand.find((entry) => entry.uid === String(payload?.uid || ""));
     if (!card) return;
     card.revealed = payload?.revealed === true;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:flipCard", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found) return;
+    found.card.flipped = !found.card.flipped;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:deckAction", (payload) => {

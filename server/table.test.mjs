@@ -157,6 +157,19 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.battle[0][0].frazzle, 0);
     assert.equal(state.host.table.graveyard.length, 0);
 
+    const flippedForOwner = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.flipped === true);
+    const flippedForOpponent = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.flipped === true);
+    host.emit("game:flipCard", { uid });
+    state = await flippedForOwner;
+    await flippedForOpponent;
+    const returnedToFront = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.flipped === false);
+    host.emit("game:flipCard", { uid });
+    state = await returnedToFront;
+
+    guest.emit("game:flipCard", { uid });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(state.host.table.battle[0][0].flipped, false);
+
     const actionUid = state.host.table.hand[0].uid;
     const actionPlayed = waitForState(guest, (next) => next.host?.table?.action?.[0]?.uid === actionUid);
     host.emit("game:playAction", { uid: actionUid });
