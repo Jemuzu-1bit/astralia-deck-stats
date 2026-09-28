@@ -444,7 +444,10 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   const readyFragments = table.fragments.filter((spent) => !spent).length;
   const spentFragments = table.fragments.length - readyFragments;
   const protagonistIndex = opponentSide ? 1 : 4;
-  const battleSlots = opponentSide ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 5];
+  // Each battle slot is stored from its owner's point of view. The opponent's
+  // grid is rotated by 180 degrees, so logical slots must be rendered in the
+  // reverse visual order (slot 0 at the opposite corner, and so on).
+  const battleSlots = opponentSide ? [5, 4, 3, 2, 0] : [0, 1, 2, 3, 5];
   const sideZone = (name: ZoneName) => <CardZone
     name={name}
     items={table[name]}
