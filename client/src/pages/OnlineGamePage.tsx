@@ -25,7 +25,7 @@ type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
 type OpenSlot = { owner: "self" | "opponent"; zone: "battle" | "protagonist"; slot?: number };
 type ResolvedCard = { gameCard: GameCard; card: Card | null; canFlip: boolean };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
-type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card, canFlip: boolean) => void;
+type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card | null, canFlip: boolean) => void;
 type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
 type SlotRailControls = {
   movable: boolean;
@@ -431,8 +431,9 @@ function CustomCounter({ counter, editable, onAdjust }: {
   ><span>{counter.emoji || counter.label.slice(0, 3)}</span><b>{counter.value}</b></span>;
 }
 
-function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
+function CardThumb({ entry, hidden = false, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
   entry: ResolvedCard;
+  hidden?: boolean;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
@@ -446,19 +447,19 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivat
     style={style}
     type="button"
     data-card-uid={entry.gameCard.uid}
-    aria-label={`${entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
+    aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
     onDragEnd={onDragEnd}
-    onContextMenu={(event) => { if (entry.card) onMenu?.(event, entry.gameCard, entry.card, entry.canFlip); }}
-    onMouseEnter={() => onInspect(entry.gameCard.faceDown ? null : entry.card)}
+    onContextMenu={(event) => onMenu?.(event, entry.gameCard, entry.card, entry.canFlip)}
+    onMouseEnter={() => onInspect(hidden || entry.gameCard.faceDown ? null : entry.card)}
     onMouseLeave={() => onInspect(null)}
-    onFocus={() => onInspect(entry.gameCard.faceDown ? null : entry.card)}
+    onFocus={() => onInspect(hidden || entry.gameCard.faceDown ? null : entry.card)}
     onBlur={() => onInspect(null)}
-    onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(entry.gameCard.faceDown ? null : entry.card); }}
+    onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(hidden || entry.gameCard.faceDown ? null : entry.card); }}
   >
     <img
-      src={entry.gameCard.faceDown || !entry.card ? normalCardBack : getCardImagePath(entry.card, "thumb")}
+      src={hidden || entry.gameCard.faceDown || !entry.card ? normalCardBack : getCardImagePath(entry.card, "thumb")}
       alt=""
       draggable={false}
     />
@@ -536,11 +537,12 @@ function CardStack({ items, spread = false, onInspect, onDragStart, onDragEnd, o
   </div>;
 }
 
-function CardRail({ items, label, searchQuery, sortByName = false, slotControls, onInspect, onDragStart, onDragEnd, onMenu }: {
+function CardRail({ items, label, searchQuery, sortByName = false, faceUpUids, slotControls, onInspect, onDragStart, onDragEnd, onMenu }: {
   items: GameCard[];
   label: string;
   searchQuery?: string;
   sortByName?: boolean;
+  faceUpUids?: ReadonlySet<string>;
   slotControls?: SlotRailControls;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
@@ -581,6 +583,7 @@ function CardRail({ items, label, searchQuery, sortByName = false, slotControls,
   }, []);
 
   return <div ref={railRef} className={`${styles.hand} ${slotControls ? styles.handSlotCards : ""}`} aria-label={label}>
+    {faceUpUids && items.length > 0 && <span className={styles.deckEdgeLabel}>Top</span>}
     {visibleCards.map((entry) => slotControls ? <BattleCard
       key={entry.gameCard.uid}
       item={entry.gameCard}
@@ -599,11 +602,13 @@ function CardRail({ items, label, searchQuery, sortByName = false, slotControls,
     /> : <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
+      hidden={faceUpUids !== undefined && !faceUpUids.has(entry.gameCard.uid)}
       onInspect={onInspect}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onMenu={onMenu}
     />)}
+    {faceUpUids && items.length > 0 && <span className={styles.deckEdgeLabel}>Bottom</span>}
     {items.length === 0 && <span className={styles.emptyText}>Empty</span>}
     {items.length > 0 && cards.length > 0 && visibleCards.length === 0 && <span className={styles.emptyText}>No matches</span>}
   </div>;
@@ -1204,8 +1209,8 @@ export default function OnlineGamePage() {
       : (openSlot.owner === "self" ? myTable : opponentTable).battle[openSlot.slot ?? 0] ?? []
     : EMPTY_TABLE.hand;
   const slotLabel = openSlot ? `${openSlot.owner === "self" ? "Your" : "Opponent"} ${openSlot.zone === "protagonist" ? "Protagonist" : `Battle slot ${(openSlot.slot ?? 0) + 1}`}` : "";
-  const peekCards = useMemo(() => peekedUids === null ? EMPTY_TABLE.hand : myTable.deck.filter((card) => peekedUids.includes(card.uid)), [myTable.deck, peekedUids]);
-  const railCards = peekedUids !== null ? peekCards : deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
+  const peekedUidSet = useMemo(() => peekedUids === null ? undefined : new Set(peekedUids), [peekedUids]);
+  const railCards = peekedUids !== null || deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
   const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
   const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
@@ -1215,7 +1220,7 @@ export default function OnlineGamePage() {
   const menuCardCanMove = Boolean(menuCard);
   const menuCardCanAttach = !menuActionCard
     && (!menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist));
-  const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
+  const railTitle = peekedUids !== null ? `Deck · ${myTable.deck.length} cards · ${myTable.deck.filter((card) => peekedUidSet?.has(card.uid)).length} viewed`
     : deckSearchQuery !== null ? `Deck search · ${myTable.deck.length} cards`
       : openSlot ? `${slotLabel} · ${slotCards.length}`
       : openZone?.owner === "opponent" && openZone.name === "hand"
@@ -1258,10 +1263,10 @@ export default function OnlineGamePage() {
   const dragOver = (event: DragEvent<HTMLElement>) => {
     if (draggedUid.current) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
   };
-  const drop = (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number) => {
+  const drop = (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number, position?: "top" | "bottom") => {
     if (!draggedUid.current) return;
     event.preventDefault(); event.stopPropagation();
-    gameConnection.moveCard(draggedUid.current, zone, { slot });
+    gameConnection.moveCard(draggedUid.current, zone, { slot, position });
     endDrag(); setInspectedCard(null);
   };
   const attachCard = (sourceUid: string, targetUid: string) => {
@@ -1288,7 +1293,7 @@ export default function OnlineGamePage() {
   };
   const showMenu: CardMenu = (event, card, resolvedCard, canFlip) => {
     event.preventDefault(); event.stopPropagation();
-    setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard.type.toLowerCase() === "action", canFlip });
+    setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard?.type.toLowerCase() === "action", canFlip });
     setDeckMenu(null);
   };
   const showDeckMenu = (event: MouseEvent<HTMLDivElement>, owner: "self" | "opponent") => {
@@ -1416,9 +1421,13 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={openSlot?.owner === "opponent" ? undefined : dragOver} onDrop={openSlot?.owner === "opponent" ? undefined : (event) => drop(event, openSlot?.zone ?? "hand", openSlot?.slot)}>
+      <section className={styles.handDock} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
         {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
         {deckSearchQuery === null && <div className={styles.handDockLabel}>{railTitle}</div>}
+        {peekedUids !== null && <div className={styles.deckDropTargets} aria-label="Deck order controls">
+          <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "top")}>Drop on top</div>
+          <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "bottom")}>Drop on bottom</div>
+        </div>}
         {deckSearchQuery !== null && <label className={styles.deckSearchControl}>
           <span>Search Card</span>
           <input
@@ -1432,9 +1441,10 @@ export default function OnlineGamePage() {
         </label>}
         <CardRail
           items={railCards}
-          label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck, sorted by name" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
+          label={peekedUids !== null ? "Your deck from top to bottom, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck, sorted by name" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
           searchQuery={deckSearchQuery ?? undefined}
           sortByName={deckSearchQuery !== null}
+          faceUpUids={peekedUidSet}
           slotControls={openSlot ? {
             movable: railMovable,
             attachingUid,
@@ -1448,7 +1458,7 @@ export default function OnlineGamePage() {
           onDragEnd={railMovable ? endDrag : undefined}
           onMenu={railMovable ? showMenu : undefined}
         />
-        <FragmentDock fragments={myTable.fragments} />
+        {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} />}
       </section>
     </main>
     {attachingUid && <div className={styles.attachHint} role="status">

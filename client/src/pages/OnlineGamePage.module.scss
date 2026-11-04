@@ -305,6 +305,33 @@
   white-space: nowrap;
 }
 
+.deckDropTargets {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+
+  > div {
+    padding: .35rem .5rem;
+    color: #f5efd7;
+    background: #242b3d;
+    border: 1px dashed rgba(212, 175, 55, .6);
+    border-radius: 5px;
+    font-size: .68rem;
+    white-space: nowrap;
+  }
+}
+
+.dragging .deckDropTargets > div:hover { border-color: #e4c65f; background: #343d56; }
+
+.deckEdgeLabel {
+  flex: 0 0 auto;
+  color: #e4c65f;
+  font-size: .64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .deckSearchControl {
   flex: 0 0 clamp(150px, 18vw, 240px);
   min-width: 0;
