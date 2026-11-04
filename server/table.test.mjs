@@ -63,6 +63,15 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     guest.emit("lobby:join", { code, name: "Guest" });
     await guestJoined;
 
+    const earlySpectator = io(url, { transports: ["websocket"] });
+    sockets.push(earlySpectator);
+    await once(earlySpectator, "connect");
+    const spectatorJoined = once(earlySpectator, "lobby:joined");
+    const spectatorLobby = waitForState(earlySpectator, (next) => next.viewerRole === "spectator" && next.spectatorCount === 1);
+    earlySpectator.emit("lobby:watch", { code });
+    assert.equal((await spectatorJoined)[0].role, "spectator");
+    assert.equal((await spectatorLobby).guest.name, "Guest");
+
     const readyState = waitForState(host, (state) => Boolean(state.host?.deckId && state.guest?.deckId));
     host.emit("lobby:setDeck", {
       deckId: "host-deck", deckName: "Host deck", protagonistId: "hero",
@@ -76,9 +85,40 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
 
     const started = waitForState(host, (state) => state.started);
     const opponentStarted = waitForState(guest, (state) => state.started);
+    const spectatorStarted = waitForState(earlySpectator, (state) => state.started);
     host.emit("lobby:startRequest");
     let state = await started;
     const opponentState = await opponentStarted;
+    const earlySpectatorState = await spectatorStarted;
+    assert.equal(earlySpectatorState.host.table.hand.length, 0);
+    assert.equal(earlySpectatorState.guest.table.hand.length, 0);
+    assert.equal(earlySpectatorState.host.table.deck.length, 0);
+    assert.equal(earlySpectatorState.guest.table.deck.length, 0);
+    assert.equal(earlySpectatorState.host.mainDeckCards, null);
+    assert.equal(earlySpectatorState.guest.mainDeckCards, null);
+
+    const lateSpectator = io(url, { transports: ["websocket"] });
+    sockets.push(lateSpectator);
+    await once(lateSpectator, "connect");
+    const lateSpectatorState = waitForState(lateSpectator, (next) => next.started && next.viewerRole === "spectator" && next.spectatorCount === 2);
+    lateSpectator.emit("lobby:watch", { code });
+    assert.equal((await lateSpectatorState).host.table.hand.length, 0);
+
+    const deniedSpectatorAction = waitForState(lateSpectator, (next) => next.started && next.spectatorCount === 2);
+    lateSpectator.emit("game:updateFragments", { action: "add" });
+    lateSpectator.emit("lobby:watch", { code });
+    assert.equal((await deniedSpectatorAction).host.table.fragments.length, 0);
+
+    const spectatorSeesReveal = waitForState(earlySpectator, (next) => next.host?.table?.hand?.length === 1);
+    host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: true });
+    assert.equal((await spectatorSeesReveal).host.table.hand[0].id, state.host.table.hand[0].id);
+    const spectatorSeesHide = waitForState(earlySpectator, (next) => next.host?.table?.hand?.length === 0);
+    host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: false });
+    await spectatorSeesHide;
+
+    const spectatorLeft = waitForState(host, (next) => next.spectatorCount === 1);
+    lateSpectator.emit("lobby:leave");
+    await spectatorLeft;
     assert.equal(state.host.table.hand.length, 5);
     assert.equal(state.host.table.deck.length, 3);
     assert.equal(state.host.table.persona.length, 2);

@@ -71,6 +71,8 @@ export interface LobbyState {
   guest: LobbyPlayerState | null;
   started: boolean;
   code?: string;
+  viewerRole?: "host" | "guest" | "spectator" | null;
+  spectatorCount?: number;
   deckRequest?: DeckRequest | null;
   deckRequestResult?: DeckRequestResult | null;
 }
@@ -118,9 +120,10 @@ class GameConnection {
   private connectionListeners = new Set<() => void>();
   private sessionListeners = new Set<SessionListener>();
   private resumeCode: string | null = null;
+  private watchCode: string | null = null;
 
   connect(code?: string) {
-    if (code) this.resumeCode = normalizeCode(code);
+    if (code) { this.resumeCode = normalizeCode(code); this.watchCode = null; }
     if (this.socket) {
       if (!this.socket.connected) this.socket.connect();
       else if (code) this.emitResume();
@@ -129,11 +132,19 @@ class GameConnection {
     const url = import.meta.env.VITE_SERVER_URL || undefined;
     this.socket = io(url, { autoConnect: false, transports: ["websocket", "polling"] });
     this.socket.on("connect", () => {
-      this.emitResume();
+      if (this.watchCode) this.emitWatch();
+      else this.emitResume();
       this.connectionListeners.forEach((listener) => listener());
     });
-    this.socket.on("lobby:joined", (payload: StoredSession) => {
+    this.socket.on("lobby:joined", (payload: StoredSession | { code: string; role: "spectator" }) => {
+      if (payload.role === "spectator") {
+        this.watchCode = normalizeCode(payload.code);
+        this.resumeCode = null;
+        this.sessionListeners.forEach((listener) => listener(this.watchCode!));
+        return;
+      }
       const session = { code: normalizeCode(payload.code), role: payload.role, token: payload.token };
+      this.watchCode = null;
       this.resumeCode = session.code;
       saveSession(session);
       this.sessionListeners.forEach((listener) => listener(session.code));
@@ -149,12 +160,22 @@ class GameConnection {
       this.resumeCode = null;
       this.errorListeners.forEach((listener) => listener(message));
     });
+    this.socket.on("lobby:closed", (message: string) => {
+      this.resumeCode = null;
+      this.watchCode = null;
+      this.state = { host: null, guest: null, started: false };
+      this.listeners.forEach((listener) => listener(this.state));
+      this.errorListeners.forEach((listener) => listener(message));
+    });
     this.socket.connect();
   }
   private emitResume() {
     if (!this.resumeCode) return;
     const session = loadSession(this.resumeCode);
     if (session) this.socket?.emit("lobby:resume", { code: session.code, token: session.token });
+  }
+  private emitWatch() {
+    if (this.watchCode) this.socket?.emit("lobby:watch", { code: this.watchCode });
   }
   onState(listener: StateListener) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
   onError(listener: ErrorListener) { this.errorListeners.add(listener); return () => { this.errorListeners.delete(listener); }; }
@@ -169,8 +190,9 @@ class GameConnection {
     const unsubscribe = this.onConnect(() => { unsubscribe(); callback(); });
     return unsubscribe;
   }
-  host(name: string) { this.resumeCode = null; this.socket?.emit("lobby:host", name); }
+  host(name: string) { this.resumeCode = null; this.watchCode = null; this.socket?.emit("lobby:host", name); }
   join(name: string, code: string) {
+    this.watchCode = null;
     const normalizedCode = normalizeCode(code);
     const session = loadSession(normalizedCode);
     if (session) {
@@ -179,6 +201,12 @@ class GameConnection {
     } else this.socket?.emit("lobby:join", { name, code: normalizedCode });
   }
   resume(code: string) { this.connect(code); }
+  watch(code: string) {
+    this.watchCode = normalizeCode(code);
+    this.resumeCode = null;
+    this.connect();
+    if (this.socket?.connected) this.emitWatch();
+  }
   setName(name: string) { this.socket?.emit("lobby:setName", name); }
   setFaction(faction: string | null) { this.socket?.emit("lobby:setFaction", faction); }
   setDeck(deckId: string, deckName: string, faction: string, protagonistId: string | null, personaCards: string[], mainDeckCards: Array<{ id: string; qty: number }>) {
@@ -225,11 +253,13 @@ class GameConnection {
   startRequest() { this.socket?.emit("lobby:startRequest"); }
   leave() {
     const code = this.state.code || this.resumeCode;
+    const wasSpectator = this.state.viewerRole === "spectator" || Boolean(this.watchCode);
     this.socket?.emit("lobby:leave");
     this.socket?.disconnect();
     this.socket = null;
-    if (code) removeSession(code);
+    if (code && !wasSpectator) removeSession(code);
     this.resumeCode = null;
+    this.watchCode = null;
     this.state = { host: null, guest: null, started: false };
   }
 }

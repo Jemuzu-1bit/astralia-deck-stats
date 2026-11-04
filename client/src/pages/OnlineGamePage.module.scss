@@ -286,6 +286,9 @@
 
   button:last-of-type { margin-right: 0; }
   button:hover, button:focus-visible { z-index: 12; margin-right: -5px; outline: none; filter: brightness(1.18); }
+  button:disabled { cursor: default; }
+  button:disabled:hover { margin-right: -17px; filter: none; }
+  button:disabled:last-of-type:hover { margin-right: 0; }
   img {
     display: block;
     width: 46px;

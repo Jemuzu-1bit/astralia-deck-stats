@@ -25,6 +25,11 @@ export default function HelpPage() {
         </ol>
       </section>
 
+      <section aria-labelledby="spectators-guide">
+        <h2 id="spectators-guide">Guarda una partita</h2>
+        <p>Dalla home scegli <strong>watch game</strong> e inserisci il codice della lobby. Puoi entrare prima o durante la partita, vedere il campo e le carte rivelate. Mani e mazzi restano privati e gli spettatori non possono modificare il tavolo.</p>
+      </section>
+
       <section aria-labelledby="table-guide">
         <h2 id="table-guide">Sul tavolo</h2>
         <p className={styles.intro}>Il simulatore è manuale: ti aiuta a gestire carte e segnalini, mentre i giocatori applicano le regole della partita.</p>

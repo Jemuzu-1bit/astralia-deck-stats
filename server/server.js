@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT || 3000);
 const MAX_PLAYERS = 2;
+const MAX_SPECTATORS = 20;
 const ROOM_TTL_MS = 30 * 60 * 1000;
 const TARGET_DURATION_MS = 5 * 1000;
 const COUNTER_EMOJIS = new Map([
@@ -94,13 +95,18 @@ function publicState(room, viewerId) {
     guest: room.guest ? publicPlayer(room.guest, viewerId) : null,
     started: room.started,
     code: room.code,
-    deckRequest: room.deckRequest || null,
+    viewerRole: viewer?.role ?? (room.spectators.has(viewerId) ? "spectator" : null),
+    spectatorCount: room.spectators.size,
+    deckRequest: viewer ? room.deckRequest || null : null,
     deckRequestResult: room.deckRequestResult?.fromRole === viewer?.role ? room.deckRequestResult : null,
   };
 }
 function emitState(room) {
   for (const player of [room.host, room.guest]) {
     if (player?.socketId) io.to(player.socketId).emit("lobby:state", publicState(room, player.socketId));
+  }
+  for (const spectatorId of room.spectators) {
+    io.to(spectatorId).emit("lobby:state", publicState(room, spectatorId));
   }
 }
 function fail(socket, message) { socket.emit("lobby:error", message); }
@@ -121,6 +127,7 @@ function newPlayer(socket, name, role) {
 }
 
 function attachPlayer(socket, room, player) {
+  room.spectators.delete(socket.id);
   const previousSocketId = player.socketId;
   if (previousSocketId && previousSocketId !== socket.id) {
     const previousSocket = io.sockets.sockets.get(previousSocketId);
@@ -220,21 +227,40 @@ function dealOpeningHand(player) {
 }
 
 function createRoom(socket, name) {
+  if (socket.data.roomCode) return fail(socket, "Leave the current room first.");
   const code = makeCode();
-  const room = { code, host: newPlayer(socket, name, "host"), guest: null, started: false, lastActivity: Date.now() };
+  const room = { code, host: newPlayer(socket, name, "host"), guest: null, spectators: new Set(), started: false, lastActivity: Date.now() };
   rooms.set(code, room);
   attachPlayer(socket, room, room.host);
   socket.emit("lobby:joined", { code, role: "host", token: room.host.token });
   emitState(room);
 }
 function joinRoom(socket, payload) {
+  if (socket.data.roomCode) return fail(socket, "Leave the current room first.");
   const code = String(payload?.code || "").trim().toUpperCase();
   const room = rooms.get(code);
   if (!room) return fail(socket, "Invalid or expired join code.");
+  if (room.started) return fail(socket, "This match has started. Watch it instead.");
   if (room.guest) return fail(socket, "This lobby is full.");
   room.guest = newPlayer(socket, payload?.name, "guest");
   attachPlayer(socket, room, room.guest);
   socket.emit("lobby:joined", { code, role: "guest", token: room.guest.token });
+  emitState(room);
+}
+
+function watchRoom(socket, payload) {
+  const code = String(payload?.code || "").trim().toUpperCase();
+  const room = rooms.get(code);
+  if (!room) return fail(socket, "Invalid or expired match code.");
+  if (socket.data.roomCode && socket.data.roomCode !== code) return fail(socket, "Leave the current room first.");
+  if (currentPlayer(socket, room)) return fail(socket, "You are already playing in this match.");
+  if (!room.spectators.has(socket.id) && room.spectators.size >= MAX_SPECTATORS) return fail(socket, "This match has reached its spectator limit.");
+  room.spectators.add(socket.id);
+  socket.join(code);
+  socket.data.roomCode = code;
+  socket.data.role = "spectator";
+  room.lastActivity = Date.now();
+  socket.emit("lobby:joined", { code, role: "spectator" });
   emitState(room);
 }
 
@@ -243,6 +269,7 @@ function resumeRoom(socket, payload) {
   const token = String(payload?.token || "");
   const room = rooms.get(code);
   if (!room) return socket.emit("lobby:resumeError", "This game session has expired.");
+  if (socket.data.roomCode && socket.data.roomCode !== code) return fail(socket, "Leave the current room first.");
   const player = [room.host, room.guest].find((entry) => entry?.token === token);
   if (!player) return socket.emit("lobby:resumeError", "This game session does not belong to this browser.");
   attachPlayer(socket, room, player);
@@ -254,6 +281,7 @@ function resumeRoom(socket, payload) {
 io.on("connection", (socket) => {
   socket.on("lobby:host", (name) => createRoom(socket, name));
   socket.on("lobby:join", (payload) => joinRoom(socket, payload));
+  socket.on("lobby:watch", (payload) => watchRoom(socket, payload));
   socket.on("lobby:resume", (payload) => resumeRoom(socket, payload));
   socket.on("lobby:setName", (name) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
@@ -631,13 +659,31 @@ io.on("connection", (socket) => {
   });
   socket.on("lobby:leave", () => {
     const room = currentRoom(socket); if (!room) return;
-    if (room.host?.socketId === socket.id) rooms.delete(room.code); else room.guest = null;
+    if (room.host?.socketId === socket.id) {
+      io.to(room.code).emit("lobby:closed", "The host ended this match.");
+      for (const memberId of io.sockets.adapter.rooms.get(room.code) || []) {
+        const member = io.sockets.sockets.get(memberId);
+        if (member) { member.leave(room.code); delete member.data.roomCode; delete member.data.role; }
+      }
+      rooms.delete(room.code);
+      return;
+    }
+    if (room.spectators.delete(socket.id)) {
+      socket.leave(room.code); delete socket.data.roomCode; delete socket.data.role;
+      room.lastActivity = Date.now(); emitState(room);
+      return;
+    }
+    room.guest = null;
     room.deckRequest = null;
     room.deckRequestResult = null;
-    socket.leave(room.code); delete socket.data.roomCode; emitState(room);
+    socket.leave(room.code); delete socket.data.roomCode; delete socket.data.role; emitState(room);
   });
   socket.on("disconnect", () => {
     const room = currentRoom(socket); if (!room) return;
+    if (room.spectators.delete(socket.id)) {
+      room.lastActivity = Date.now(); emitState(room);
+      return;
+    }
     const player = currentPlayer(socket, room); if (player) player.connected = false;
     if (player) player.socketId = null;
     if (player) { room.deckRequest = null; room.deckRequestResult = null; }

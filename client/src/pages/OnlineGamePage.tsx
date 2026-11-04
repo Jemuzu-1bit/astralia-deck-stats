@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type RefObject } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
@@ -290,7 +290,7 @@ function TargetArrows({ links, containerRef }: { links: TargetLink[]; containerR
   </svg>;
 }
 
-function FragmentDock({ fragments }: { fragments: boolean[] }) {
+function FragmentDock({ fragments, readOnly = false }: { fragments: boolean[]; readOnly?: boolean }) {
   const available = fragments.filter((spent) => !spent).length;
   const spent = fragments.length - available;
 
@@ -300,23 +300,24 @@ function FragmentDock({ fragments }: { fragments: boolean[] }) {
         <strong>Fragment</strong>
         <span>{available} ready · {spent} spent</span>
       </div>
-      <div className={styles.fragmentControls}>
+      {!readOnly && <div className={styles.fragmentControls}>
         <button type="button" onClick={() => gameConnection.updateFragments("remove")} disabled={fragments.length === 0} aria-label="Remove a fragment">−</button>
         <button type="button" onClick={() => gameConnection.updateFragments("add")} disabled={fragments.length >= 10} aria-label="Add a fragment">+</button>
         <button type="button" onClick={() => gameConnection.updateFragments("spend")} disabled={available === 0}>Spend</button>
         <button type="button" onClick={() => gameConnection.updateFragments("recover")} disabled={spent === 0}>Recover</button>
         <button type="button" onClick={() => gameConnection.updateFragments("spendAll")} disabled={available === 0}>Spend all</button>
         <button type="button" onClick={() => gameConnection.updateFragments("recoverAll")} disabled={spent === 0}>Recover all</button>
-      </div>
+      </div>}
     </div>
     <div className={styles.fragmentRail}>
       {fragments.map((isSpent, index) => <button
         key={index}
         type="button"
+        disabled={readOnly}
         className={isSpent ? styles.spentFragment : ""}
         onClick={() => gameConnection.setFragmentSpent(index, !isSpent)}
-        aria-label={`Fragment ${index + 1}, ${isSpent ? "spent. Recover it" : "available. Spend it"}`}
-        title={isSpent ? "Spent · click to recover" : "Available · click to spend"}
+        aria-label={`Fragment ${index + 1}, ${isSpent ? "spent" : "available"}${readOnly ? "" : isSpent ? ". Recover it" : ". Spend it"}`}
+        title={isSpent ? readOnly ? "Spent" : "Spent · click to recover" : readOnly ? "Available" : "Available · click to spend"}
       >
         <img src={fragmentCard} alt="" draggable={false} />
       </button>)}
@@ -692,10 +693,11 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
+  readOnly?: boolean;
   attachingUid: string | null;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
@@ -712,7 +714,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   onDragOver: (event: DragEvent<HTMLElement>) => void;
   onDrop: (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number) => void;
 }) {
-  const movable = !opponentSide && Boolean(player?.table);
+  const movable = !readOnly && !opponentSide && Boolean(player?.table);
   const readyFragments = table.fragments.filter((spent) => !spent).length;
   const spentFragments = table.fragments.length - readyFragments;
   const protagonistIndex = opponentSide ? 1 : 4;
@@ -1172,7 +1174,10 @@ export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { code: routeCode } = useParams();
+  const [searchParams] = useSearchParams();
+  const isSpectator = searchParams.get("watch") === "1";
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
+  const [error, setError] = useState<string | null>(null);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
@@ -1188,17 +1193,21 @@ export default function OnlineGamePage() {
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
-    if (routeCode) gameConnection.resume(routeCode);
+    const offError = gameConnection.onError(setError);
+    if (routeCode) {
+      if (isSpectator) gameConnection.watch(routeCode);
+      else gameConnection.resume(routeCode);
+    }
     else gameConnection.connect();
-    return offState;
-  }, [routeCode]);
+    return () => { offState(); offError(); };
+  }, [routeCode, isSpectator]);
   useEffect(() => {
-    if (state.code && routeCode !== state.code) navigate(`/game/${state.code}`, { replace: true });
-  }, [state.code, routeCode, navigate]);
+    if (state.code && routeCode !== state.code) navigate(`/game/${state.code}${isSpectator ? "?watch=1" : ""}`, { replace: true });
+  }, [state.code, routeCode, isSpectator, navigate]);
 
   const myId = gameConnection.getSocketId();
-  const me = state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null;
-  const opponent = me?.role === "host" ? state.guest : state.host;
+  const me = isSpectator ? state.host : myId ? state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null : null;
+  const opponent = isSpectator ? state.guest : me?.role === "host" ? state.guest : state.host;
   const myTable = useMemo(() => playerTable(me), [me]);
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
   const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
@@ -1211,10 +1220,11 @@ export default function OnlineGamePage() {
       ? (openSlot.owner === "self" ? myTable : opponentTable).protagonist
       : (openSlot.owner === "self" ? myTable : opponentTable).battle[openSlot.slot ?? 0] ?? []
     : EMPTY_TABLE.hand;
-  const slotLabel = openSlot ? `${openSlot.owner === "self" ? "Your" : "Opponent"} ${openSlot.zone === "protagonist" ? "Protagonist" : `Battle slot ${(openSlot.slot ?? 0) + 1}`}` : "";
+  const ownerLabel = (owner: "self" | "opponent") => isSpectator ? (owner === "self" ? me?.name || "Host" : opponent?.name || "Guest") : owner === "self" ? "Your" : "Opponent";
+  const slotLabel = openSlot ? `${ownerLabel(openSlot.owner)} ${openSlot.zone === "protagonist" ? "Protagonist" : `Battle slot ${(openSlot.slot ?? 0) + 1}`}` : "";
   const peekedUidSet = useMemo(() => peekedUids === null ? undefined : new Set(peekedUids), [peekedUids]);
   const railCards = peekedUids !== null || deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
-  const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
+  const railMovable = !isSpectator && Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
   const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuDeckCard = menu ? myTable.deck.find((card) => card.uid === menu.uid) : undefined;
@@ -1227,9 +1237,9 @@ export default function OnlineGamePage() {
     : deckSearchQuery !== null ? `Deck search · ${myTable.deck.length} cards`
       : openSlot ? `${slotLabel} · ${slotCards.length}`
       : openZone?.owner === "opponent" && openZone.name === "hand"
-      ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
-      : openZone ? `${openZone.owner === "self" ? "Your" : "Opponent"} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
-        : `Hand · ${myTable.hand.length}`;
+      ? `${ownerLabel("opponent")} hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
+      : openZone ? `${ownerLabel(openZone.owner)} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
+        : isSpectator ? `${me?.name || "Host"} hand · ${myTable.hand.length} revealed / ${me?.handCount ?? 0}` : `Hand · ${myTable.hand.length}`;
 
   const showHand = () => { setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); };
   const showSlot = (owner: OpenSlot["owner"], zone: OpenSlot["zone"], slot?: number) => {
@@ -1267,7 +1277,7 @@ export default function OnlineGamePage() {
     if (draggedUid.current) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
   };
   const drop = (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number, position?: "top" | "bottom") => {
-    if (!draggedUid.current) return;
+    if (isSpectator || !draggedUid.current) return;
     event.preventDefault(); event.stopPropagation();
     gameConnection.moveCard(draggedUid.current, zone, { slot, position });
     endDrag(); setInspectedCard(null);
@@ -1295,12 +1305,14 @@ export default function OnlineGamePage() {
     setInspectedCard(null);
   };
   const showMenu: CardMenu = (event, card, resolvedCard, canFlip) => {
+    if (isSpectator) return;
     event.preventDefault(); event.stopPropagation();
     setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard?.type.toLowerCase() === "action", canFlip });
     setDeckMenu(null);
   };
   const showDeckMenu = (event: MouseEvent<HTMLDivElement>, owner: "self" | "opponent") => {
     event.preventDefault(); event.stopPropagation();
+    if (isSpectator) return;
     setDeckMenu({ x: event.clientX, y: event.clientY, owner });
     setMenu(null);
   };
@@ -1312,7 +1324,7 @@ export default function OnlineGamePage() {
     gameConnection.requestDeckAction(action, count);
     setDeckMenu(null);
   };
-  const drawOne = () => { if (myTable.deck.length > 0) deckAction("draw", 1); };
+  const drawOne = () => { if (!isSpectator && myTable.deck.length > 0) deckAction("draw", 1); };
   const lookAtTop = (count: number) => {
     setPeekedUids(myTable.deck.slice(0, count).map((card) => card.uid));
     setOpenZone(null); setOpenSlot(null); setDeckSearchQuery(null); setInspectedCard(null); setDeckMenu(null);
@@ -1322,9 +1334,9 @@ export default function OnlineGamePage() {
     setPeekedUids(null); setOpenZone(null); setOpenSlot(null); setInspectedCard(null); setDeckMenu(null);
   };
   const deckRequest = state.deckRequest;
-  const incomingDeckRequest = deckRequest && me && deckRequest.fromRole !== me.role ? deckRequest : null;
-  const outgoingDeckRequest = deckRequest && me && deckRequest.fromRole === me.role ? deckRequest : null;
-  const deckRequestResult = state.deckRequestResult?.id !== dismissedDeckResultId ? state.deckRequestResult : null;
+  const incomingDeckRequest = !isSpectator && deckRequest && me && deckRequest.fromRole !== me.role ? deckRequest : null;
+  const outgoingDeckRequest = !isSpectator && deckRequest && me && deckRequest.fromRole === me.role ? deckRequest : null;
+  const deckRequestResult = !isSpectator && state.deckRequestResult?.id !== dismissedDeckResultId ? state.deckRequestResult : null;
   const canAcceptDeckRequest = Boolean(incomingDeckRequest && myTable.deck.length > 0
     && (incomingDeckRequest.count === null || incomingDeckRequest.count <= myTable.deck.length));
   const respondToDeckRequest = (accepted: boolean) => {
@@ -1347,12 +1359,13 @@ export default function OnlineGamePage() {
     } : undefined}
   >
     <header className={styles.toolbar}>
-      <div><strong>Match {state.code || "—"}</strong><span>Manual table</span></div>
+      <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
         <Link to="/help" target="_blank" rel="noopener noreferrer">Guida</Link>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
+    {error && <div className={styles.deckRequestNotice} role="alert">{error}</div>}
     {incomingDeckRequest && <div className={styles.deckRequestNotice} role="dialog" aria-label="Opponent deck request">
       <span><strong>{incomingDeckRequest.fromName}</strong> asks you to {describeDeckRequest(incomingDeckRequest, "your")}.</span>
       <button type="button" onClick={() => respondToDeckRequest(true)} disabled={!canAcceptDeckRequest}>Accept</button>
@@ -1400,7 +1413,7 @@ export default function OnlineGamePage() {
           />
           <ActionStage
             items={myTable.action}
-            local={Boolean(me?.table)}
+            local={!isSpectator && Boolean(me?.table)}
             onInspect={setInspectedCard}
             onDragStart={startDrag}
             onDragEnd={endDrag}
@@ -1411,6 +1424,7 @@ export default function OnlineGamePage() {
       <PlayerTable
         player={me}
         table={myTable}
+        readOnly={isSpectator}
         attachingUid={attachingUid}
         onInspect={setInspectedCard}
         onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "self", name }); }}
@@ -1427,8 +1441,8 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={styles.handDock} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
-        {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
+      <section className={styles.handDock} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : isSpectator ? `${me?.name || "Host"} revealed hand` : "Your hand"} onDragOver={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
+        {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← {isSpectator ? "Visible hand" : "Hand"} · {myTable.hand.length}</button>}
         {deckSearchQuery === null && <div className={styles.handDockLabel}>{railTitle}</div>}
         {peekedUids !== null && <div className={styles.deckDropTargets} aria-label="Deck order controls">
           <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "top")}>Drop on top</div>
@@ -1464,7 +1478,7 @@ export default function OnlineGamePage() {
           onDragEnd={railMovable ? endDrag : undefined}
           onMenu={railMovable ? showMenu : undefined}
         />
-        {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} />}
+        {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} readOnly={isSpectator} />}
       </section>
     </main>
     {attachingUid && <div className={styles.attachHint} role="status">

@@ -7,7 +7,7 @@ function App() {
   const navigate = useNavigate();
   const [name, setName] = useState(() => localStorage.getItem("astralia.playerName") || "");
   const [joinCode, setJoinCode] = useState("");
-  const [showJoin, setShowJoin] = useState(false);
+  const [joinMode, setJoinMode] = useState<"play" | "watch" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => gameConnection.onError(setError), []);
@@ -25,8 +25,11 @@ function App() {
         <button className={styles.playButton} onClick={() => connectAnd(() => gameConnection.host(name || "Host"))}>
           host game
         </button>
-        <button className={styles.playButton} onClick={() => { setError(null); setShowJoin(true); }}>
+        <button className={styles.playButton} onClick={() => { setError(null); setJoinMode("play"); }}>
           join game
+        </button>
+        <button className={styles.playButton} onClick={() => { setError(null); setJoinMode("watch"); }}>
+          watch game
         </button>
         <button
           className={styles.decksButton}
@@ -36,13 +39,19 @@ function App() {
         </button>
         <button className={styles.helpButton} onClick={() => navigate("/help")}>Come si usa</button>
       </div>
-      {showJoin && (
-        <div className={styles.modalOverlay} onClick={() => setShowJoin(false)}>
+      {joinMode && (
+        <div className={styles.modalOverlay} onClick={() => setJoinMode(null)}>
           <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
-            <h2>Join game</h2>
+            <h2>{joinMode === "watch" ? "Watch game" : "Join game"}</h2>
             {error && <p className={styles.error}>{error}</p>}
             <input className={styles.codeInput} placeholder="AB12CD" maxLength={6} value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} autoFocus />
-            <button className={styles.playButton} disabled={!joinCode.trim()} onClick={() => connectAnd(() => gameConnection.join(name || "Guest", joinCode))}>join</button>
+            <button className={styles.playButton} disabled={!joinCode.trim()} onClick={() => {
+              if (joinMode === "watch") {
+                const code = joinCode.trim().toUpperCase();
+                gameConnection.watch(code);
+                navigate(`/lobby/${code}?watch=1`);
+              } else connectAnd(() => gameConnection.join(name || "Guest", joinCode));
+            }}>{joinMode === "watch" ? "watch" : "join"}</button>
           </div>
         </div>
       )}
