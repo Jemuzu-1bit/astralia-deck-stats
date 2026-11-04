@@ -1,20 +1,39 @@
 import { io, type Socket } from "socket.io-client";
 
+export interface GameCounter {
+  kind: "emoji" | "name" | "customEmoji";
+  label: string;
+  emoji?: string;
+  value: number;
+}
+
 export interface GameCard {
   uid: string;
   id: string;
   frazzle: number;
   flipped?: boolean;
+  faceDown?: boolean;
   targetUid?: string;
   targetExpiresAt?: number;
   atk?: number;
   hp?: number;
+  counters?: GameCounter[];
   revealed?: boolean;
   isProtagonist?: boolean;
+  ownerRole?: "host" | "guest";
 }
 
 export type GameZone = "hand" | "deck" | "persona" | "graveyard" | "oblivion" | "action" | "battle" | "protagonist";
 export type DeckAction = "shuffle" | "draw" | "discard" | "oblivion";
+export type RequestedDeckAction = DeckAction | "look" | "search";
+export interface DeckRequest {
+  id: string;
+  fromRole: "host" | "guest";
+  fromName: string;
+  action: RequestedDeckAction;
+  count: number | null;
+}
+export type DeckRequestResult = DeckRequest & { accepted: boolean };
 
 export interface GameTable {
   hand: GameCard[];
@@ -52,6 +71,8 @@ export interface LobbyState {
   guest: LobbyPlayerState | null;
   started: boolean;
   code?: string;
+  deckRequest?: DeckRequest | null;
+  deckRequestResult?: DeckRequestResult | null;
 }
 type StateListener = (state: LobbyState) => void;
 type ErrorListener = (message: string) => void;
@@ -171,7 +192,14 @@ class GameConnection {
   setCardFrazzle(uid: string, value: 1 | 2) { this.socket?.emit("game:setFrazzle", { target: "card", uid, value }); }
   adjustCardFrazzle(uid: string, delta: -1 | 1) { this.socket?.emit("game:setFrazzle", { target: "card", uid, delta }); }
   setCardStat(uid: string, stat: "atk" | "hp", value: number) { this.socket?.emit("game:setStat", { uid, stat, value }); }
+  removeCardStat(uid: string, stat: "atk" | "hp") { this.socket?.emit("game:setStat", { uid, stat, remove: true }); }
   adjustCardStat(uid: string, stat: "atk" | "hp", delta: -1 | 1) { this.socket?.emit("game:setStat", { uid, stat, delta }); }
+  adjustCardCounter(uid: string, counter: Pick<GameCounter, "kind" | "label" | "emoji">, delta: -1 | 1) {
+    this.socket?.emit("game:adjustCounter", { uid, ...counter, delta });
+  }
+  removeCardCounter(uid: string, counter: Pick<GameCounter, "kind" | "label" | "emoji">) {
+    this.socket?.emit("game:adjustCounter", { uid, ...counter, remove: true });
+  }
   updateFragments(action: "add" | "remove" | "spend" | "recover" | "spendAll" | "recoverAll") {
     this.socket?.emit("game:updateFragments", { action });
   }
@@ -182,11 +210,16 @@ class GameConnection {
   moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
     this.socket?.emit("game:moveCard", { uid, to, ...options });
   }
+  giveCardControl(uid: string) { this.socket?.emit("game:giveCardControl", { uid }); }
   attachCard(uid: string, targetUid: string) { this.socket?.emit("game:attachCard", { uid, targetUid }); }
   swapSlotCard(uid: string) { this.socket?.emit("game:swapSlotCard", { uid }); }
   deckAction(action: DeckAction, count?: number) { this.socket?.emit("game:deckAction", { action, count }); }
+  requestDeckAction(action: RequestedDeckAction, count?: number) { this.socket?.emit("game:requestDeckAction", { action, count }); }
+  respondDeckAction(id: string, accepted: boolean) { this.socket?.emit("game:respondDeckAction", { id, accepted }); }
+  cancelDeckAction(id: string) { this.socket?.emit("game:cancelDeckAction", { id }); }
   setCardRevealed(uid: string, revealed: boolean) { this.socket?.emit("game:revealCard", { uid, revealed }); }
   flipCard(uid: string) { this.socket?.emit("game:flipCard", { uid }); }
+  setCardFaceDown(uid: string, faceDown: boolean) { this.socket?.emit("game:setFaceDown", { uid, faceDown }); }
   setCardTarget(uid: string, targetUid: string | null) { this.socket?.emit("game:setTarget", { uid, targetUid }); }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }
   startRequest() { this.socket?.emit("lobby:startRequest"); }

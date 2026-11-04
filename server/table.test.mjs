@@ -44,7 +44,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
   const sockets = [];
   try {
     let ready = false;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (let attempt = 0; attempt < 150; attempt += 1) {
       try { ready = (await fetch(`${url}/api/health`)).ok; } catch { /* server is starting */ }
       if (ready) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -95,6 +95,35 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(opponentState.host.deckCount, 3);
     assert.equal(opponentState.host.mainDeckCards, null);
 
+    const drawRequestReceived = waitForState(guest, (next) => next.deckRequest?.action === "draw" && next.deckRequest.count === 1);
+    host.emit("game:requestDeckAction", { action: "draw", count: 1 });
+    const drawRequest = (await drawRequestReceived).deckRequest;
+    assert.equal(drawRequest.fromRole, "host");
+    const acceptedDraw = waitForState(host, (next) => next.deckRequest === null && next.guest?.deckCount === 2);
+    const recipientAfterDraw = waitForState(guest, (next) => next.deckRequest === null && next.guest?.deckCount === 2);
+    guest.emit("game:respondDeckAction", { id: drawRequest.id, accepted: true });
+    const afterAcceptedDraw = await acceptedDraw;
+    assert.equal((await recipientAfterDraw).deckRequestResult, null);
+    assert.equal(afterAcceptedDraw.guest.handCount, 6);
+    assert.equal(afterAcceptedDraw.deckRequestResult.accepted, true);
+    assert.equal(afterAcceptedDraw.deckRequestResult.action, "draw");
+
+    const discardRequestReceived = waitForState(guest, (next) => next.deckRequest?.action === "discard");
+    host.emit("game:requestDeckAction", { action: "discard", count: 1 });
+    const discardRequest = (await discardRequestReceived).deckRequest;
+    const declinedDiscard = waitForState(host, (next) => next.deckRequest === null && next.guest?.deckCount === 2);
+    guest.emit("game:respondDeckAction", { id: discardRequest.id, accepted: false });
+    const afterDeclinedDiscard = await declinedDiscard;
+    assert.equal(afterDeclinedDiscard.guest.table.graveyard.length, 0);
+    assert.equal(afterDeclinedDiscard.deckRequestResult.accepted, false);
+
+    const lookRequestReceived = waitForState(guest, (next) => next.deckRequest?.action === "look");
+    host.emit("game:requestDeckAction", { action: "look", count: 2 });
+    const lookRequest = (await lookRequestReceived).deckRequest;
+    const cancelledLook = waitForState(guest, (next) => next.deckRequest === null);
+    host.emit("game:cancelDeckAction", { id: lookRequest.id });
+    await cancelledLook;
+
     const tenFragments = waitForState(host, (next) => next.host?.table?.fragments?.length === 10);
     const opponentSeesFragments = waitForState(guest, (next) => next.host?.table?.fragments?.length === 10);
     for (let index = 0; index < 11; index += 1) host.emit("game:updateFragments", { action: "add" });
@@ -126,6 +155,21 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const uid = state.host.table.hand[0].uid;
     const protagonistUid = state.host.table.protagonist[0].uid;
 
+    const protagonistInGraveyard = waitForState(guest, (next) => next.host?.table?.graveyard?.[0]?.uid === protagonistUid);
+    host.emit("game:moveCard", { uid: protagonistUid, to: "graveyard" });
+    const movedProtagonist = await protagonistInGraveyard;
+    assert.equal(movedProtagonist.host.table.protagonist.length, 0);
+    assert.equal(movedProtagonist.host.table.graveyard[0].isProtagonist, true);
+    const protagonistInHand = waitForState(host, (next) => next.host?.table?.hand?.some((card) => card.uid === protagonistUid));
+    host.emit("game:moveCard", { uid: protagonistUid, to: "hand" });
+    state = await protagonistInHand;
+    assert.equal(state.host.table.graveyard.length, 0);
+    const protagonistReturned = waitForState(guest, (next) => next.host?.table?.protagonist?.[0]?.uid === protagonistUid);
+    host.emit("game:moveCard", { uid: protagonistUid, to: "protagonist" });
+    const restoredProtagonist = await protagonistReturned;
+    assert.equal(restoredProtagonist.host.table.protagonist[0].isProtagonist, true);
+    assert.equal(restoredProtagonist.host.handCount, 5);
+
     const protagonistFrazzleOne = waitForState(guest, (next) => next.host?.table?.protagonist?.[0]?.frazzle === 1);
     host.emit("game:setFrazzle", { target: "card", uid: protagonistUid, value: 1 });
     await protagonistFrazzleOne;
@@ -156,6 +200,44 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     state = await inBattle;
     assert.equal(state.host.table.battle[0][0].frazzle, 0);
     assert.equal(state.host.table.graveyard.length, 0);
+
+    const faceDownForOwner = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.faceDown === true);
+    const faceDownForOpponent = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.faceDown === true);
+    host.emit("game:setFaceDown", { uid, faceDown: true });
+    state = await faceDownForOwner;
+    const coveredState = await faceDownForOpponent;
+    assert.equal(state.host.table.battle[0][0].id, "card-a");
+    assert.equal(coveredState.host.table.battle[0][0].id, "");
+    assert.equal(coveredState.host.table.battle[0][0].uid, uid);
+    assert.equal(coveredState.host.graveyardCards.length, 0);
+
+    const faceUpForOpponent = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.faceDown === false);
+    host.emit("game:setFaceDown", { uid, faceDown: false });
+    const uncoveredState = await faceUpForOpponent;
+    assert.equal(uncoveredState.host.table.battle[0][0].id, "card-a");
+
+    const controlGiven = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.uid === uid);
+    host.emit("game:giveCardControl", { uid });
+    const guestControls = await controlGiven;
+    assert.equal(guestControls.host.table.battle[0].length, 0);
+    assert.equal(guestControls.guest.table.battle[0][0].ownerRole, "host");
+    const controlReturned = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.uid === uid);
+    guest.emit("game:giveCardControl", { uid });
+    state = await controlReturned;
+    assert.equal(state.host.table.battle[0][0].ownerRole, undefined);
+    assert.equal(state.guest.table.battle[0].length, 0);
+
+    const controlGivenAgain = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.uid === uid);
+    host.emit("game:giveCardControl", { uid });
+    await controlGivenAgain;
+    const returnedToOwnerGraveyard = waitForState(host, (next) => next.host?.table?.graveyard?.[0]?.uid === uid);
+    guest.emit("game:moveCard", { uid, to: "graveyard" });
+    state = await returnedToOwnerGraveyard;
+    assert.equal(state.host.table.graveyard[0].ownerRole, undefined);
+    assert.equal(state.guest.table.graveyard.length, 0);
+    const backOnOwnerField = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.uid === uid);
+    host.emit("game:moveCard", { uid, to: "battle", slot: 0 });
+    state = await backOnOwnerField;
 
     const flippedForOwner = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.flipped === true);
     const flippedForOpponent = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.flipped === true);
@@ -224,6 +306,53 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     host.emit("game:setFrazzle", { target: "card", uid, value: 2 });
     state = await frazzleRestored;
 
+    const questCounter = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[0]?.value === 1);
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "📜", label: "Wrong label", delta: 1 });
+    state = await questCounter;
+    assert.deepEqual(state.host.table.battle[0][0].counters, [{ kind: "emoji", emoji: "📜", label: "Quest", value: 1 }]);
+    const namedCounter = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.length === 2);
+    host.emit("game:adjustCounter", { uid, kind: "name", label: "Poison", delta: 1 });
+    state = await namedCounter;
+    assert.deepEqual(state.host.table.battle[0][0].counters[1], { kind: "name", label: "Poison", value: 1 });
+    const namedCounterRaised = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[1]?.value === 2);
+    host.emit("game:adjustCounter", { uid, kind: "name", label: "poison", delta: 1 });
+    state = await namedCounterRaised;
+    assert.equal(state.host.table.battle[0][0].counters.length, 2);
+    const keywordCounter = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.length === 3);
+    host.emit("game:adjustCounter", { uid, kind: "customEmoji", emoji: "🪽", label: "Flying", delta: 1 });
+    state = await keywordCounter;
+    assert.deepEqual(state.host.table.battle[0][0].counters[2], { kind: "customEmoji", emoji: "🪽", label: "Flying", value: 1 });
+    const secondKeyword = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.length === 4);
+    host.emit("game:adjustCounter", { uid, kind: "customEmoji", emoji: "🪽", label: "Evasion", delta: 1 });
+    state = await secondKeyword;
+    assert.equal(state.host.table.battle[0][0].counters[3].label, "Evasion");
+    guest.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "📜", delta: -1 });
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "🧪", delta: 1 });
+    host.emit("game:adjustCounter", { uid, kind: "customEmoji", emoji: "text", label: "Invalid", delta: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(state.host.table.battle[0][0].counters[0].value, 1);
+    const namedCounterLowered = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[1]?.value === 1);
+    host.emit("game:adjustCounter", { uid, kind: "name", label: "Poison", delta: -1 });
+    await namedCounterLowered;
+    const namedCounterRemoved = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.length === 3);
+    host.emit("game:adjustCounter", { uid, kind: "name", label: "Poison", delta: -1 });
+    state = await namedCounterRemoved;
+    assert.equal(state.host.table.battle[0][0].counters[0].label, "Quest");
+
+    const renownAdded = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[3]?.label === "Renown");
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "🏆", delta: 1 });
+    await renownAdded;
+    const renownRaised = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[3]?.value === 2);
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "🏆", delta: 1 });
+    await renownRaised;
+    const renownRemoved = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.length === 3);
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "🏆", remove: true });
+    state = await renownRemoved;
+    assert.equal(state.host.table.battle[0][0].counters.some((counter) => counter.label === "Renown"), false);
+    const adventAdded = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.[3]?.label === "Advent");
+    host.emit("game:adjustCounter", { uid, kind: "emoji", emoji: "🌌", delta: 1 });
+    state = await adventAdded;
+
     const statsSet = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.atk === 7
       && next.host?.table?.battle?.[0]?.[0]?.hp === 12);
     host.emit("game:setStat", { uid, stat: "atk", value: 7 });
@@ -236,11 +365,48 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     host.emit("game:setStat", { uid, stat: "hp", delta: -1 });
     state = await healthLowered;
 
+    const coveredStats = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.faceDown === true);
+    host.emit("game:setFaceDown", { uid, faceDown: true });
+    const hiddenStats = (await coveredStats).host.table.battle[0][0];
+    assert.equal(hiddenStats.id, "");
+    assert.equal(hiddenStats.atk, undefined);
+    assert.equal(hiddenStats.hp, undefined);
+    const uncoveredStats = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.faceDown === false);
+    host.emit("game:setFaceDown", { uid, faceDown: false });
+    const visibleStats = (await uncoveredStats).host.table.battle[0][0];
+    assert.equal(visibleStats.atk, 8);
+    assert.equal(visibleStats.hp, 11);
+
+    const attackRemoved = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.atk === undefined);
+    host.emit("game:setStat", { uid, stat: "atk", remove: true });
+    const withoutAttack = (await attackRemoved).host.table.battle[0][0];
+    assert.equal(withoutAttack.hp, 11);
+    const healthRemoved = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.hp === undefined);
+    host.emit("game:setStat", { uid, stat: "hp", remove: true });
+    const withoutStats = (await healthRemoved).host.table.battle[0][0];
+    assert.equal(withoutStats.atk, undefined);
+    assert.equal(withoutStats.frazzle, 2);
+
     const inProtagonistSubslot = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "protagonist" });
     state = await inProtagonistSubslot;
     assert.equal(state.host.table.protagonist[0].uid, protagonistUid);
     assert.equal(state.host.table.protagonist[1].frazzle, 2);
+    assert.deepEqual(state.host.table.protagonist[1].counters, [
+      { kind: "emoji", emoji: "📜", label: "Quest", value: 1 },
+      { kind: "customEmoji", emoji: "🪽", label: "Flying", value: 1 },
+      { kind: "customEmoji", emoji: "🪽", label: "Evasion", value: 1 },
+      { kind: "emoji", emoji: "🌌", label: "Advent", value: 1 },
+    ]);
+
+    const heroLeavesStack = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.uid === uid);
+    host.emit("game:moveCard", { uid: protagonistUid, to: "graveyard" });
+    state = await heroLeavesStack;
+    assert.equal(state.host.table.protagonist.length, 1);
+    const heroReturnsToMain = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.uid === protagonistUid);
+    host.emit("game:moveCard", { uid: protagonistUid, to: "protagonist" });
+    state = await heroReturnsToMain;
+    assert.equal(state.host.table.protagonist[1].uid, uid);
 
     const subslotFrazzle = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.frazzle === 1);
     host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
@@ -253,6 +419,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.deck[0].frazzle, 0);
     assert.equal(state.host.table.deck[0].atk, undefined);
     assert.equal(state.host.table.deck[0].hp, undefined);
+    assert.equal(state.host.table.deck[0].counters, undefined);
 
     const restoredToSubslot = waitForState(host, (next) => next.host?.table?.protagonist?.[1]?.uid === uid);
     host.emit("game:moveCard", { uid, to: "protagonist" });
@@ -379,7 +546,7 @@ test("a disconnected player can resume the same game without changing the table 
   const sockets = [];
   try {
     let ready = false;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (let attempt = 0; attempt < 150; attempt += 1) {
       try { ready = (await fetch(`${url}/api/health`)).ok; } catch { /* server is starting */ }
       if (ready) break;
       await new Promise((resolve) => setTimeout(resolve, 100));

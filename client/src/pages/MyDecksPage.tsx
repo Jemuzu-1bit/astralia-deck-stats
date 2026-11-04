@@ -12,9 +12,11 @@ import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
 import modalStyles from "../components/ModalDialog.module.scss";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function MyDecksPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -26,6 +28,19 @@ export default function MyDecksPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  useEffect(() => {
+    if (!new URLSearchParams(location.search).get("deck")) return;
+    setImportCode(new URL(`/my-decks${location.search}`, window.location.origin).toString());
+    setImportError(null);
+    setShowImport(true);
+  }, [location.search]);
+
+  const closeImport = () => {
+    setShowImport(false);
+    setImportError(null);
+    if (new URLSearchParams(location.search).has("deck")) navigate("/my-decks", { replace: true });
+  };
 
   const handleShare = async (deck: Deck) => {
     const code = await exportDeck(deck);
@@ -59,9 +74,8 @@ export default function MyDecksPage() {
       const imported = await importDeck(trimmed);
       const saved = createDeck(imported);
       setDecks((currentDecks) => [saved, ...currentDecks]);
-      setShowImport(false);
+      closeImport();
       setImportCode("");
-      setImportError(null);
     } catch {
       setImportError("Invalid or unsupported deck code");
     }
@@ -136,25 +150,13 @@ export default function MyDecksPage() {
           onClose={() => setShowShare(false)}
           secondary={{ label: "Close", onClick: () => setShowShare(false) }}
         >
-          {copyStatus === "copied" ? (
-            <div style={{ paddingTop: 8, fontWeight: 700, color: "#9ee6b4" }}>
-              Deck share code copied to clipboard.
+          <div style={{ paddingTop: 8 }}>
+            <div style={{ color: copyStatus === "copied" ? "#9ee6b4" : "#ffb4b4", fontWeight: 700, marginBottom: 8 }}>
+              {copyStatus === "copied" ? "Deck link copied to clipboard." : "Copy the deck link below."}
             </div>
-          ) : (
-            <div style={{ paddingTop: 8 }}>
-              <div
-                style={{ color: "#ffb4b4", fontWeight: 700, marginBottom: 8 }}
-              >
-                Copy failed — use the text below to copy manually.
-              </div>
-              <textarea
-                className={modalStyles.codeInput}
-                rows={3}
-                readOnly
-                value={shareCode}
-              />
-            </div>
-          )}
+            <div style={{ marginBottom: 8 }}>Open this official link, or paste it into Import Deck here.</div>
+            <textarea className={modalStyles.codeInput} rows={3} readOnly value={shareCode} onFocus={(event) => event.target.select()} />
+          </div>
         </ModalDialog>
       )}
 
@@ -162,16 +164,10 @@ export default function MyDecksPage() {
         <ModalDialog
           title="Import Deck"
           ariaId="importTitle"
-          onClose={() => {
-            setShowImport(false);
-            setImportError(null);
-          }}
+          onClose={closeImport}
           secondary={{
             label: "Cancel",
-            onClick: () => {
-              setShowImport(false);
-              setImportError(null);
-            },
+            onClick: closeImport,
           }}
           primary={{
             label: "Import",

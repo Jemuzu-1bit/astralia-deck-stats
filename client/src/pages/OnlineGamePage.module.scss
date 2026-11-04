@@ -392,6 +392,11 @@
   }
 }
 
+.handSlotCards {
+  gap: 1.1rem;
+  padding: 10px 10px 12px;
+}
+
 .sideZones {
   display: grid;
   grid-template-rows: repeat(2, minmax(0, 1fr));
@@ -467,6 +472,24 @@
   overflow: visible;
 }
 
+.slotViewButton {
+  position: absolute;
+  z-index: 12;
+  top: -3px;
+  right: 0;
+  padding: .18rem .35rem;
+  color: #f5efd7;
+  background: #242b3d;
+  border: 1px solid rgba(228, 198, 95, .7);
+  border-radius: 999px;
+  font-size: .6rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover, &:focus-visible { background: #39435b; outline: 2px solid #e4c65f; outline-offset: 1px; }
+}
+
 .attachedStack {
   position: relative;
   width: 100%;
@@ -512,6 +535,7 @@
 }
 
 .battleCard {
+  position: relative;
   display: block;
   width: 60px;
   padding: 0;
@@ -598,6 +622,44 @@
   }
 }
 
+.customCounterList {
+  position: absolute;
+  z-index: 9;
+  right: -4px;
+  bottom: 18px;
+  left: -4px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.customCounter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 1px 3px;
+  color: #fff;
+  background: rgba(12, 19, 34, .94);
+  border: 1px solid #e4c65f;
+  border-radius: 5px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .8);
+  font-size: .58rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  pointer-events: auto;
+
+  b { color: #e4c65f; font-size: .58rem; }
+}
+
+.editableCustomCounter {
+  cursor: pointer;
+
+  &:hover, &:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+}
+
 .revealedBadge {
   position: absolute;
   z-index: 3;
@@ -608,6 +670,21 @@
   background: #e4c65f;
   border-radius: 3px;
   font-size: .5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.controlledBadge {
+  position: absolute;
+  z-index: 3;
+  top: 2px;
+  right: 2px;
+  padding: 1px 3px;
+  color: #fff;
+  background: #6741a5;
+  border-radius: 3px;
+  font-size: .48rem;
   font-weight: 800;
   line-height: 1.2;
   pointer-events: none;
@@ -719,6 +796,40 @@
   }
 }
 
+.deckRequestNotice {
+  position: fixed;
+  z-index: 86;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 1rem));
+  padding: .65rem .8rem;
+  box-sizing: border-box;
+  color: #f5efd7;
+  background: #11192c;
+  border: 1px solid #e4c65f;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .65);
+  font-size: .82rem;
+
+  span { flex: 1; }
+  button {
+    flex: 0 0 auto;
+    padding: .35rem .55rem;
+    color: #101522;
+    background: #e4c65f;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover, button:focus-visible { background: #f7e39b; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+}
+
 .contextMenu {
   position: fixed;
   z-index: 90;
@@ -735,6 +846,40 @@
   button { display: block; width: 100%; padding: .4rem .55rem; color: inherit; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
   button:hover, button:focus-visible { color: #111522; background: #e4c65f; outline: none; }
   hr { margin: .3rem 0; border: 0; border-top: 1px solid rgba(212, 175, 55, .25); }
+}
+
+.counterMenu {
+  display: grid;
+  gap: .4rem;
+
+  > strong, form label, .counterMenuCurrent > strong { color: #e4c65f; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+
+  form { display: grid; gap: .35rem; }
+  input { min-width: 0; width: 100%; padding: .4rem; box-sizing: border-box; color: #fff; background: #090e1e; border: 1px solid rgba(212, 175, 55, .55); border-radius: 4px; font: inherit; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+}
+
+.counterChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+
+.keywordEmojiPicker {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2px;
+
+  button { padding: .25rem 0; text-align: center; font-size: 1rem; line-height: 1.2; }
+  button[aria-pressed="true"] { color: #111522; background: #e4c65f; outline: 1px solid #fff; }
+}
+
+.counterMenu small { color: #ffb4a8; font-size: .66rem; }
+
+.counterMenuCurrent {
+  display: grid;
+  gap: 2px;
+
+  > div { display: flex; align-items: center; gap: 3px; }
+  span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; }
+  button { flex: 0 0 25px; width: 25px; text-align: center; }
+  button:last-child { flex-basis: auto; width: auto; font-size: .66rem; }
 }
 
 .deckMenu {

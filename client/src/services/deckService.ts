@@ -1,5 +1,6 @@
 import type { Deck, DeckEntry } from "../types/Deck";
-import { isAlternativeArt, readCardData } from "../data/cardDataReader";
+import { isAlternativeArt, readCardData } from "../data/cardDataReader.ts";
+import { deflateToBase64Url, inflateBase64Url, parseLocalSharePayload, type LocalSharePayloadV2 } from "./deckShareCodec.ts";
 
 const STORAGE_KEY = "astralia.decks";
 
@@ -66,7 +67,7 @@ interface SharePayloadV1 {
   d: [string, number][];
 }
 
-function fromSharePayload(p: SharePayloadV1): Omit<Deck, "id" | "updatedAt"> {
+function fromSharePayload(p: SharePayloadV1 | LocalSharePayloadV2): Omit<Deck, "id" | "updatedAt"> {
   return {
     name: p.n,
     faction: p.f,
@@ -89,66 +90,27 @@ interface OfficialSharePayload {
   protagonist: Record<string, number>;
 }
 
-const OFFICIAL_DECK_IMPORT_URL =
-  "https://www.astraliachronicles.com/deck-import?deckData=";
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-
-  return btoa(binary);
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return toBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64(value: string): Uint8Array {
-  const binary = atob(value);
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
-async function deflateToBase64Url(value: string): Promise<string> {
-  const stream = new Blob([value])
-    .stream()
-    .pipeThrough(new CompressionStream("deflate"));
-  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
-  return toBase64Url(compressed);
-}
+const OFFICIAL_DECK_IMPORT_URL = "https://www.astraliachronicles.com/deck-import?deckData=";
 
 async function cardKeysById(): Promise<Map<string, string>> {
   const cards = await readCardData();
-  const canonicalCards = cards.filter(
-    (card) => card.face === 1 && !isAlternativeArt(card)
-  );
-  const printKey = (setId: string) =>
-    setId
-      .replace(/\s(?:N|EX|P|SR|SSR)$/i, "")
-      .replace(/[^a-z0-9]/gi, "")
-      .toLowerCase();
+  const canonicalCards = cards.filter((card) => card.face === 1 && !isAlternativeArt(card));
+  const printKey = (setId: string) => setId
+    .replace(/\s(?:N|EX|P|SR|SSR)$/i, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
   const canonicalImageByPrint = new Map(
     canonicalCards.map((card) => [printKey(card.setId), card.imageId.toUpperCase()])
   );
-
-  return new Map(
-    cards
-      .filter((card) => card.face === 1)
-      .map((card) => [
-        card.id.toLowerCase(),
-        isAlternativeArt(card)
-          ? canonicalImageByPrint.get(printKey(card.setId)) ?? card.imageId.toUpperCase()
-          : card.imageId.toUpperCase(),
-      ])
-  );
+  return new Map(cards.filter((card) => card.face === 1).map((card) => [
+    card.id.toLowerCase(),
+    isAlternativeArt(card)
+      ? canonicalImageByPrint.get(printKey(card.setId)) ?? card.imageId.toUpperCase()
+      : card.imageId.toUpperCase(),
+  ]));
 }
 
-function toOfficialCardMap(
-  cardIds: { id: string; qty: number }[],
-  keysById: Map<string, string>
-): Record<string, number> {
+function toOfficialCardMap(cardIds: { id: string; qty: number }[], keysById: Map<string, string>): Record<string, number> {
   return cardIds.reduce<Record<string, number>>((result, { id, qty }) => {
     const officialId = keysById.get(id.toLowerCase());
     if (!officialId) throw new Error(`Card not found in catalog: ${id}`);
@@ -157,23 +119,9 @@ function toOfficialCardMap(
   }, {});
 }
 
-function fromBase64Url(value: string): Uint8Array {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-  const binary = atob(padded);
+function fromBase64(value: string): Uint8Array {
+  const binary = atob(value);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
-async function inflateBase64Url(value: string): Promise<string> {
-  const bytes = fromBase64Url(value);
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer;
-  const stream = new Blob([buffer])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate"));
-  return new Response(stream).text();
 }
 
 function getOfficialDeckData(value: string): string | null {
@@ -183,6 +131,23 @@ function getOfficialDeckData(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+function getLocalDeckData(value: string): string | null {
+  try {
+    return new URL(value).searchParams.get("deck");
+  } catch {
+    return null;
+  }
+}
+
+async function fromLocalSharePayload(payload: LocalSharePayloadV2): Promise<Omit<Deck, "id" | "updatedAt">> {
+  const cards = await readCardData();
+  const knownIds = new Set(cards.filter((card) => card.face === 1).map((card) => card.id.toLowerCase()));
+  for (const id of [payload.p, ...payload.pe, ...payload.d.map(([cardId]) => cardId)]) {
+    if (id && !knownIds.has(id.toLowerCase())) throw new Error(`Card not found in catalog: ${id}`);
+  }
+  return fromSharePayload(payload);
 }
 
 async function fromOfficialSharePayload(
@@ -237,33 +202,29 @@ export async function exportDeck(deck: Deck): Promise<string> {
   const keysById = await cardKeysById();
   const payload: OfficialSharePayload = {
     deckCards: toOfficialCardMap(deck.deck, keysById),
-    // These fields are Android app resource IDs in links generated by the
-    // official app. Card lists and name are portable; use neutral values for
-    // metadata that is not available in this web app.
     faction: 0,
     hasError: false,
     id: 0,
     image: 0,
     imageKey: "",
     name: deck.name,
-    personaDeck: toOfficialCardMap(
-      deck.persona.map((id) => ({ id, qty: 1 })),
-      keysById
-    ),
+    personaDeck: toOfficialCardMap(deck.persona.map((id) => ({ id, qty: 1 })), keysById),
     protagonist: deck.protagonist
       ? toOfficialCardMap([{ id: deck.protagonist, qty: 1 }], keysById)
       : {},
   };
-
-  return `${OFFICIAL_DECK_IMPORT_URL}${await deflateToBase64Url(
-    JSON.stringify(payload)
-  )}`;
+  return `${OFFICIAL_DECK_IMPORT_URL}${await deflateToBase64Url(JSON.stringify(payload))}`;
 }
 
 export async function importDeck(
   code: string
 ): Promise<Omit<Deck, "id" | "updatedAt">> {
   const trimmed = code.trim();
+  const localDeckData = getLocalDeckData(trimmed);
+  if (localDeckData) {
+    const json = await inflateBase64Url(localDeckData);
+    return fromLocalSharePayload(parseLocalSharePayload(JSON.parse(json)));
+  }
   const officialDeckData = getOfficialDeckData(trimmed);
 
   if (officialDeckData) {

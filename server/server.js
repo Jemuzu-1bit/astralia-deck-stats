@@ -11,6 +11,15 @@ const PORT = Number(process.env.PORT || 3000);
 const MAX_PLAYERS = 2;
 const ROOM_TTL_MS = 30 * 60 * 1000;
 const TARGET_DURATION_MS = 5 * 1000;
+const COUNTER_EMOJIS = new Map([
+  ["📜", "Quest"], ["🔮", "Omen"], ["🛡️", "Shield"],
+  ["⚙️", "Astralia Gear"], ["💥", "Explosion"],
+  ["🏆", "Renown"], ["🌌", "Advent"],
+]);
+const EMOJI_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const validCounterEmoji = (emoji) => typeof emoji === "string" && emoji.length <= 32
+  && [...EMOJI_SEGMENTER.segment(emoji)].length === 1
+  && /\p{Extended_Pictographic}/u.test(emoji);
 
 const app = express();
 const server = http.createServer(app);
@@ -50,22 +59,43 @@ function publicPlayer(player, viewerId) {
   const handCount = player.table?.hand.length ?? player.handCards.length;
   const deckCount = player.table?.deck.length ?? player.deckCards.length;
   if (player.socketId === viewerId) return { ...safe, handCount, deckCount };
+  const publicCard = (card) => card.faceDown
+    ? { ...card, id: "", flipped: false, atk: undefined, hp: undefined }
+    : card;
+  const publicTable = player.table ? {
+    ...player.table,
+    hand: player.table.hand.filter((card) => card.revealed).map(publicCard),
+    deck: [],
+    persona: player.table.persona.map(publicCard),
+    graveyard: player.table.graveyard.map(publicCard),
+    oblivion: player.table.oblivion.map(publicCard),
+    action: player.table.action.map(publicCard),
+    battle: player.table.battle.map((stack) => stack.map(publicCard)),
+    protagonist: player.table.protagonist.map(publicCard),
+  } : undefined;
   return {
     ...safe,
     mainDeckCards: null,
     handCards: [],
     deckCards: [],
-    table: player.table ? { ...player.table, hand: player.table.hand.filter((card) => card.revealed), deck: [] } : undefined,
+    personaCards: null,
+    graveyardCards: [],
+    oblivionCards: [],
+    protagonistId: player.table?.protagonist[0]?.faceDown ? null : player.protagonistId,
+    table: publicTable,
     handCount,
     deckCount,
   };
 }
 function publicState(room, viewerId) {
+  const viewer = [room.host, room.guest].find((player) => player?.socketId === viewerId);
   return {
     host: room.host ? publicPlayer(room.host, viewerId) : null,
     guest: room.guest ? publicPlayer(room.guest, viewerId) : null,
     started: room.started,
     code: room.code,
+    deckRequest: room.deckRequest || null,
+    deckRequestResult: room.deckRequestResult?.fromRole === viewer?.role ? room.deckRequestResult : null,
   };
 }
 function emitState(room) {
@@ -115,6 +145,24 @@ function shuffle(cards) {
     [cards[index], cards[swapIndex]] = [cards[swapIndex], cards[index]];
   }
   return cards;
+}
+
+const REQUESTABLE_DECK_ACTIONS = ["shuffle", "draw", "discard", "oblivion", "look", "search"];
+function performDeckAction(player, action, count) {
+  const { deck } = player.table;
+  if (action === "shuffle") {
+    shuffle(deck);
+  } else {
+    if (!["draw", "discard", "oblivion"].includes(action)) return false;
+    if (!Number.isInteger(count) || count < 1 || deck.length === 0) return false;
+    const cards = deck.splice(0, Math.min(count, deck.length));
+    cards.forEach((card) => { card.revealed = false; });
+    const destination = action === "draw" ? player.table.hand
+      : action === "discard" ? player.table.graveyard : player.table.oblivion;
+    destination.push(...cards);
+  }
+  syncCardLists(player);
+  return true;
 }
 
 const CARD_ZONES = ["hand", "deck", "persona", "graveyard", "oblivion", "action", "battle", "protagonist"];
@@ -285,6 +333,13 @@ io.on("connection", (socket) => {
     const stat = String(payload?.stat || "");
     if (!found?.slotted || !(stat === "atk" || stat === "hp")) return;
 
+    if (payload?.remove === true) {
+      if (found.card[stat] === undefined) return;
+      delete found.card[stat];
+      room.lastActivity = Date.now(); emitState(room);
+      return;
+    }
+
     const requestedValue = Number(payload?.value);
     const delta = Number(payload?.delta);
     let next;
@@ -293,6 +348,40 @@ io.on("connection", (socket) => {
       next = Math.max(0, Math.min(999, found.card[stat] + delta));
     } else return;
     found.card[stat] = next;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:adjustCounter", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found?.slotted || (payload?.remove !== true && payload?.delta !== 1 && payload?.delta !== -1)) return;
+    const kind = payload?.kind;
+    if (kind !== "emoji" && kind !== "name" && kind !== "customEmoji") return;
+    const emoji = kind === "name" ? undefined : payload?.emoji;
+    if (kind === "emoji" && !COUNTER_EMOJIS.has(emoji)) return;
+    if (kind === "customEmoji" && !validCounterEmoji(emoji)) return;
+    const label = kind === "emoji" ? COUNTER_EMOJIS.get(emoji)
+      : String(payload?.label || "").trim().replace(/\s+/g, " ");
+    if (!label || label.length > 24 || /[\x00-\x1f\x7f]/.test(label)) return;
+
+    const counters = found.card.counters || [];
+    const index = counters.findIndex((counter) => kind === "emoji"
+      ? counter.kind === "emoji" && counter.emoji === emoji
+      : counter.kind === kind && counter.label.toLocaleLowerCase() === label.toLocaleLowerCase());
+    if (payload?.remove === true) {
+      if (index === -1) return;
+      counters.splice(index, 1);
+    } else if (index === -1) {
+      if (payload.delta !== 1 || counters.length >= 8) return;
+      counters.push({ kind, label, ...(emoji ? { emoji } : {}), value: 1 });
+    } else {
+      const next = counters[index].value + payload.delta;
+      if (next < 0 || next > 99) return;
+      if (next === 0) counters.splice(index, 1);
+      else counters[index].value = next;
+    }
+    if (counters.length) found.card.counters = counters;
+    else delete found.card.counters;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:updateFragments", (payload) => {
@@ -349,7 +438,6 @@ io.on("connection", (socket) => {
     const found = findCard(table, String(payload?.uid || ""));
     const target = String(payload?.to || "");
     if (!found || !CARD_ZONES.includes(target)) return;
-    if (found.card.isProtagonist) return;
     if (target === "battle" || target === "protagonist") {
       const slot = Number(payload?.slot);
       if (target === "battle" && (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length)) return;
@@ -358,17 +446,46 @@ io.on("connection", (socket) => {
       const destination = target === "battle" ? table.battle[slot] : table.protagonist;
       const card = removeFoundCard(table, found);
       card.revealed = false;
-      destination.push(card);
+      if (target === "protagonist" && card.isProtagonist) destination.unshift(card);
+      else destination.push(card);
     } else {
+      const owner = found.card.ownerRole && found.card.ownerRole !== player.role
+        ? room[found.card.ownerRole] : player;
+      if (!owner?.table) return;
       const card = removeFoundCard(table, found);
       card.frazzle = 0;
       delete card.atk;
       delete card.hp;
+      delete card.counters;
       card.revealed = false;
-      if (target === "deck" && payload?.position !== "bottom") table.deck.unshift(card);
-      else table[target].push(card);
+      if (target === "hand" || target === "deck") card.faceDown = false;
+      delete card.ownerRole;
+      if (target === "deck" && payload?.position !== "bottom") owner.table.deck.unshift(card);
+      else owner.table[target].push(card);
+      if (owner !== player) syncCardLists(owner);
     }
     syncCardLists(player);
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:giveCardControl", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    const opponent = player?.role === "host" ? room?.guest : room?.host;
+    if (!room?.started || !player?.table || !opponent?.table) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found?.slotted || found.card.isProtagonist) return;
+    const originalOwnerRole = found.card.ownerRole || player.role;
+    let destination;
+    if (found.zone === "battle") {
+      const openSlot = opponent.table.battle[found.slot].length === 0
+        ? found.slot : opponent.table.battle.findIndex((stack) => stack.length === 0);
+      destination = opponent.table.battle[openSlot === -1 ? found.slot : openSlot];
+    } else destination = opponent.table.protagonist;
+    const card = removeFoundCard(player.table, found);
+    if (originalOwnerRole === opponent.role) delete card.ownerRole;
+    else card.ownerRole = originalOwnerRole;
+    card.revealed = false;
+    destination.push(card);
+    syncCardLists(player); syncCardLists(opponent);
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:swapSlotCard", (payload) => {
@@ -415,6 +532,14 @@ io.on("connection", (socket) => {
     found.card.flipped = !found.card.flipped;
     room.lastActivity = Date.now(); emitState(room);
   });
+  socket.on("game:setFaceDown", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const found = findCard(player.table, String(payload?.uid || ""));
+    if (!found || found.zone === "hand" || found.zone === "deck" || typeof payload?.faceDown !== "boolean") return;
+    found.card.faceDown = payload.faceDown;
+    room.lastActivity = Date.now(); emitState(room);
+  });
   socket.on("game:setTarget", (payload) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
@@ -447,21 +572,46 @@ io.on("connection", (socket) => {
   socket.on("game:deckAction", (payload) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
-    const { deck } = player.table;
     const action = String(payload?.action || "");
-    if (action === "shuffle") {
-      shuffle(deck);
-    } else {
-      if (!(["draw", "discard", "oblivion"].includes(action))) return;
-      const requested = Number(payload?.count);
-      if (!Number.isInteger(requested) || requested < 1 || deck.length === 0) return;
-      const cards = deck.splice(0, Math.min(requested, deck.length));
-      cards.forEach((card) => { card.revealed = false; });
-      const destination = action === "draw" ? player.table.hand
-        : action === "discard" ? player.table.graveyard : player.table.oblivion;
-      destination.push(...cards);
+    if (!performDeckAction(player, action, Number(payload?.count))) return;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:requestDeckAction", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    const opponent = player?.role === "host" ? room?.guest : room?.host;
+    if (!room?.started || !player?.table || !opponent?.table || !opponent.connected || room.deckRequest) return;
+    const action = String(payload?.action || "");
+    if (!REQUESTABLE_DECK_ACTIONS.includes(action) || opponent.table.deck.length === 0) return;
+    const count = Number(payload?.count);
+    if (!["shuffle", "search"].includes(action)
+      && (!Number.isInteger(count) || count < 1 || count > opponent.table.deck.length)) return;
+    room.deckRequest = {
+      id: makeId(), fromRole: player.role, fromName: player.name, action,
+      count: ["shuffle", "search"].includes(action) ? null : count,
+    };
+    room.deckRequestResult = null;
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:respondDeckAction", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    const request = room?.deckRequest;
+    if (!room?.started || !player?.table || !request || player.role === request.fromRole
+      || request.id !== String(payload?.id || "") || typeof payload?.accepted !== "boolean") return;
+    if (payload.accepted && (player.table.deck.length === 0
+      || (request.count !== null && request.count > player.table.deck.length))) return;
+    room.deckRequest = null;
+    room.deckRequestResult = { ...request, accepted: payload.accepted };
+    if (payload.accepted && !["look", "search"].includes(request.action)) {
+      performDeckAction(player, request.action, request.count);
     }
-    syncCardLists(player);
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:cancelDeckAction", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player || !room?.deckRequest || room.deckRequest.fromRole !== player.role
+      || room.deckRequest.id !== String(payload?.id || "")) return;
+    room.deckRequest = null;
+    room.deckRequestResult = null;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("lobby:shuffle", () => {
@@ -482,12 +632,15 @@ io.on("connection", (socket) => {
   socket.on("lobby:leave", () => {
     const room = currentRoom(socket); if (!room) return;
     if (room.host?.socketId === socket.id) rooms.delete(room.code); else room.guest = null;
+    room.deckRequest = null;
+    room.deckRequestResult = null;
     socket.leave(room.code); delete socket.data.roomCode; emitState(room);
   });
   socket.on("disconnect", () => {
     const room = currentRoom(socket); if (!room) return;
     const player = currentPlayer(socket, room); if (player) player.connected = false;
     if (player) player.socketId = null;
+    if (player) { room.deckRequest = null; room.deckRequestResult = null; }
     room.lastActivity = Date.now();
     emitState(room);
   });

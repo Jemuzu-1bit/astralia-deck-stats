@@ -5,11 +5,14 @@ import { getCardImagePath } from "../services/cardImageService";
 import {
   gameConnection,
   type DeckAction,
+  type DeckRequest,
   type GameCard,
+  type GameCounter,
   type GameTable,
   type GameZone,
   type LobbyPlayerState,
   type LobbyState,
+  type RequestedDeckAction,
 } from "../services/gameConnection";
 import type { Card } from "../types/Card";
 import normalCardBack from "../assets/N_Back.png";
@@ -19,12 +22,53 @@ import styles from "./OnlineGamePage.module.scss";
 type InspectCard = (card: Card | null) => void;
 type ZoneName = "persona" | "graveyard" | "oblivion" | "hand";
 type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
-type ResolvedCard = { gameCard: GameCard; card: Card; canFlip: boolean };
+type OpenSlot = { owner: "self" | "opponent"; zone: "battle" | "protagonist"; slot?: number };
+type ResolvedCard = { gameCard: GameCard; card: Card | null; canFlip: boolean };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card, canFlip: boolean) => void;
 type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
+type SlotRailControls = {
+  movable: boolean;
+  attachingUid: string | null;
+  onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
+  onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
+  onAttachDrop: CardAttachDrop;
+  onAttachTarget: (targetUid: string) => void;
+};
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
+type CounterChoice = Pick<GameCounter, "kind" | "label" | "emoji">;
+const COUNTER_PRESETS: CounterChoice[] = [
+  { kind: "emoji", emoji: "📜", label: "Quest" },
+  { kind: "emoji", emoji: "🔮", label: "Omen" },
+  { kind: "emoji", emoji: "🛡️", label: "Shield" },
+  { kind: "emoji", emoji: "⚙️", label: "Astralia Gear" },
+  { kind: "emoji", emoji: "💥", label: "Explosion" },
+  { kind: "emoji", emoji: "🏆", label: "Renown" },
+  { kind: "emoji", emoji: "🌌", label: "Advent" },
+];
+const KEYWORD_EMOJIS = [
+  { emoji: "🔥", label: "Fire" }, { emoji: "❄️", label: "Freeze" },
+  { emoji: "⚡", label: "Energy" }, { emoji: "💀", label: "Death" },
+  { emoji: "🩸", label: "Bleeding" }, { emoji: "❤️", label: "Heart" },
+  { emoji: "⭐", label: "Star" }, { emoji: "🌙", label: "Moon" },
+  { emoji: "☀️", label: "Sun" }, { emoji: "🌿", label: "Nature" },
+  { emoji: "🗡️", label: "Sword" }, { emoji: "🏹", label: "Bow" },
+  { emoji: "🎯", label: "Target" }, { emoji: "👁️", label: "Eye" },
+  { emoji: "🕸️", label: "Web" }, { emoji: "🐉", label: "Dragon" },
+  { emoji: "🪽", label: "Wing" }, { emoji: "⏳", label: "Time" },
+  { emoji: "🗝️", label: "Key" }, { emoji: "💎", label: "Gem" },
+  { emoji: "🧪", label: "Potion" }, { emoji: "🧲", label: "Magnet" },
+  { emoji: "🪄", label: "Magic" }, { emoji: "🔒", label: "Lock" },
+  { emoji: "🌀", label: "Whirlwind" }, { emoji: "💥", label: "Explosion" },
+  { emoji: "⚙️", label: "Gear" }, { emoji: "🛡️", label: "Shield" },
+  { emoji: "📜", label: "Scroll" }, { emoji: "🔮", label: "Omen" },
+];
+function isSingleEmoji(value: string): boolean {
+  return value.length > 0 && value.length <= 32
+    && [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value)].length === 1
+    && /\p{Extended_Pictographic}/u.test(value);
+}
 type SlottedCard = { card: GameCard; zone: "battle" | "protagonist"; slot?: number; index: number };
 type TargetLink = { sourceUid: string; targetUid: string; expiresAt: number };
 type TargetPath = TargetLink & { path: string; startX: number; startY: number };
@@ -35,6 +79,18 @@ const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> 
   { action: "look", label: "Look at top X" },
   { action: "oblivion", label: "Send X to Oblivion" },
 ];
+
+function describeDeckRequest(request: DeckRequest, deckOwner: "your" | "their"): string {
+  const count = request.count ?? 0;
+  switch (request.action) {
+    case "shuffle": return `shuffle ${deckOwner} deck`;
+    case "draw": return `draw ${count} card${count === 1 ? "" : "s"}`;
+    case "discard": return `discard ${count} card${count === 1 ? "" : "s"} from the top of ${deckOwner} deck`;
+    case "oblivion": return `send ${count} card${count === 1 ? "" : "s"} from the top of ${deckOwner} deck to Oblivion`;
+    case "look": return `look at the top ${count} card${count === 1 ? "" : "s"} of ${deckOwner} deck`;
+    case "search": return `search ${deckOwner} deck`;
+  }
+}
 
 const EMPTY_TABLE: GameTable = {
   hand: [], deck: [], persona: [], graveyard: [], oblivion: [], action: [], battle: [[], [], [], [], []], protagonist: [], fragments: [],
@@ -285,6 +341,7 @@ function useResolvedCards(items: GameCard[]): ResolvedCard[] {
     let active = true;
     setCards([]);
     Promise.all(items.map(async (gameCard) => {
+      if (!gameCard.id) return { gameCard, card: null, canFlip: false };
       const { front, back } = await getCardFaces(gameCard.id);
       const card = gameCard.flipped ? back || front : front || back;
       return card ? { gameCard, card, canFlip: Boolean(front && back) } : null;
@@ -352,6 +409,28 @@ function StatCounter({ stat, value, editable, onAdjust }: {
   ><small>{label}</small>{value}</span>;
 }
 
+function CustomCounter({ counter, editable, onAdjust }: {
+  counter: GameCounter;
+  editable: boolean;
+  onAdjust: (delta: -1 | 1) => void;
+}) {
+  const description = `${counter.label} counter: ${counter.value}`;
+  return <span
+    className={`${styles.customCounter} ${editable ? styles.editableCustomCounter : ""}`}
+    role={editable ? "button" : undefined}
+    tabIndex={editable ? 0 : undefined}
+    aria-label={editable ? `${description}. Left click adds one, right click removes one.` : description}
+    title={editable ? `${description} · Left click +1 · Right click -1` : description}
+    onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
+    onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(1); } : undefined}
+    onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(-1); } : undefined}
+    onKeyDown={editable ? (event) => {
+      if (event.key === "ArrowUp" || event.key === "+") { event.preventDefault(); onAdjust(1); }
+      if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); onAdjust(-1); }
+    } : undefined}
+  ><span>{counter.emoji || counter.label.slice(0, 3)}</span><b>{counter.value}</b></span>;
+}
+
 function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
   entry: ResolvedCard;
   onInspect: InspectCard;
@@ -367,23 +446,24 @@ function CardThumb({ entry, onInspect, onDragStart, onDragEnd, onMenu, onActivat
     style={style}
     type="button"
     data-card-uid={entry.gameCard.uid}
-    aria-label={`Inspect ${entry.card.name}${entry.gameCard.revealed ? ", revealed" : ""}`}
+    aria-label={`${entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
     onDragEnd={onDragEnd}
-    onContextMenu={(event) => onMenu?.(event, entry.gameCard, entry.card, entry.canFlip)}
-    onMouseEnter={() => onInspect(entry.card)}
+    onContextMenu={(event) => { if (entry.card) onMenu?.(event, entry.gameCard, entry.card, entry.canFlip); }}
+    onMouseEnter={() => onInspect(entry.gameCard.faceDown ? null : entry.card)}
     onMouseLeave={() => onInspect(null)}
-    onFocus={() => onInspect(entry.card)}
+    onFocus={() => onInspect(entry.gameCard.faceDown ? null : entry.card)}
     onBlur={() => onInspect(null)}
-    onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(entry.card); }}
+    onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(entry.gameCard.faceDown ? null : entry.card); }}
   >
     <img
-      src={getCardImagePath(entry.card, "thumb")}
+      src={entry.gameCard.faceDown || !entry.card ? normalCardBack : getCardImagePath(entry.card, "thumb")}
       alt=""
       draggable={false}
     />
     {entry.gameCard.revealed && <span className={styles.revealedBadge}>Shown</span>}
+    {entry.gameCard.ownerRole && <span className={styles.controlledBadge}>Controlled</span>}
   </button>;
 }
 
@@ -417,7 +497,7 @@ function DeckZone({ count, local, onDraw, onMenu, onDragOver, onDrop }: {
     onKeyDown={local && count > 0 ? (event) => {
       if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDraw(); }
     } : undefined}
-    onContextMenu={local ? onMenu : undefined}
+    onContextMenu={onMenu}
     onDragOver={onDragOver}
     onDrop={onDrop}
   >
@@ -456,11 +536,12 @@ function CardStack({ items, spread = false, onInspect, onDragStart, onDragEnd, o
   </div>;
 }
 
-function CardRail({ items, label, searchQuery, sortByName = false, onInspect, onDragStart, onDragEnd, onMenu }: {
+function CardRail({ items, label, searchQuery, sortByName = false, slotControls, onInspect, onDragStart, onDragEnd, onMenu }: {
   items: GameCard[];
   label: string;
   searchQuery?: string;
   sortByName?: boolean;
+  slotControls?: SlotRailControls;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
@@ -471,14 +552,14 @@ function CardRail({ items, label, searchQuery, sortByName = false, onInspect, on
   const visibleCards = useMemo(() => {
     const query = searchQuery?.trim().toLocaleLowerCase();
     const filtered = query
-      ? cards.filter(({ card }) => [
+      ? cards.filter(({ card }) => card && [
         card.name, card.setId, card.type, card.subtype, card.keywords, card.description,
       ].some((value) => value?.toLocaleLowerCase().includes(query)))
       : cards;
     if (!sortByName) return filtered;
     return [...filtered].sort((a, b) =>
-      a.card.name.localeCompare(b.card.name, undefined, { sensitivity: "base" })
-      || a.card.setId.localeCompare(b.card.setId, undefined, { sensitivity: "base" }));
+      (a.card?.name ?? "").localeCompare(b.card?.name ?? "", undefined, { sensitivity: "base" })
+      || (a.card?.setId ?? "").localeCompare(b.card?.setId ?? "", undefined, { sensitivity: "base" }));
   }, [cards, searchQuery, sortByName]);
 
   useEffect(() => {
@@ -499,8 +580,23 @@ function CardRail({ items, label, searchQuery, sortByName = false, onInspect, on
     return () => rail.removeEventListener("wheel", scrollHorizontally);
   }, []);
 
-  return <div ref={railRef} className={styles.hand} aria-label={label}>
-    {visibleCards.map((entry) => <CardThumb
+  return <div ref={railRef} className={`${styles.hand} ${slotControls ? styles.handSlotCards : ""}`} aria-label={label}>
+    {visibleCards.map((entry) => slotControls ? <BattleCard
+      key={entry.gameCard.uid}
+      item={entry.gameCard}
+      movable={slotControls.movable}
+      menuEnabled={slotControls.movable}
+      frazzleEditable={slotControls.movable}
+      attachTargetEnabled={slotControls.movable && slotControls.attachingUid !== null && slotControls.attachingUid !== entry.gameCard.uid}
+      onInspect={onInspect}
+      onDragStart={(event, card) => onDragStart?.(event, card)}
+      onDragEnd={() => onDragEnd?.()}
+      onMenu={(event, card, resolved, canFlip) => onMenu?.(event, card, resolved, canFlip)}
+      onFrazzleAdjust={slotControls.onFrazzleAdjust}
+      onStatAdjust={slotControls.onStatAdjust}
+      onAttachDrop={slotControls.onAttachDrop}
+      onAttachTarget={slotControls.onAttachTarget}
+    /> : <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
       onInspect={onInspect}
@@ -591,15 +687,16 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
   attachingUid: string | null;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
+  onOpenSlot: (zone: "battle" | "protagonist", slot?: number) => void;
   onDrawDeck: () => void;
-  onDeckMenu: (event: MouseEvent<HTMLDivElement>) => void;
+  onDeckMenu: (event: MouseEvent<HTMLDivElement>, owner: "self" | "opponent") => void;
   onCardFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onCardStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachDrop: CardAttachDrop;
@@ -651,6 +748,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
           <SlotStack
             items={table.protagonist}
             protagonist
+            onOpen={() => onOpenSlot("protagonist")}
             movable={movable}
             attachingUid={attachingUid}
             onInspect={onInspect}
@@ -674,6 +772,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
         >
           <SlotStack
             items={items}
+            onOpen={() => onOpenSlot("battle", slot)}
             movable={movable}
             attachingUid={attachingUid}
             onInspect={onInspect}
@@ -691,13 +790,13 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
     <div className={styles.sideZones}>
       {opponentSide ? <>
         {sideZone("graveyard")}
-        <DeckZone count={player?.deckCount ?? table.deck.length} local={false} onDraw={onDrawDeck} onMenu={onDeckMenu} />
+        <DeckZone count={player?.deckCount ?? table.deck.length} local={false} onDraw={onDrawDeck} onMenu={(event) => onDeckMenu(event, "opponent")} />
       </> : <>
         <DeckZone
           count={player?.deckCount ?? table.deck.length}
           local={movable}
           onDraw={onDrawDeck}
-          onMenu={onDeckMenu}
+          onMenu={(event) => onDeckMenu(event, "self")}
           onDragOver={movable ? onDragOver : undefined}
           onDrop={movable ? (event) => onDrop(event, "deck") : undefined}
         />
@@ -716,11 +815,12 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
   </section>;
 }
 
-function SlotStack({ items, protagonist = false, movable, attachingUid, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
+function SlotStack({ items, protagonist = false, movable, attachingUid, onOpen, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
   items: GameCard[];
   protagonist?: boolean;
   movable: boolean;
   attachingUid: string | null;
+  onOpen: () => void;
   onInspect: InspectCard;
   onDragStart: CardDrag;
   onDragEnd: () => void;
@@ -733,6 +833,12 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
 
   return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""}`}>
+    {items.length > 1 && <button
+      type="button"
+      className={styles.slotViewButton}
+      onClick={onOpen}
+      aria-label={`Show all ${items.length} cards in this ${protagonist ? "Protagonist" : "Battle"} slot`}
+    >Cards · {items.length}</button>}
     <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
       {items.map((item, index) => {
         const subslotCount = items.length - 1;
@@ -745,7 +851,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onInspec
         return <BattleCard
           key={item.uid}
           item={item}
-          movable={movable && !item.isProtagonist}
+          movable={movable}
           menuEnabled={movable}
           frazzleEditable={movable}
           dropTargetEnabled={movable}
@@ -806,18 +912,26 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
       editable={frazzleEditable}
       onAdjust={(delta) => onFrazzleAdjust(item.uid, delta)}
     />
-    {item.atk !== undefined && <StatCounter
+    {!item.faceDown && item.atk !== undefined && <StatCounter
       stat="atk"
       value={item.atk}
       editable={frazzleEditable}
       onAdjust={(delta) => onStatAdjust(item.uid, "atk", delta)}
     />}
-    {item.hp !== undefined && <StatCounter
+    {!item.faceDown && item.hp !== undefined && <StatCounter
       stat="hp"
       value={item.hp}
       editable={frazzleEditable}
       onAdjust={(delta) => onStatAdjust(item.uid, "hp", delta)}
     />}
+    {Boolean(item.counters?.length) && <div className={styles.customCounterList} aria-label="Custom counters">
+      {item.counters?.map((counter) => <CustomCounter
+        key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`}
+        counter={counter}
+        editable={frazzleEditable}
+        onAdjust={(delta) => gameConnection.adjustCardCounter(item.uid, counter, delta)}
+      />)}
+    </div>}
   </div>;
 }
 
@@ -839,27 +953,42 @@ function Inspector({ card }: { card: Card | null }) {
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFrazzle, onSetStat, onSwapWithMain, onStartAttach, onChooseTarget, onClearTarget, onFlip, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, revealState, faceDown, statValues, counters, controlLabel, onPlayAction, onAdjustFrazzle, onSetStat, onRemoveStat, onCounterAdjust, onCounterRemove, onSwapWithMain, onStartAttach, onChooseTarget, onClearTarget, onFlip, onToggleFaceDown, onGiveControl, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
   revealState?: boolean;
+  faceDown?: boolean;
   statValues?: Partial<Record<CardStat, number>>;
+  counters?: GameCounter[];
+  controlLabel?: string;
   onPlayAction?: () => void;
   onAdjustFrazzle?: (delta: -1 | 1) => void;
   onSetStat?: (stat: CardStat, value: number) => void;
+  onRemoveStat?: (stat: CardStat) => void;
+  onCounterAdjust?: (counter: CounterChoice, delta: -1 | 1) => void;
+  onCounterRemove?: (counter: CounterChoice) => void;
   onSwapWithMain?: () => void;
   onStartAttach?: () => void;
   onChooseTarget?: () => void;
   onClearTarget?: () => void;
   onFlip?: () => void;
+  onToggleFaceDown?: () => void;
+  onGiveControl?: () => void;
   onMove?: (zone: GameZone, position?: "top" | "bottom") => void;
   onToggleReveal?: () => void;
   onClose: () => void;
 }) {
   const [selectedStat, setSelectedStat] = useState<CardStat | null>(null);
+  const [showCounters, setShowCounters] = useState(false);
+  const [counterName, setCounterName] = useState("");
+  const [selectedEmoji, setSelectedEmoji] = useState("");
   const [amount, setAmount] = useState("0");
   const statValue = Number(amount);
   const validStatValue = Number.isInteger(statValue) && statValue >= 0 && statValue <= 999;
+  const normalizedCounterName = counterName.trim().replace(/\s+/g, " ");
+  const emojiValue = selectedEmoji.trim();
+  const validKeywordCounter = normalizedCounterName.length > 0 && normalizedCounterName.length <= 24
+    && (!emojiValue || isSingleEmoji(emojiValue));
   const selectStat = (stat: CardStat) => {
     setSelectedStat(stat);
     setAmount(String(statValues?.[stat] ?? 0));
@@ -872,7 +1001,7 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
   }, [onClose]);
 
-  return <div className={`${styles.contextMenu} ${selectedStat ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : onMove ? 410 : 150))) }} onPointerDown={(event) => event.stopPropagation()}>
+  return <div className={`${styles.contextMenu} ${selectedStat || showCounters ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : showCounters ? 340 : onMove ? 410 : 150))) }} onPointerDown={(event) => event.stopPropagation()}>
     {selectedStat ? <form onSubmit={(event) => { event.preventDefault(); if (validStatValue) onSetStat?.(selectedStat, statValue); }}>
       <button type="button" onClick={() => setSelectedStat(null)}>← Actions</button>
       <label htmlFor="card-stat-value">Set {selectedStat.toUpperCase()}</label>
@@ -887,21 +1016,70 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
         autoFocus
       />
       <button type="submit" disabled={!validStatValue}>Confirm</button>
-    </form> : <>
+    </form> : showCounters ? <div className={styles.counterMenu}>
+      <button type="button" onClick={() => setShowCounters(false)}>← Actions</button>
+      {Boolean(counters?.length) && <div className={styles.counterMenuCurrent}>
+        <strong>On this card</strong>
+        {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`}>
+          <span title={`${counter.label} counter`}>{counter.emoji || counter.label} · {counter.value}</span>
+          <button type="button" aria-label={`Remove one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, -1)}>−</button>
+          <button type="button" aria-label={`Add one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, 1)}>+</button>
+          <button type="button" aria-label={`Remove all ${counter.label} counters`} onClick={() => onCounterRemove?.(counter)}>Remove</button>
+        </div>)}
+      </div>}
+      <strong>Game counters</strong>
+      <div className={styles.counterChoices}>
+        {COUNTER_PRESETS.map((counter) => <button
+          key={counter.emoji}
+          type="button"
+          title={`${counter.label} counter`}
+          onClick={() => onCounterAdjust?.(counter, 1)}
+        >{counter.emoji} {counter.label}</button>)}
+      </div>
+      <strong>Custom keyword counter</strong>
+      <div className={styles.keywordEmojiPicker} role="group" aria-label="Choose an emoji for the keyword counter">
+        {KEYWORD_EMOJIS.map(({ emoji, label }) => <button
+          key={emoji}
+          type="button"
+          title={`${label} emoji`}
+          aria-label={`Choose ${label} emoji`}
+          aria-pressed={emojiValue === emoji}
+          onClick={() => setSelectedEmoji(emoji)}
+        >{emoji}</button>)}
+      </div>
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        if (validKeywordCounter) onCounterAdjust?.({
+          kind: emojiValue ? "customEmoji" : "name",
+          label: normalizedCounterName,
+          ...(emojiValue ? { emoji: emojiValue } : {}),
+        }, 1);
+      }}>
+        <label htmlFor="custom-counter-name">Keyword or counter name</label>
+        <input id="custom-counter-name" type="text" maxLength={24} value={counterName} onChange={(event) => setCounterName(event.target.value)} placeholder="e.g. Flying" />
+        <label htmlFor="custom-counter-emoji">Emoji (optional)</label>
+        <input id="custom-counter-emoji" type="text" maxLength={32} value={selectedEmoji} onChange={(event) => setSelectedEmoji(event.target.value)} placeholder="Select above or enter one emoji" />
+        {emojiValue && !isSingleEmoji(emojiValue) && <small role="alert">Enter one emoji only.</small>}
+        <button type="submit" disabled={!validKeywordCounter}>Add counter</button>
+      </form>
+    </div> : <>
     {onAdjustFrazzle && <>
       <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(1)}>Add Frazzle</button>
       <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(-1)}>Remove Frazzle</button>
     </>}
     {onSetStat && <>
-      <button type="button" role="menuitem" onClick={() => selectStat("atk")}>Set ATK</button>
-      <button type="button" role="menuitem" onClick={() => selectStat("hp")}>Set HP</button>
+      <button type="button" role="menuitem" onClick={() => statValues?.atk !== undefined ? onRemoveStat?.("atk") : selectStat("atk")}>{statValues?.atk !== undefined ? "Remove ATK" : "Set ATK"}</button>
+      <button type="button" role="menuitem" onClick={() => statValues?.hp !== undefined ? onRemoveStat?.("hp") : selectStat("hp")}>{statValues?.hp !== undefined ? "Remove HP" : "Set HP"}</button>
     </>}
+    {onCounterAdjust && <button type="button" role="menuitem" onClick={() => setShowCounters(true)}>Custom counters{counters?.length ? ` · ${counters.length}` : ""}…</button>}
     {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action</button>}
     {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
     {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
     {onChooseTarget && <button type="button" role="menuitem" onClick={onChooseTarget}>Choose target...</button>}
     {onClearTarget && <button type="button" role="menuitem" onClick={onClearTarget}>Clear target</button>}
     {onFlip && <button type="button" role="menuitem" onClick={onFlip}>Flip card</button>}
+    {onToggleFaceDown && <button type="button" role="menuitem" onClick={onToggleFaceDown}>{faceDown ? "Turn face up" : "Turn face down"}</button>}
+    {onGiveControl && <button type="button" role="menuitem" onClick={onGiveControl}>{controlLabel}</button>}
     {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
     {onMove && <>
       <hr />
@@ -916,10 +1094,12 @@ function ContextMenu({ x, y, revealState, statValues, onPlayAction, onAdjustFraz
   </div>;
 }
 
-function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose }: {
+function DeckContextMenu({ x, y, deckCount, requestMode, requestPending, onAction, onLook, onSearch, onClose }: {
   x: number;
   y: number;
   deckCount: number;
+  requestMode: boolean;
+  requestPending: boolean;
   onAction: (action: DeckAction, count?: number) => void;
   onLook: (count: number) => void;
   onSearch: () => void;
@@ -928,7 +1108,7 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose 
   const [selectedAction, setSelectedAction] = useState<CountedDeckAction | null>(null);
   const [amount, setAmount] = useState("1");
   const count = Number(amount);
-  const validCount = Number.isInteger(count) && count >= 1 && count <= deckCount;
+  const validCount = !requestPending && Number.isInteger(count) && count >= 1 && count <= deckCount;
   const submitSelected = () => {
     if (!selectedAction || !validCount) return;
     if (selectedAction === "look") onLook(count);
@@ -951,7 +1131,7 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose 
   >
     {selectedAction ? <form onSubmit={(event) => { event.preventDefault(); submitSelected(); }}>
       <button type="button" onClick={() => setSelectedAction(null)}>← Actions</button>
-      <label htmlFor="deck-action-count">{COUNTED_DECK_ACTIONS.find(({ action }) => action === selectedAction)?.label}</label>
+      <label htmlFor="deck-action-count">{requestMode ? "Ask opponent to " : ""}{COUNTED_DECK_ACTIONS.find(({ action }) => action === selectedAction)?.label.toLowerCase()}</label>
       <input
         id="deck-action-count"
         type="number"
@@ -964,18 +1144,18 @@ function DeckContextMenu({ x, y, deckCount, onAction, onLook, onSearch, onClose 
       />
       <button type="submit" disabled={!validCount}>Confirm</button>
     </form> : <>
-      <button type="button" role="menuitem" onClick={() => onAction("shuffle")} disabled={deckCount === 0}>Shuffle</button>
-      <button type="button" role="menuitem" onClick={() => onAction("draw", 1)} disabled={deckCount === 0}>Draw one card</button>
+      <button type="button" role="menuitem" onClick={() => onAction("shuffle")} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to shuffle" : "Shuffle"}</button>
+      <button type="button" role="menuitem" onClick={() => onAction("draw", 1)} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to draw one" : "Draw one card"}</button>
       <hr />
       {COUNTED_DECK_ACTIONS.map(({ action, label }) => <button
         key={action}
         type="button"
         role="menuitem"
-        disabled={deckCount === 0}
+        disabled={deckCount === 0 || requestPending}
         onClick={() => setSelectedAction(action)}
-      >{label}</button>)}
+      >{requestMode ? `Ask opponent to ${label.toLowerCase()}` : label}</button>)}
       <hr />
-      <button type="button" role="menuitem" disabled={deckCount === 0} onClick={onSearch}>Search deck</button>
+      <button type="button" role="menuitem" disabled={deckCount === 0 || requestPending} onClick={onSearch}>{requestMode ? "Ask opponent to search deck" : "Search deck"}</button>
     </>}
   </div>;
 }
@@ -987,10 +1167,12 @@ export default function OnlineGamePage() {
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
+  const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [deckSearchQuery, setDeckSearchQuery] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean; canFlip: boolean } | null>(null);
-  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number } | null>(null);
+  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number; owner: "self" | "opponent" } | null>(null);
+  const [dismissedDeckResultId, setDismissedDeckResultId] = useState<string | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [targetingUid, setTargetingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -1016,36 +1198,47 @@ export default function OnlineGamePage() {
       ? [{ sourceUid: card.uid, targetUid: card.targetUid, expiresAt: card.targetExpiresAt }]
       : []), [myTable, opponentTable]);
   const openCards = openZone ? (openZone.owner === "self" ? myTable : opponentTable)[openZone.name] : EMPTY_TABLE.hand;
+  const slotCards = openSlot
+    ? openSlot.zone === "protagonist"
+      ? (openSlot.owner === "self" ? myTable : opponentTable).protagonist
+      : (openSlot.owner === "self" ? myTable : opponentTable).battle[openSlot.slot ?? 0] ?? []
+    : EMPTY_TABLE.hand;
+  const slotLabel = openSlot ? `${openSlot.owner === "self" ? "Your" : "Opponent"} ${openSlot.zone === "protagonist" ? "Protagonist" : `Battle slot ${(openSlot.slot ?? 0) + 1}`}` : "";
   const peekCards = useMemo(() => peekedUids === null ? EMPTY_TABLE.hand : myTable.deck.filter((card) => peekedUids.includes(card.uid)), [myTable.deck, peekedUids]);
-  const railCards = peekedUids !== null ? peekCards : deckSearchQuery !== null ? myTable.deck : openZone ? openCards : myTable.hand;
-  const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self");
+  const railCards = peekedUids !== null ? peekCards : deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
+  const railMovable = Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
   const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
+  const menuDeckCard = menu ? myTable.deck.find((card) => card.uid === menu.uid) : undefined;
   const menuActionCard = menu ? myTable.action.find((card) => card.uid === menu.uid) : undefined;
   const menuSlottedCard = menu ? findSlottedCard(myTable, menu.uid) : undefined;
-  const menuCardCanMove = !menuSlottedCard?.card.isProtagonist;
+  const menuCardCanMove = Boolean(menuCard);
   const menuCardCanAttach = !menuActionCard
     && (!menuSlottedCard || (menuSlottedCard.index === 0 && !menuSlottedCard.card.isProtagonist));
   const railTitle = peekedUids !== null ? `Top of deck · ${peekCards.length}`
     : deckSearchQuery !== null ? `Deck search · ${myTable.deck.length} cards`
+      : openSlot ? `${slotLabel} · ${slotCards.length}`
       : openZone?.owner === "opponent" && openZone.name === "hand"
       ? `Opponent hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
       : openZone ? `${openZone.owner === "self" ? "Your" : "Opponent"} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
         : `Hand · ${myTable.hand.length}`;
 
-  const showHand = () => { setOpenZone(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); };
+  const showHand = () => { setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); };
+  const showSlot = (owner: OpenSlot["owner"], zone: OpenSlot["zone"], slot?: number) => {
+    setOpenSlot({ owner, zone, slot }); setOpenZone(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null);
+  };
   useEffect(() => {
     if (openZone?.owner === "opponent" && openZone.name === "hand" && inspectedCard
       && !openCards.some((card) => card.id === inspectedCard.id)) setInspectedCard(null);
   }, [openZone, openCards, inspectedCard]);
   useEffect(() => {
-    if (!openZone && peekedUids === null && deckSearchQuery === null) return;
+    if (!openZone && !openSlot && peekedUids === null && deckSearchQuery === null) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setOpenZone(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); }
+      if (event.key === "Escape") { setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [openZone, peekedUids, deckSearchQuery]);
+  }, [openZone, openSlot, peekedUids, deckSearchQuery]);
   useEffect(() => {
     if (!attachingUid) return;
     const cancelAttach = (event: KeyboardEvent) => { if (event.key === "Escape") setAttachingUid(null); };
@@ -1098,23 +1291,40 @@ export default function OnlineGamePage() {
     setMenu({ uid: card.uid, x: event.clientX, y: event.clientY, isAction: resolvedCard.type.toLowerCase() === "action", canFlip });
     setDeckMenu(null);
   };
-  const showDeckMenu = (event: MouseEvent<HTMLDivElement>) => {
+  const showDeckMenu = (event: MouseEvent<HTMLDivElement>, owner: "self" | "opponent") => {
     event.preventDefault(); event.stopPropagation();
-    setDeckMenu({ x: event.clientX, y: event.clientY });
+    setDeckMenu({ x: event.clientX, y: event.clientY, owner });
     setMenu(null);
   };
   const deckAction = (action: DeckAction, count?: number) => {
     gameConnection.deckAction(action, count);
     setDeckMenu(null); showHand();
   };
+  const requestDeckAction = (action: RequestedDeckAction, count?: number) => {
+    gameConnection.requestDeckAction(action, count);
+    setDeckMenu(null);
+  };
   const drawOne = () => { if (myTable.deck.length > 0) deckAction("draw", 1); };
   const lookAtTop = (count: number) => {
     setPeekedUids(myTable.deck.slice(0, count).map((card) => card.uid));
-    setOpenZone(null); setDeckSearchQuery(null); setInspectedCard(null); setDeckMenu(null);
+    setOpenZone(null); setOpenSlot(null); setDeckSearchQuery(null); setInspectedCard(null); setDeckMenu(null);
   };
   const searchDeck = () => {
     setDeckSearchQuery("");
-    setPeekedUids(null); setOpenZone(null); setInspectedCard(null); setDeckMenu(null);
+    setPeekedUids(null); setOpenZone(null); setOpenSlot(null); setInspectedCard(null); setDeckMenu(null);
+  };
+  const deckRequest = state.deckRequest;
+  const incomingDeckRequest = deckRequest && me && deckRequest.fromRole !== me.role ? deckRequest : null;
+  const outgoingDeckRequest = deckRequest && me && deckRequest.fromRole === me.role ? deckRequest : null;
+  const deckRequestResult = state.deckRequestResult?.id !== dismissedDeckResultId ? state.deckRequestResult : null;
+  const canAcceptDeckRequest = Boolean(incomingDeckRequest && myTable.deck.length > 0
+    && (incomingDeckRequest.count === null || incomingDeckRequest.count <= myTable.deck.length));
+  const respondToDeckRequest = (accepted: boolean) => {
+    if (!incomingDeckRequest) return;
+    if (accepted && incomingDeckRequest.action === "look") lookAtTop(incomingDeckRequest.count ?? 0);
+    if (accepted && incomingDeckRequest.action === "search") searchDeck();
+    if (accepted && !["look", "search"].includes(incomingDeckRequest.action)) showHand();
+    gameConnection.respondDeckAction(incomingDeckRequest.id, accepted);
   };
 
   return <div
@@ -1132,6 +1342,19 @@ export default function OnlineGamePage() {
       <div><strong>Match {state.code || "—"}</strong><span>Manual table</span></div>
       <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
     </header>
+    {incomingDeckRequest && <div className={styles.deckRequestNotice} role="dialog" aria-label="Opponent deck request">
+      <span><strong>{incomingDeckRequest.fromName}</strong> asks you to {describeDeckRequest(incomingDeckRequest, "your")}.</span>
+      <button type="button" onClick={() => respondToDeckRequest(true)} disabled={!canAcceptDeckRequest}>Accept</button>
+      <button type="button" onClick={() => respondToDeckRequest(false)}>Decline</button>
+    </div>}
+    {outgoingDeckRequest && <div className={styles.deckRequestNotice} role="status">
+      <span>Waiting for opponent to {describeDeckRequest(outgoingDeckRequest, "their")}.</span>
+      <button type="button" onClick={() => gameConnection.cancelDeckAction(outgoingDeckRequest.id)}>Cancel</button>
+    </div>}
+    {deckRequestResult && <div className={styles.deckRequestNotice} role="status">
+      <span>Your request to {describeDeckRequest(deckRequestResult, "their")} was {deckRequestResult.accepted ? "accepted" : "declined"}.</span>
+      <button type="button" onClick={() => setDismissedDeckResultId(deckRequestResult.id)}>Dismiss</button>
+    </div>}
     <main className={styles.playmat}>
       <PlayerTable
         player={opponent}
@@ -1139,7 +1362,8 @@ export default function OnlineGamePage() {
         opponentSide
         attachingUid={null}
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenZone({ owner: "opponent", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "opponent", name }); }}
+        onOpenSlot={(zone, slot) => showSlot("opponent", zone, slot)}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
@@ -1178,7 +1402,8 @@ export default function OnlineGamePage() {
         table={myTable}
         attachingUid={attachingUid}
         onInspect={setInspectedCard}
-        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenZone({ owner: "self", name }); }}
+        onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "self", name }); }}
+        onOpenSlot={(zone, slot) => showSlot("self", zone, slot)}
         onDrawDeck={drawOne}
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
@@ -1191,8 +1416,8 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={dragOver} onDrop={(event) => drop(event, "hand")}>
-        {(openZone || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
+      <section className={styles.handDock} aria-label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your hand"} onDragOver={openSlot?.owner === "opponent" ? undefined : dragOver} onDrop={openSlot?.owner === "opponent" ? undefined : (event) => drop(event, openSlot?.zone ?? "hand", openSlot?.slot)}>
+        {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← Hand · {myTable.hand.length}</button>}
         {deckSearchQuery === null && <div className={styles.handDockLabel}>{railTitle}</div>}
         {deckSearchQuery !== null && <label className={styles.deckSearchControl}>
           <span>Search Card</span>
@@ -1207,9 +1432,17 @@ export default function OnlineGamePage() {
         </label>}
         <CardRail
           items={railCards}
-          label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck, sorted by name" : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
+          label={peekedUids !== null ? "Top cards of your deck" : deckSearchQuery !== null ? "Cards in your deck, sorted by name" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : "Your cards"}
           searchQuery={deckSearchQuery ?? undefined}
           sortByName={deckSearchQuery !== null}
+          slotControls={openSlot ? {
+            movable: railMovable,
+            attachingUid,
+            onFrazzleAdjust: (uid, delta) => gameConnection.adjustCardFrazzle(uid, delta),
+            onStatAdjust: (uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta),
+            onAttachDrop: dropOnCard,
+            onAttachTarget: selectAttachTarget,
+          } : undefined}
           onInspect={setInspectedCard}
           onDragStart={railMovable ? startDrag : undefined}
           onDragEnd={railMovable ? endDrag : undefined}
@@ -1233,12 +1466,18 @@ export default function OnlineGamePage() {
       x={menu.x}
       y={menu.y}
       revealState={menuHandCard ? Boolean(menuHandCard.revealed) : undefined}
+      faceDown={Boolean(menuCard?.faceDown)}
       statValues={menuSlottedCard ? { atk: menuSlottedCard.card.atk, hp: menuSlottedCard.card.hp } : undefined}
+      counters={menuSlottedCard?.card.counters}
+      controlLabel={menuSlottedCard?.card.ownerRole ? "Return control to owner" : "Give control to opponent"}
       onPlayAction={menuHandCard && menu.isAction
         ? () => { gameConnection.playAction(menu.uid); setMenu(null); setInspectedCard(null); }
         : undefined}
       onAdjustFrazzle={menuSlottedCard ? (delta) => { gameConnection.adjustCardFrazzle(menu.uid, delta); setMenu(null); } : undefined}
       onSetStat={menuSlottedCard ? (stat, value) => { gameConnection.setCardStat(menu.uid, stat, value); setMenu(null); } : undefined}
+      onRemoveStat={menuSlottedCard ? (stat) => { gameConnection.removeCardStat(menu.uid, stat); setMenu(null); } : undefined}
+      onCounterAdjust={menuSlottedCard ? (counter, delta) => { gameConnection.adjustCardCounter(menu.uid, counter, delta); setMenu(null); } : undefined}
+      onCounterRemove={menuSlottedCard ? (counter) => { gameConnection.removeCardCounter(menu.uid, counter); setMenu(null); } : undefined}
       onSwapWithMain={menuSlottedCard && menuSlottedCard.index > 0
         ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
         : undefined}
@@ -1252,6 +1491,12 @@ export default function OnlineGamePage() {
       onFlip={menu.canFlip
         ? () => { gameConnection.flipCard(menu.uid); setMenu(null); setInspectedCard(null); }
         : undefined}
+      onToggleFaceDown={menuCard && !menuHandCard && !menuDeckCard
+        ? () => { gameConnection.setCardFaceDown(menu.uid, !menuCard.faceDown); setMenu(null); setInspectedCard(null); }
+        : undefined}
+      onGiveControl={menuSlottedCard && !menuSlottedCard.card.isProtagonist && opponent?.table
+        ? () => { gameConnection.giveCardControl(menu.uid); setMenu(null); setInspectedCard(null); setAttachingUid(null); setTargetingUid(null); }
+        : undefined}
       onMove={menuCardCanMove
         ? (zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }
         : undefined}
@@ -1264,10 +1509,12 @@ export default function OnlineGamePage() {
     {deckMenu && <DeckContextMenu
       x={deckMenu.x}
       y={deckMenu.y}
-      deckCount={myTable.deck.length}
-      onAction={deckAction}
-      onLook={lookAtTop}
-      onSearch={searchDeck}
+      deckCount={deckMenu.owner === "self" ? myTable.deck.length : opponent?.deckCount ?? 0}
+      requestMode={deckMenu.owner === "opponent"}
+      requestPending={deckMenu.owner === "opponent" && (Boolean(deckRequest) || !opponent?.connected)}
+      onAction={deckMenu.owner === "self" ? deckAction : requestDeckAction}
+      onLook={deckMenu.owner === "self" ? lookAtTop : (count) => requestDeckAction("look", count)}
+      onSearch={deckMenu.owner === "self" ? searchDeck : () => requestDeckAction("search")}
       onClose={() => setDeckMenu(null)}
     />}
   </div>;
