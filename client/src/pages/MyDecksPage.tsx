@@ -105,6 +105,7 @@ export default function MyDecksPage() {
           <span className={styles.homeLabel}>Home</span>
         </Link>
         <h1>My Decks</h1>
+        <Link to="/help" className={styles.helpLink}>Guida</Link>
       </div>
       <div
         style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}

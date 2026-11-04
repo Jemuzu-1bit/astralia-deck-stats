@@ -1,7 +1,10 @@
 .root { min-height: 100dvh; box-sizing: border-box; padding: clamp(1rem, 3vw, 3rem); max-width: 1300px; margin: auto; }
 .header, .footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .header h1 { margin: 0; } .header p { opacity: .7; }
-.header button, .footer button { padding: .65rem 1rem; cursor: pointer; }
+.headerActions { display: flex; align-items: center; gap: .5rem; }
+.header button, .headerActions a, .footer button { padding: .65rem 1rem; cursor: pointer; }
+.headerActions a { color: inherit; border: 1px solid rgba(255,255,255,.4); border-radius: 4px; text-decoration: none; }
+.headerActions a:hover, .headerActions a:focus-visible { border-color: #e4c65f; }
 .code { margin: 2rem auto; width: fit-content; max-width: 100%; box-sizing: border-box; padding: .6rem 1.2rem; letter-spacing: .25em; font: 700 clamp(1.35rem, 4vw, 2rem) monospace; overflow-wrap: anywhere; color: #e676ad; border: 2px solid #e676ad; border-radius: 8px; }
 .players { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .player { min-height: 220px; padding: 1.5rem; background: var(--background-color-secondary); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; }

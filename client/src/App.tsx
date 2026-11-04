@@ -34,6 +34,7 @@ function App() {
         >
           my decks
         </button>
+        <button className={styles.helpButton} onClick={() => navigate("/help")}>Come si usa</button>
       </div>
       {showJoin && (
         <div className={styles.modalOverlay} onClick={() => setShowJoin(false)}>

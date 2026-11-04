@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import styles from "./LobbyPage.module.scss";
 import { gameConnection, type LobbyState } from "../services/gameConnection";
 import { listDecks } from "../services/deckService";
@@ -38,7 +38,7 @@ export default function LobbyPage() {
   function leave() { gameConnection.leave(); navigate("/"); }
 
   return <div className={styles.root}>
-    <header className={styles.header}><div><h1>Online lobby</h1><p>Share this code with your opponent.</p></div><button onClick={leave}>Leave</button></header>
+    <header className={styles.header}><div><h1>Online lobby</h1><p>Share this code with your opponent.</p></div><nav className={styles.headerActions}><Link to="/help" target="_blank" rel="noopener noreferrer">Guida</Link><button onClick={leave}>Leave</button></nav></header>
     {error && <div className={styles.error}>{error}</div>}
     <div className={styles.code}>{state.code || "------"}</div>
     <main className={styles.players}>

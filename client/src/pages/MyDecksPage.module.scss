@@ -82,7 +82,22 @@
   display: inline-block;
 }
 
+.helpLink {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: .6rem .9rem;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .55);
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover, &:focus-visible { border-color: #e4c65f; color: #e4c65f; }
+}
+
 @media (max-width: 560px) {
   .homeLabel { display: none; }
   .homeButton { padding: 0.5rem; gap: 0.4rem; }
+  .helpLink { padding: .5rem; font-size: .78rem; }
 }

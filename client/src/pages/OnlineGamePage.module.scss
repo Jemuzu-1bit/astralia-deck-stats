@@ -81,7 +81,9 @@
 
   div { display: flex; align-items: baseline; gap: .8rem; }
   span { opacity: .55; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; }
-  button { padding: .45rem .75rem; color: inherit; background: #242b3d; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; cursor: pointer; }
+  nav { display: flex; align-items: center; gap: .5rem; }
+  button, a { padding: .45rem .75rem; color: inherit; background: #242b3d; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; cursor: pointer; font: inherit; text-decoration: none; }
+  button:hover, a:hover, button:focus-visible, a:focus-visible { border-color: #e4c65f; outline: none; }
 }
 
 .playmat {
@@ -986,6 +988,7 @@
   .toolbar div { gap: .35rem; }
   .toolbar span { font-size: .62rem; letter-spacing: .04em; }
   .toolbar button { padding: .3rem .5rem; font-size: .75rem; }
+  .toolbar a { padding: .3rem .5rem; font-size: .75rem; }
 
   .playmat {
     padding-top: 48px;

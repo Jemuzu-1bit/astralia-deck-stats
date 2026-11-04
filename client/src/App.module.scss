@@ -45,6 +45,12 @@
       color: var(--background-color-secondary);
       background: var(--color-text-primary);
     }
+
+    &.helpButton {
+      color: var(--color-text-primary);
+      background: transparent;
+      border: 1px solid rgba(241, 249, 232, .55);
+    }
   }
 }
 

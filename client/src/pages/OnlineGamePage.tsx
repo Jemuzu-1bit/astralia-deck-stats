@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type RefObject } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
@@ -1348,7 +1348,10 @@ export default function OnlineGamePage() {
   >
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>Manual table</span></div>
-      <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
+      <nav aria-label="Match navigation">
+        <Link to="/help" target="_blank" rel="noopener noreferrer">Guida</Link>
+        <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
+      </nav>
     </header>
     {incomingDeckRequest && <div className={styles.deckRequestNotice} role="dialog" aria-label="Opponent deck request">
       <span><strong>{incomingDeckRequest.fromName}</strong> asks you to {describeDeckRequest(incomingDeckRequest, "your")}.</span>
