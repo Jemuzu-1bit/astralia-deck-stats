@@ -1,7 +1,10 @@
 .pageRoot {
-  max-width: 1280px;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
   margin: 0 auto;
-  padding: 2rem;
+  padding: clamp(1rem, 3vw, 3rem);
   text-align: center;
 }
 
@@ -10,14 +13,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;   
+  gap: clamp(.6rem, 1.5vh, 1rem);
+  width: min(100%, 420px);
 
   button {
-    width: 200px;
+    width: min(100%, 320px);
     position: relative;
     padding: 0.8rem 2rem;
-    margin: 1rem;
-    font-size: 1.1rem;
+    margin: 0;
+    font-size: clamp(.95rem, 1.2vw, 1.2rem);
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -45,7 +49,7 @@
 }
 
 .nameInput, .codeInput {
-  width: 200px;
+  width: min(100%, 320px);
   box-sizing: border-box;
   padding: 0.75rem 1rem;
   color: var(--color-text-primary);
@@ -75,6 +79,8 @@
   inset: 0;
   display: grid;
   place-items: center;
+  box-sizing: border-box;
+  padding: 1rem;
   background: rgba(0,0,0,0.72);
   z-index: 10;
 }
@@ -83,11 +89,14 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  padding: 2rem;
-  min-width: 280px;
+  width: min(100%, 360px);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: clamp(1rem, 4vw, 2rem);
   background: var(--background-color-secondary);
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 8px;
 }
+.modal .codeInput, .modal .playButton { width: 100%; }
 .modal h2 { margin: 0; }
 .error { color: #ff9b9b; margin: 0; text-align: center; }

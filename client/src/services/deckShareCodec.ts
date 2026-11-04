@@ -16,8 +16,8 @@ function toBase64Url(bytes: Uint8Array): string {
 }
 
 function fromBase64Url(value: string): Uint8Array {
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("Invalid deck link");
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  if (!/^[A-Za-z0-9_-]+={0,2}$/.test(value)) throw new Error("Invalid deck link");
+  const base64 = value.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
   const binary = atob(padded);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));

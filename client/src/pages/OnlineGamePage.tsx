@@ -738,7 +738,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
       <strong>{player?.name || "Waiting…"}</strong>
       <span>{player?.deckName || "No deck"}</span>
     </div>
-    <div className={styles.sideZones}>
+    <div className={`${styles.sideZones} ${styles.leftZones}`}>
       {opponentSide ? <>{sideZone("persona")}{sideZone("oblivion")}</> : <>{sideZone("oblivion")}{sideZone("persona")}</>}
     </div>
     <div className={styles.battleGrid}>
@@ -792,7 +792,7 @@ function PlayerTable({ player, table, opponentSide, attachingUid, onInspect, onO
         </Zone>;
       })}
     </div>
-    <div className={styles.sideZones}>
+    <div className={`${styles.sideZones} ${styles.rightZones}`}>
       {opponentSide ? <>
         {sideZone("graveyard")}
         <DeckZone count={player?.deckCount ?? table.deck.length} local={false} onDraw={onDrawDeck} onMenu={(event) => onDeckMenu(event, "opponent")} />
@@ -940,9 +940,12 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
   </div>;
 }
 
-function Inspector({ card }: { card: Card | null }) {
-  return <aside className={styles.inspector} aria-label="Card inspection">
-    <h2>Card inspection</h2>
+function Inspector({ card, onClose }: { card: Card | null; onClose: () => void }) {
+  return <aside className={`${styles.inspector} ${card ? styles.inspectorOpen : ""}`} aria-label="Card inspection">
+    <div className={styles.inspectorHeader}>
+      <h2>Card inspection</h2>
+      <button type="button" onClick={onClose} aria-label="Close card inspection">Close</button>
+    </div>
     {card ? <div className={styles.inspectorContent}>
       <img src={getCardImagePath(card, "full")} alt={card.name} />
       <h3>{card.name}</h3>
@@ -1470,7 +1473,7 @@ export default function OnlineGamePage() {
       <button type="button" onClick={() => setTargetingUid(null)}>Cancel</button>
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
-    <Inspector card={inspectedCard} />
+    <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
     {menu && <ContextMenu
       key={`${menu.uid}:${menu.x}:${menu.y}`}
       x={menu.x}

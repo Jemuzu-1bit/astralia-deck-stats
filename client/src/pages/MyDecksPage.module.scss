@@ -18,7 +18,11 @@
 }
 
 .pageRoot {
-  padding: 1rem;
+  width: 100%;
+  max-width: 1800px;
+  box-sizing: border-box;
+  margin-inline: auto;
+  padding: clamp(.75rem, 2vw, 2rem);
 }
 
 .pageRoot h1 {
@@ -30,7 +34,7 @@
 .deckSlots {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: clamp(12px, 1.5vw, 24px);
   justify-content: center;
 }
 

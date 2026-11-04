@@ -60,6 +60,14 @@ test("existing official and compact links remain importable", async () => {
   assert.deepEqual(importedCompact.deck, [{ id: "aor_05_037_n", qty: 2 }]);
 });
 
+test("official app links with base64 padding remain importable", async () => {
+  const link = "https://www.astraliachronicles.com/deck-import?deckData=eNplkc1qAyEQgF9lmbMHx59s6i0k6aVQCoWSm0jWbKSNBt0eSsjr9EX6Yh22W5q6Bxn85nNm1At0fv-6drkrYC6wWT9bLi1HYR_BKAarpx3tLOd3djWhX0cuKyDaCuCiBroGsxpYd5kVVfWRcVZxA0ZDXhkc3H4IKVIWJbZaa9UyOLqyzTllMAf3VjyD0JG9oHhyvf9xhUSl2wk9-A8w4ztZRGAQ3Yk0ePFxeG-OLjR9-Ppszj6XRNkxRrch_fZFaW13YPBvTK7sfc2Qz6zl3KLPmBjd8ZzT4PoUQxn-9ROTcf0G4aeDWA==";
+  const deck = await importDeck(link);
+  assert.equal(deck.protagonist, "dcs_03_002ex");
+  assert.equal(deck.deck.reduce((total, card) => total + card.qty, 0), 45);
+  assert.equal(deck.persona.length, 5);
+});
+
 test("local links generated before the format change remain importable", async () => {
   const local = {
     v: 2, n: "Variant deck", f: "purple", p: "aor_05_001_ex",
