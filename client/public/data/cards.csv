@@ -466,3 +466,429 @@ sd_05_013_n,SD-05-013 N,Ravenous Hunter,Purple,Deck,4,Character,Aberration,Struc
 [SHATTER]: Obliviate target Character from your or your opponent’s graveyard.",sd_05_013_n
 sd_05_015_n,SD-05-015 N,Knight of Ruin,Purple,Deck,6,Character,Aberration,Structure Deck: Beginning Of The End,3,6,"advent, preemptive defense, enter",FALSE,1,FALSE,"[ADVENT] [PREEMPTIVE DEFENSE]
 [ENTER]: You may obliviate a card in your hand. If you do, deal 4 damage divided as you choose among 3 adjacent Characters.",sd_05_015_n
+aor_01_001_ex,AOR-01-001 EX,"Nevi, Warden of Magisterium",Green,Protagonist,3,Protagonist,Scholar,Anthem of Rebellion,,18,"turn start, heal",FALSE,1,TRUE,"[TURN START]: Put target Scroll that costs equal to or less than the Turn Count from your Persona Deck into play.
+FRAZZLE: [HEAL 1] target Scroll.
+FRAZZLE, FRAZZLE: Return target Scroll from your graveyard to your Persona Deck.",aor_01_001_ex
+aor_02_001_ex,AOR-02-001 EX,"Innocenzio II, Holy Pontiff",Red,Protagonist,4,Protagonist,Pontiff,Anthem of Rebellion,,18,"shield, heal",FALSE,1,TRUE,"Whenever you play a card by paying less than its cost, choose 1:
+• Target Character gets [SHIELD 2] against the next source of damage this turn.
+• [HEAL 2] target Character.
+Whenever you play a Vestige by paying its full cost, add two Dogmas from your Persona Deck to your hand. Otherwise, add one.",aor_02_001_ex
+aor_03_001_ex,AOR-03-001 EX,"Yaoichi Yuki, Producer",Blue,Protagonist,5,Protagonist,AI,Anthem of Rebellion,,18,"turn start, override",FALSE,1,TRUE,"[TURN START]: Place 1 Renown counter on this card for each face down card in its subslots.
+Whenever a card with [OVERRIDE] would be put in your graveyard from play, put it into this card’s subslots face down instead.
+Remove X Renown counters: Shatter target Character that costs X.
+Remove 20 Renown counters: You win the game.",aor_03_001_ex
+aor_05_001_ex,AOR-05-001 EX,"Tianxiao, Genius Inventor",Purple,Protagonist,2,Protagonist,Engineer,Anthem of Rebellion,,18,,FALSE,1,TRUE,"Whenever you activate a Recollection’s ability, you may spend additional Fragments equal to the cost of that card. If you do, copy that ability for every legal target.
+PAY 2: Put target Reflection from your Persona Deck into play. Its ATK and HP become 1.",aor_05_001_ex
+aor_01_002_ex,AOR-01-002 EX,"Hamza, Marshal of Al-Shamal",Green,Protagonist,5,Protagonist,Soldier,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",0,18,turn start,TRUE,1,TRUE,"Other Soldiers you control get +1 ATK.
+[TURN START]: If there is 10 or more damage on this card or if the Turn Count is 5 or more, flip this card.",aor_01_002_f_ex
+aor_02_002_ex,AOR-02-002 EX,"Daryl, Vampire Hunter",Red,Protagonist,7,Protagonist,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",0,20,assault,FALSE,1,TRUE,"[ASSAULT]
+Whenever this card attacks, you can play a copy of any number of Dogmas with total cost equal to or less than the Turn Count from your Persona Deck. This card must be chosen as target of the copies.
+If this card was chosen as target three or more times this turn, it gets +1 ATK for every other Exorcist you control until end of turn.",aor_02_002_ex
+aor_03_002_ex,AOR-03-002 EX,"Ackermann, Computer Whiz",Blue,Protagonist,6,Protagonist,Programmer,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,18,turn start,FALSE,1,TRUE,"[TURN START]: If you control at least 2 overridden Characters, draw 1 card.
+Whenever you play an AI.doll, you may put an AI that costs equal to or less than it from your hand into play. If you do, recover 3 Fragments.",aor_03_002_ex
+aor_04_002_ex,AOR-04-002 EX,"Kenji, Blade of the Rebellion",Pink,Protagonist,9,Protagonist,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",0,20,"explosion, turn start",FALSE,1,TRUE,"[EXPLOSION 1]
+This card gets +1 ATK for each Summon or Unique Character you control.
+[TURN START]: If the Turn Count is 6, put Aoryu, Azure Dragon from your Persona Deck into play.",aor_04_002_ex
+aor_05_002_ex,AOR-05-002 EX,"Hajime, the First Machinist",Purple,Protagonist,6,Protagonist,Machinist,"Anthem of Rebellion, Structure Deck: Echoes of Time",,20,,FALSE,1,TRUE,"Whenever you spend Fragments to activate a Recollection’s ability, place that many Astralia Gear counters on this card.
+Remove X Astralia Gear counters: Put target Reflection that costs X from your Persona Deck into play.
+Whenever a Reflection is put in your graveyard or oblivion, return it to your Persona Deck instead.",aor_05_002_ex
+aor_01_002_ex,AOR-01-002 EX,"Hamza, Relentless Occultist",Green,Protagonist,5,Protagonist,Soldier Warlock,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",0,18,alter ego,TRUE,2,TRUE,"[ALTER EGO 4]
+Other Soldiers you control get +1 ATK.
+FRAZZLE: If you don’t control a Scroll, put target Scroll from your Persona Deck into play.",aor_01_002_r_ex
+aor_02_003_ex,AOR-02-003 EX,Bulwark of Will,Red,Persona,2,Action,Dogma,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,shield,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Target card gets [SHIELD 1] until end of turn.",aor_02_003_ex
+aor_03_003_ex,AOR-03-003 EX,DS-04D Immovable Fortress,Blue,Persona,7,Character,Mecha,Anthem of Rebellion,3,9,"piloted, guard, preemptive defense, enter, shatter",FALSE,1,TRUE,"[PILOTED]: [GUARD] [PREEMPTIVE DEFENSE]
+[ENTER]: Deal 4 damage divided as you choose among up to 3 adjacent Characters.
+[SHATTER]: Obliviate this card.",aor_03_003_ex
+aor_04_003_ex,AOR-04-003 EX,"Shishi, Guardian Lion",Pink,Persona,2,Character,Summon,Anthem of Rebellion,1,3,"guard, release",FALSE,1,TRUE,"[GUARD]
+[RELEASE]: Obliviate this card.",aor_04_003_ex
+aor_05_003_ex,AOR-05-003 EX,"Hamza, Raider of Scrolls",Purple,Persona,4,Character,Reflection,"Anthem of Rebellion, Structure Deck: Echoes of Time",3,4,enter,FALSE,1,TRUE,[ENTER]: Put a Scenography that costs equal to or less than the ATK of this card from your hand into play.,aor_05_003_ex
+aor_01_003_ex,AOR-01-003 EX,Map of the Treasure Hunter,Green,Persona,2,Scenography,Relic Scroll,Anthem of Rebellion,,3,"guard, isolate",FALSE,1,FALSE,FRAZZLE: Target Character you control gets [GUARD] or [ISOLATE] until end of turn. Deal 1 damage to this card or that Character.,aor_01_003_ex
+aor_02_004_ex,AOR-02-004 EX,Final Absolution,Red,Persona,2,Action,Dogma,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,preemptive strike,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Choose 1:
+• Target card gets +1 ATK until end of turn.
+• Target card gets [PREEMPTIVE STRIKE] until end of turn.",aor_02_004_ex
+aor_03_004_ex,AOR-03-004 EX,"A.ZU.RE, Boastful Admiral",Blue,Persona,2,Scenography,AI,Anthem of Rebellion,,5,"override, pilot",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets +1 ATK and +1 HP.
+[PILOT]: Piloted Mecha gets +1 ATK and +1 HP.",aor_03_004_ex
+aor_04_004_ex,AOR-04-004 EX,"Hebi, Slithering Snake",Pink,Persona,2,Character,Summon,"Anthem of Rebellion, Structure Deck: Streets of Honor",2,2,"assault, release",FALSE,1,TRUE,"[ASSAULT]
+[RELEASE]: Obliviate this card.",aor_04_004_ex
+aor_01_004_ex,AOR-01-004 EX,Astrolabe of Prophecy,Green,Persona,3,Scenography,Relic Scroll,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,3,,FALSE,1,FALSE,"FRAZZLE: Draw 1 card, then deal 1 damage to this card.",aor_01_004_ex
+aor_02_005_ex,AOR-02-005 EX,Holy Purge,Red,Persona,2,Action,Dogma,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,explosion,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Choose 1:
+• Target card gets +1 ATK until end of turn.
+• Target card gets [EXPLOSION 1] until end of turn.",aor_02_005_ex
+aor_03_005_ex,AOR-03-005 EX,"J.OK.ER, Blank Harlequin",Blue,Persona,2,Scenography,AI,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,5,"override, shatter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]
+This card can be played as a Response.
+[SHATTER]: Return this card from your graveyard to play, then activate its [OVERRIDE] ability. If you cannot do it, return this card to your hand.",aor_03_005_ex
+aor_05_005_ex,AOR-05-005 EX,"Morgan Takehashi, Sentinel",Purple,Persona,5,Character,Reflection,Anthem of Rebellion,4,6,"guard, shield",FALSE,1,TRUE,[GUARD] [SHIELD 1],aor_05_005_ex
+sd_09_003_ex,SD-09-003 EX,"Kumo Onna, Spider Lady",Pink,Persona,2,Character,Summon,Structure Deck: Streets of Honor,2,3,"isolate, release",FALSE,1,TRUE,"This card can block cards with [ISOLATE].
+[RELEASE]: Return this card to your Persona Deck.",sd_09_003_ex
+aor_02_006_ex,AOR-02-006 EX,Piercing Verdict,Red,Persona,2,Action,Dogma,Anthem of Rebellion,,,,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Choose 1:
+• Target card gets +1 ATK until end of turn.
+• Target card gets “Combat damage dealt by this card cannot be reduced” until end of turn.",aor_02_006_ex
+aor_03_006_ex,AOR-03-006 EX,"MI.RA.I, Radiant Idol",Blue,Persona,2,Scenography,AI,Anthem of Rebellion,,5,"override, enter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets “Whenever this card deals combat damage, draw 1 card”.
+[ENTER]: Draw 1 card.",aor_03_006_ex
+aor_04_005_ex,AOR-04-005 EX,"Samurai, Honorable Warrior",Pink,Persona,3,Character,Summon,"Anthem of Rebellion, Structure Deck: Streets of Honor",2,2,"shield, release",FALSE,1,TRUE,"[SHIELD 1]
+Linked card gets [SHIELD 1].
+[RELEASE]: Return this card to your Persona Deck.",aor_04_005_ex
+aor_05_006_ex,AOR-05-006 EX,"Cobra, Silent Infiltrator",Purple,Persona,5,Character,Reflection,Anthem of Rebellion,5,3,"assault, isolate",FALSE,1,TRUE,"[ASSAULT] [ISOLATE]
+Whenever this card attacks, it gets “This card cannot take damage from cards with Frazzle counters on them” until end of combat.",aor_05_006_ex
+sd_06_003_ex,SD-06-003 EX,Manuscript of Heroic Valor,Green,Persona,3,Scenography,Scroll,Structure Deck: Army of Al Shamal,,3,,FALSE,1,FALSE,"FRAZZLE: Target card gets +1 ATK until end of turn, then deal 1 damage to this card.",sd_06_003_ex
+aor_01_005_ex,AOR-01-005 EX,Talisman of Weather Control,Green,Persona,3,Scenography,Scroll,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,3,,FALSE,1,FALSE,"FRAZZLE: Target Character gets -1 ATK until end of turn, then deal 1 damage to this card.",aor_01_005_ex
+aor_02_007_ex,AOR-02-007 EX,Prophetic Strike,Red,Persona,2,Action,Dogma,Anthem of Rebellion,,,,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Target card gets “Whenever this card deals combat damage, draw 1 card” until end of turn.",aor_02_007_ex
+aor_03_007_ex,AOR-03-007 EX,"RI.N.NE, Heartful Necromancer",Blue,Persona,3,Scenography,AI,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,5,"override, enter",FALSE,1,TRUE,"[OVERRIDE Target Character that costs 5 or less in your graveyard]
+[ENTER]: Put 3 cards from the top of your deck into your graveyard.",aor_03_007_ex
+aor_05_007_ex,AOR-05-007 EX,"Lucrezia, Guide of Regime",Purple,Persona,5,Character,Reflection,"Anthem of Rebellion, Structure Deck: Echoes of Time",6,4,"enter, heal",FALSE,1,TRUE,"[ENTER]: Deal 2 damage to target Character, then [HEAL 2] target card.",aor_05_007_ex
+sd_08_003_ex,SD-08-003 EX,"O.RA.CLE, Bored Strategist",Blue,Persona,3,Scenography,AI,Structure Deck: Ghost in the Machine,,4,"override, enter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets “As long as this card has an adjacent Character, it cannot be attacked“.
+[ENTER]: Search your deck for a Character that costs 2 or less, reveal it, and add it to your hand.",sd_08_003_ex
+aor_01_006_ex,AOR-01-006 EX,Scroll of Resurrection,Green,Persona,4,Scenography,Scroll,Anthem of Rebellion,,3,,FALSE,1,FALSE,"Whenever a Character you control that costs 3 or less is shattered, return it to play with 1 Frazzle counter on it, then deal 2 damage to this card.",aor_01_006_ex
+aor_02_008_ex,AOR-02-008 EX,Severing Rite,Red,Persona,2,Action,Dogma,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,isolate,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Choose 1:
+• Target card gets +1 ATK until end of turn.
+• Target card gets [ISOLATE] until end of turn.",aor_02_008_ex
+aor_04_007_ex,AOR-04-007 EX,"Oni, Rampaging Demon",Pink,Persona,3,Character,Summon,"Anthem of Rebellion, Structure Deck: Streets of Honor",3,3,"breakthrough, release",FALSE,1,TRUE,"[BREAKTHROUGH]
+[RELEASE]: Obliviate this card.",aor_04_007_ex
+aor_05_008_ex,AOR-05-008 EX,"Altea, Exiled Queen",Purple,Persona,6,Character,Reflection,Anthem of Rebellion,4,7,"preemptive defense, enter",FALSE,1,TRUE,"[PREEMPTIVE DEFENSE]
+[ENTER]: This card deals damage equal to its ATK to target Character or Scenography.",aor_05_008_ex
+aor_01_007_ex,AOR-01-007 EX,Tome of the Elements,Green,Persona,4,Scenography,Scroll,Anthem of Rebellion,,3,,FALSE,1,FALSE,"FRAZZLE: Deal 1 damage to target Character, then deal 1 damage to this card.",aor_01_007_ex
+aor_03_008_ex,AOR-03-008 EX,"CU.R.E, Heartless Nurse",Blue,Persona,3,Scenography,AI,Anthem of Rebellion,,6,"override, regeneration, enter, heal",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets [REGENERATION 2].
+[ENTER]: [HEAL 2] target card.",aor_03_008_ex
+aor_04_008_ex,AOR-04-008 EX,"Yuki Onna, Snow Lady",Pink,Persona,4,Character,Summon,Anthem of Rebellion,2,3,"assault, preemptive defense",FALSE,1,TRUE,All opposing Characters get -1 ATK and lose [ASSAULT] and [PREEMPTIVE DEFENSE].,aor_04_008_ex
+sd_07_006_ex,SD-07-006 EX,Cardinal Slash,Red,Persona,3,Action,Dogma,Structure Deck: Holy Verdict,,,breakthrough,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Target card gets +1 ATK until end of turn. If that card was the target of three or more Actions you controlled this turn, it gets [BREAKTHROUGH] until end of turn.",sd_07_006_ex
+sd_10_005_ex,SD-10-005 EX,"Seraph Orchid, Artificial Angel",Purple,Persona,6,Character,Reflection,Structure Deck: Echoes of Time,5,5,"barrier, shield, breakthrough, enter",FALSE,1,TRUE,"[BARRIER] [SHIELD 1] [BREAKTHROUGH]
+[ENTER]: Look at the top X cards of your deck, where X is the ATK of this card. Add one to your hand, then put the rest on the bottom of your deck.",sd_10_005_ex
+aor_01_008_ex,AOR-01-008 EX,Shard of Demonic Vigor,Green,Persona,5,Scenography,Scroll,Anthem of Rebellion,,3,"regeneration, turn end",FALSE,1,FALSE,"FRAZZLE: Target Demon you control gets +1 ATK and [REGENERATION 1] until end of turn.
+[TURN END]: If you don’t control Demons, shatter this card. Draw 1 card.",aor_01_008_ex
+aor_02_009_ex,AOR-02-009 EX,Sanctified Ward,Red,Persona,3,Action,Dogma,Anthem of Rebellion,,,barrier,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Target card gets [BARRIER].",aor_02_009_ex
+aor_03_009_ex,AOR-03-009 EX,"MA.GU.S, Rational Wizard",Blue,Persona,3,Scenography,AI,Anthem of Rebellion,,6,"override, enter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets “Whenever you play an Action, you may deal 1 damage to target Character or Scenography“.
+[ENTER]: Return target Action that costs 2 or less from your graveyard to your hand.",aor_03_009_ex
+ks_02_009_pr,KS-02-009 PR,"Miyako, Collector of Tattoos",Pink,Protagonist,8,Protagonist,Assassin,Kickstarter Promos,,18,"assault, summoning",FALSE,1,TRUE,"Summons get +1 ATK, +1 HP and [ASSAULT].
+Whenever a Character you control triggers its [SUMMONING] ability, obliviate it.
+FRAZZLE, FRAZZLE: Target Summon gets +2 ATK and +2 HP until end of turn.",ks_02_009_pr
+aor_01_009_ex,AOR-01-009 EX,Stone of Dark Summoning,Green,Persona,5,Scenography,Scroll,Anthem of Rebellion,,5,,TRUE,1,FALSE,"FRAZZLE target Character you control: Deal 1 damage to this card. If it was shattered this way, return this card to play, then flip this card.",aor_01_009_f_ex
+aor_02_010_ex,AOR-02-010 EX,Unshakable Faith,Red,Persona,3,Action,Dogma,Anthem of Rebellion,,,,FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Choose 1:
+• Target card gets +1 ATK until end of turn.
+• Target attacking card gets “This card cannot take damage from cards with Frazzle counters on them” until end of combat.",aor_02_010_ex
+aor_03_010_ex,AOR-03-010 EX,"RO.NI.N, Unbound Samurai",Blue,Persona,3,Scenography,AI,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,6,"override, guard, enter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets [GUARD] and “Whenever this card fights an opposing Character, it deals 1 damage before damage exchange“.
+[ENTER]: Deal 2 damage divided as you choose among up to 2 adjacent Characters.",aor_03_010_ex
+aor_04_010_ex,AOR-04-010 EX,"Tora, Raging Tiger",Pink,Persona,5,Character,Summon,Anthem of Rebellion,4,4,"breakthrough, release",FALSE,1,TRUE,"[BREAKTHROUGH]
+Linked card gets [BREAKTHROUGH].
+[RELEASE]: Return this card to your Persona Deck.",aor_04_010_ex
+aor_01_009_ex,AOR-01-009 EX,"Zandrak, Constrained Demon",Green,Persona,5,Character,Demon,Anthem of Rebellion,5,5,"breakthrough, heal",TRUE,2,TRUE,"Shatter target Character you control: Choose 1:
+• This card gets +2 ATK until end of turn. Activate this ability only once per turn.
+• This card gets [BREAKTHROUGH].
+• [HEAL 2] this card.",aor_01_009_r_ex
+aor_02_011_ex,AOR-02-011 EX,Vanguard’s Decree,Red,Persona,3,Action,Dogma,Anthem of Rebellion,,,"assault, shield",FALSE,1,FALSE,"You can play this card without paying its cost. If you do, a Vestige must be chosen as target.
+Target card gets [ASSAULT] until end of turn. If that card was the target of three or more Actions you controlled this turn, it gets [SHIELD 2] until end of turn.",aor_02_011_ex
+aor_03_011_ex,AOR-03-011 EX,"B.RA.VE, Radiant Knight",Blue,Persona,4,Scenography,AI,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,7,"override, breakthrough, enter",FALSE,1,TRUE,"[OVERRIDE Target Character you control]: The overridden Character gets [BREAKTHROUGH].
+[ENTER]: Shatter target Character that costs 4 or less.",aor_03_011_ex
+aor_04_011_ex,AOR-04-011 EX,"Aoryu, Azure Dragon",Pink,Persona,7,Character,Summon,"Anthem of Rebellion, Structure Deck: Streets of Honor",6,6,"enter, preemptive strike, release",FALSE,1,TRUE,"[ENTER]: Deal 2 damage to target Character.
+Linked card gets [PREEMPTIVE STRIKE].
+[RELEASE]: Obliviate this card.",aor_04_011_ex
+aor_05_011_ex,AOR-05-011 EX,"Seraph Aster, Magical Warrior",Purple,Persona,7,Character,Reflection,Anthem of Rebellion,7,7,"barrier, shield, enter, turn end, heal",FALSE,1,TRUE,"[BARRIER] [SHIELD 1]
+[ENTER]: Draw 1 card.
+[TURN END]: If there is damage on this card, draw 1 card and [HEAL 2] this card.",aor_05_011_ex
+aor_01_010_ex,AOR-01-010 EX,Shield of Niflheimr,Green,Persona,6,Scenography,Scroll,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,8,,TRUE,1,FALSE,Deal 2 damage to this card: Flip this card.,aor_01_010_f_ex
+aor_02_012_ex,AOR-02-012 EX,Blood Rain,Red,Persona,5,Action,Blood Tithe,Anthem of Rebellion,,,blood tithe,FALSE,1,FALSE,[BLOOD TITHE X]: Deal half X damage rounded up to all Characters.,aor_02_012_ex
+aor_03_012_ex,AOR-03-012 EX,"RO.GU.E, Spectral Pirate",Blue,Persona,5,Scenography,AI,Anthem of Rebellion,,6,override,FALSE,1,TRUE,[OVERRIDE Target opposing Character]: Remove all Frazzle counters from the overridden Character. Gain control of that card.,aor_03_012_ex
+aor_01_010_ex,AOR-01-010 EX,"Nidhogg, Scourge of the North",Green,Persona,6,Character,Scroll Dragon,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",5,8,"explosion, turn end",TRUE,2,TRUE,"[EXPLOSION 2]
+[TURN END]: Remove 1 Frazzle counter from this card, then flip this card.",aor_01_010_r_ex
+aor_02_013_n,AOR-02-013 N,"Lucia, Priest of Incarceration",Red,Deck,1,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",1,2,,FALSE,1,TRUE,"Whenever a Frazzle counter would be removed from an opposing Character that costs 3 or less, your opponent must [PAY 1] or it is not removed.",aor_02_013_n
+aor_03_013_n,AOR-03-013 N,Automaton Pilot,Blue,Deck,1,Character,Pilot Drone,Anthem of Rebellion,0,1,pilot,FALSE,1,FALSE,[PILOT]: Piloted Mecha gets -1 ATK and -1 HP.,aor_03_013_n
+aor_05_013_n,AOR-05-013 N,Faded Extra,Purple,Deck,1,Character,Entity,"Anthem of Rebellion, Structure Deck: Echoes of Time",0,2,guard,FALSE,1,FALSE,[GUARD],aor_05_013_n
+aor_01_011_ex,AOR-01-011 EX,Reliquary of Ascension,Green,Persona,7,Scenography,Scroll,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,7,turn start,TRUE,1,FALSE,"[TURN START]: If there are 3 or more Scrolls in your graveyard and the Turn Count is 8 or more, flip this card and replace your Protagonist with it.",aor_01_011_f_ex
+aor_02_014_n,AOR-02-014 N,Angry Mob,Red,Deck,2,Character,Supporter,Anthem of Rebellion,1,1,,FALSE,1,FALSE,This card gets +1 ATK and +1 HP for every other Supporter you control.,aor_02_014_n
+aor_03_014_n,AOR-03-014 N,Interceptor Drone,Blue,Deck,1,Character,Drone,Anthem of Rebellion,0,3,guard,FALSE,1,FALSE,[GUARD],aor_03_014_n
+aor_04_013_n,AOR-04-013 N,Fake News Reporter,Pink,Deck,1,Character,Influencer,Anthem of Rebellion,0,1,,FALSE,1,FALSE,"Whenever a Character enters play under your control, place 1 Hype counter on this card.
+Remove 7 Hype counters: Remove 1 Frazzle counter from target card.",aor_04_013_n
+sd_09_007_n,SD-09-007 N,"Rena, Indomitable Spirit",Pink,Deck,2,Character,Rebel,Structure Deck: Streets of Honor,1,2,shield,FALSE,1,TRUE,"If there is an opposing Character with ATK 3 or more in play, this card gets +2 ATK, +1 HP and [SHIELD 1].",sd_09_007_n
+aor_01_011_ex,AOR-01-011 EX,"Hamza, Ascended Demon",Green,Persona,8,Protagonist,Demon,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",2,22,"alter ego, breakthrough",TRUE,2,TRUE,"[ALTER EGO 8] [BREAKTHROUGH]
+Discard a Character or shatter target Character you control: Choose 1:
+• This card gets +2 ATK until end of turn.
+• Deal 2 damage to target Character.
+• [HEAL 2] this card.",aor_01_011_r_ex
+aor_02_015_n,AOR-02-015 N,"Gabriel, Lone Wolf",Red,Deck,2,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",1,3,preemptive defense,FALSE,1,TRUE,"Whenever you play a card by paying less than its cost, this card gets +1 ATK and [PREEMPTIVE DEFENSE] until end of turn.",aor_02_015_n
+aor_05_015_n,AOR-05-015 N,"Ling Hua, Diviner of the Advent",Purple,Deck,2,Character,Fanatic,Anthem of Rebellion,1,3,enter,FALSE,1,FALSE,"[ENTER]: Discard 1 card, then look at the top 3 cards of your deck. Put any number of them on the top of your deck in any order, then put the rest on the bottom of your deck. Draw 1 card.",aor_05_015_n
+aor_01_012_ex,AOR-01-012 EX,Fresco of the Triple Goddess,Green,Persona,7,Character,Scroll,Anthem of Rebellion,,8,"shield, turn end",FALSE,1,FALSE,"[SHIELD 1]
+[TURN END]: Deal damage equal to the number of Scrolls you control to target card.",aor_01_012_ex
+aor_02_016_n,AOR-02-016 N,"Gloria, Priest of Temperance",Red,Deck,2,Character,Exorcist,Anthem of Rebellion,1,3,,FALSE,1,TRUE,"If your opponent would draw a card except the first one they draw in their turn, they skip that draw instead.",aor_02_016_n
+aor_03_015_n,AOR-03-015 N,Walking Rig,Blue,Deck,2,Character,Drone,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",1,2,shatter,FALSE,1,FALSE,[SHATTER]: Add target AI from your Persona Deck to your hand.,aor_03_015_n
+aor_04_015_n,AOR-04-015 N,Vanguard of the Rebellion,Pink,Deck,2,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",2,1,"enter, summoning",FALSE,1,FALSE,"[ENTER]: [SUMMONING 2]
+Discard this card: Return target Summon that costs 2 from your graveyard to your Persona Deck.",aor_04_015_n
+aor_05_016_n,AOR-05-016 N,Echo of the Chronicles,Purple,Deck,3,Character,Entity,"Anthem of Rebellion, Structure Deck: Echoes of Time",0,1,enter,FALSE,1,FALSE,"[ENTER]: This card becomes a copy of a Character you control. This card retains its name and gets “Whenever another Character enters play under your control, return this card to your hand”.",aor_05_016_n
+aor_01_013_n,AOR-01-013 N,Merchant of Potions,Green,Deck,1,Character,Commoner,Anthem of Rebellion,0,2,"heal, quest",FALSE,1,FALSE,"FRAZZLE, FRAZZLE: [HEAL 1] target card, then [QUEST 1].",aor_01_013_n
+aor_02_017_n,AOR-02-017 N,"Rafael, Priest of Recovery",Red,Deck,2,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",1,3,regeneration,FALSE,1,TRUE,Exorcists you control get [REGENERATION 1].,aor_02_017_n
+aor_03_016_n,AOR-03-016 N,Strike Fighter,Blue,Deck,2,Character,Mecha Drone,Anthem of Rebellion,2,1,"piloted, assault",FALSE,1,FALSE,"[PILOTED]: This card gets +1 ATK, +1 HP and [ASSAULT].
+This card can attack and block without a Pilot.",aor_03_016_n
+aor_04_016_n,AOR-04-016 N,Riotous Thug,Pink,Deck,3,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",2,2,"enter, summoning",FALSE,1,FALSE,"[ENTER]: [SUMMONING 3]
+Retire this card: Put target Summon that costs 3 from your graveyard to your Persona Deck.",aor_04_016_n
+sd_06_007_n,SD-06-007 N,"Wolfram, Mercenary Leader",Green,Deck,1,Character,Soldier Adventurer,Structure Deck: Army of Al Shamal,0,1,quest,FALSE,1,TRUE,"Whenever a Soldier with ATK equal or greater than this card enters play, choose 1:
+• [QUEST 1]
+• Place 1 Fame counter on this card.
+This card gets +1 ATK and +1 HP for each Fame counter on it.",sd_06_007_n
+aor_01_014_n,AOR-01-014 N,Army Infantryman,Green,Deck,1,Character,Soldier,Anthem of Rebellion,1,1,preemptive strike,FALSE,1,FALSE,[PREEMPTIVE STRIKE],aor_01_014_n
+aor_02_018_n,AOR-02-018 N,Army Investigator,Red,Deck,2,Character,Vampire,Anthem of Rebellion,2,3,isolate,FALSE,1,FALSE,"[ISOLATE]
+Whenever this card fights an opposing Character, it gets +1 ATK until end of turn.",aor_02_018_n
+aor_03_017_n,AOR-03-017 N,Faceless AI.doll,Blue,Deck,2,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",2,2,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+As long as this card is overridden, it gets +1 ATK and +1 HP.",aor_03_017_n
+aor_04_017_n,AOR-04-017 N,Brother of the Kingumi Clan,Pink,Deck,3,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",2,3,"enter, summoning",FALSE,1,FALSE,"[ENTER]: [SUMMONING 2]
+FRAZZLE, retire this card: Search your deck for Toya, Younger of the Kingumi or Majima, Elder of the Kingumi and put it into play in the same slot.",aor_04_017_n
+aor_01_015_n,AOR-01-015 N,City Guard,Green,Deck,1,Character,Soldier,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",1,1,"preemptive defense, isolate",FALSE,1,FALSE,"[PREEMPTIVE DEFENSE]
+This card can block cards with [ISOLATE].",aor_01_015_n
+aor_02_019_n,AOR-02-019 N,"Aurea, Priest of Abnegation",Red,Deck,3,Character,Exorcist,Anthem of Rebellion,1,3,,FALSE,1,TRUE,"Whenever an opposing card is chosen as attacker, your opponent must [PAY 2] or the attack is null.",aor_02_019_n
+aor_03_018_n,AOR-03-018 N,"Karin, Ethical Hacker",Blue,Deck,2,Character,Programmer,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",2,3,,FALSE,1,TRUE,"As long as this card has a Frazzle counter on it, it cannot be attacked.
+FRAZZLE, FRAZZLE: Target player reveals 3 cards from their hand. Choose 1 and put it on the bottom of its owner’s deck, then that player draws 1 card.",aor_03_018_n
+aor_05_019_n,AOR-05-019 N,Blurred Multitude,Purple,Deck,4,Character,Entity,Anthem of Rebellion,1,4,enter,FALSE,1,FALSE,"[ENTER]: Return any number of Entities with total cost 3 or less from your graveyard to play.
+This card gets +1 ATK for every other Entity you control.",aor_05_019_n
+aor_01_016_n,AOR-01-016 N,Auxiliary Recruit,Green,Deck,2,Character,Soldier,Anthem of Rebellion,1,1,,FALSE,1,FALSE,"Whenever this card attacks, it gets +X ATK, where X is the highest ATK among adjacent Soldiers, until end of turn.",aor_01_016_n
+aor_02_020_n,AOR-02-020 N,"Lucian, Priest of Protection",Red,Deck,3,Character,Exorcist,Anthem of Rebellion,1,3,barrier,FALSE,1,TRUE,"Whenever a card you control is chosen as target of an opposing Action or ability, your opponent must [PAY 1] or that card gets [BARRIER].",aor_02_020_n
+aor_03_019_n,AOR-03-019 N,Amethyst Death XIII,Blue,Deck,3,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",3,3,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+If this card was put into play from your graveyard, it gets +3 ATK and +3 HP.",aor_03_019_n
+aor_05_020_n,AOR-05-020 N,"Nyxira, Veiled One",Purple,Deck,5,Character,Entity,Anthem of Rebellion,3,5,,FALSE,1,TRUE,"Whenever you spend Fragments to activate a Recollection’s ability, put target Entity that costs equal to or less than the Fragments spent this way from your hand or graveyard into play.
+[TURN END]: If you control another Entity, draw 1 card.",aor_05_020_n
+aor_01_017_n,AOR-01-017 N,Keeper of Archives,Green,Deck,2,Character,Scholar,Anthem of Rebellion,1,2,guard,FALSE,1,FALSE,"[GUARD]
+If you control a Scroll, this card gets +1 ATK and +2 HP.",aor_01_017_n
+aor_02_021_n,AOR-02-021 N,"Marius, Priest of Flagellation",Red,Deck,3,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",1,3,,FALSE,1,TRUE,"If damage would be removed from an opposing card, it does not get removed.",aor_02_021_n
+aor_04_020_n,AOR-04-020 N,"Kiyomi, Detached Heiress",Pink,Deck,4,Character,Summoner,Anthem of Rebellion,1,3,"shield, enter",FALSE,1,TRUE,"[SHIELD 1]
+[ENTER]: Put Yuki Onna, Snow Lady from your Persona Deck or graveyard into play. 
+Whenever this card fights an opposing Character and survives, shatter that Character.",aor_04_020_n
+aor_05_021_n,AOR-05-021 N,"Nemnos, Memories Collector",Purple,Deck,6,Character,Entity,Anthem of Rebellion,3,5,"guard, enter",FALSE,1,TRUE,"[GUARD]
+[ENTER]: Return target Scenography from your graveyard to play.",aor_05_021_n
+sd_08_011_n,SD-08-011 N,Ruby Empress III,Blue,Deck,3,Character,AI.doll,Structure Deck: Ghost in the Machine,3,3,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+As long as this card is overridden, adjacent Characters get +1 ATK.",sd_08_011_n
+aor_01_018_n,AOR-01-018 N,"Taliesin, Bard of Haven",Green,Deck,2,Character,Adventurer,Anthem of Rebellion,1,3,quest,FALSE,1,TRUE,"Whenever an opposing Character that costs 5 or more is shattered, [QUEST 1] or draw 1 card.",aor_01_018_n
+aor_02_022_n,AOR-02-022 N,"Matthias, Priest of Constraint",Red,Deck,3,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",1,3,,FALSE,1,TRUE,All opposing Characters come into play with a Frazzle counter.,aor_02_022_n
+aor_03_020_n,AOR-03-020 N,Sapphire Star XVII,Blue,Deck,3,Character,AI.doll,Anthem of Rebellion,3,3,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+Whenever this card fights an opposing Character, you may look at the top 2 cards of your deck. Put them on the top of your deck in any order.",aor_03_020_n
+aor_04_021_n,AOR-04-021 N,"Keiko, the Crimson Blade",Pink,Deck,4,Character,Rebel,Anthem of Rebellion,1,5,"enter, summoning",FALSE,1,TRUE,"[ENTER]: [SUMMONING “TORA”]
+This card gets +1 ATK for each damage on it.",aor_04_021_n
+aor_01_019_n,AOR-01-019 N,Flatlands Marksman,Green,Deck,2,Character,Soldier,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",2,2,"preemptive defense, isolate",FALSE,1,FALSE,"[PREEMPTIVE DEFENSE]
+This card can block cards with [ISOLATE].",aor_01_019_n
+aor_02_023_n,AOR-02-023 N,"Samuel, Priest of Punishment",Red,Deck,3,Character,Exorcist,Anthem of Rebellion,1,4,,FALSE,1,TRUE,"Whenever your opponent activates an ability of a card, deal 1 damage to that card.",aor_02_023_n
+aor_03_021_n,AOR-03-021 N,Spinel Chariot VII,Blue,Deck,3,Character,AI.doll,Anthem of Rebellion,3,3,"assault, enter",FALSE,1,FALSE,"[ASSAULT]
+Whenever a Character is put in your opponent’s graveyard, you may return that Character to play with 2 Frazzle counters on it. It does not trigger its [ENTER] ability.",aor_03_021_n
+aor_01_020_n,AOR-01-020 N,Royal Messenger,Green,Deck,2,Character,Commoner,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",2,2,enter,FALSE,1,FALSE,"[ENTER]: Look at the top 5 cards of your deck. If there is a Soldier, reveal it, and add it to your hand. Then put the rest of the cards on the bottom of your deck.",aor_01_020_n
+aor_03_022_n,AOR-03-022 N,Police Combat Suit,Blue,Deck,3,Character,Mecha,Anthem of Rebellion,4,4,"piloted, shatter",FALSE,1,FALSE,"[PILOTED]
+[SHATTER]: Obliviate this card.",aor_03_022_n
+aor_04_023_n,AOR-04-023 N,"Majima, Elder of the Kingumi",Pink,Deck,5,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",3,3,"enter, summoning",FALSE,1,TRUE,"[ENTER]: [SUMMONING 3]
+This card gets +1 ATK for each Summon in play.",aor_04_023_n
+aor_05_024_n,AOR-05-024 N,"Nie Zheng, Magitech Architect",Purple,Deck,7,Character,Mage Engineer,"Anthem of Rebellion, Structure Deck: Echoes of Time",5,6,"barrier, shield, enter",FALSE,1,TRUE,"[BARRIER] [SHIELD 1]
+[ENTER]: Shatter another card you control, then deal 5 damage to target Character or Scenography. Damage dealt by this ability cannot be reduced or prevented. If the target is not shattered, draw 2 cards.",aor_05_024_n
+sd_07_012_n,SD-07-012 N,"Darius, Rogue Exorcist",Red,Deck,4,Character,Exorcist Warlock,Structure Deck: Holy Verdict,2,4,"enter, explosion",FALSE,1,TRUE,"[ENTER]: Return target Action that costs 2 or less from your graveyard to your hand.
+The first time an Action you control resolves each turn, this card gets +1 ATK and [EXPLOSION 1] until end of turn.",sd_07_012_n
+aor_01_021_n,AOR-01-021 N,Grave Robber,Green,Deck,2,Character,Commoner,Anthem of Rebellion,2,3,"enter, quest",FALSE,1,FALSE,"[ENTER]: Deal 2 damage to target Scenography.
+Whenever this card shatters a Scenography, choose 1:
+• Draw 1 card.
+• Obliviate target card from your opponent’s graveyard, then [QUEST 1].",aor_01_021_n
+aor_02_024_n,AOR-02-024 N,Undercover Agent,Red,Deck,3,Character,Officer,Anthem of Rebellion,2,1,,FALSE,1,FALSE,"Whenever this card would be put in your graveyard from your hand or your deck, put this card into play instead.",aor_02_024_n
+aor_03_023_n,AOR-03-023 N,Jade Hermit IX,Blue,Deck,4,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",4,4,"override, shield",FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+Whenever this card fights an opposing Character, it gets +1 ATK and [SHIELD 1] for each damage on the opposing Character until end of combat.",aor_03_023_n
+aor_04_024_n,AOR-04-024 N,"Toya, Younger of the Kingumi",Pink,Deck,5,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",3,3,"enter, summoning",FALSE,1,TRUE,"[ENTER]: [SUMMONING 3]
+Summons you control get +1 ATK.",aor_04_024_n
+aor_05_025_n,AOR-05-025 N,Embodiment of Change,Purple,Deck,9,Character,Aberration,Anthem of Rebellion,9,9,"advent, enter",FALSE,1,FALSE,"[ADVENT]
+[ENTER]: Each player discards their hand, then draws 3 cards.",aor_05_025_n
+aor_01_022_n,AOR-01-022 N,Archivist of Magisterium,Green,Deck,3,Character,Scholar,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",1,3,enter,FALSE,1,FALSE,"[ENTER]: Look at the top X cards of your deck, where X is the number of Scrolls you control. Add one to your hand, then put the rest on the bottom of your deck.",aor_01_022_n
+aor_02_025_n,AOR-02-025 N,"Dominic, Veteran Exorcist",Red,Deck,4,Character,Exorcist,"Anthem of Rebellion, Structure Deck: Holy Verdict",2,4,"enter, barrier",FALSE,1,TRUE,"[ENTER]: Search your deck for a Weapon, reveal it, and add it to your hand.
+Whenever this card attacks, it gets +1 ATK and [BARRIER] until end of turn.",aor_02_025_n
+aor_03_024_n,AOR-03-024 N,Morganite Temperance XIV,Blue,Deck,4,Character,AI.doll,Anthem of Rebellion,4,4,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+If damage would be removed from this card, deal 1 damage to target Character.",aor_03_024_n
+aor_05_026_n,AOR-05-026 N,Fleeting Memory,Purple,Deck,0,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,2,,FALSE,1,FALSE,"PAY 1, shatter this card: Search your deck for a Faded Extra and put it into play.",aor_05_026_n
+aor_01_023_n,AOR-01-023 N,Army Blacksmith,Green,Deck,3,Character,Commoner,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",2,2,,FALSE,1,FALSE,Adjacent Soldiers get +1 ATK.,aor_01_023_n
+aor_01_024_n,AOR-01-024 N,Veteran Soldier,Green,Deck,3,Character,Soldier,Anthem of Rebellion,2,3,"enter, shield",FALSE,1,FALSE,"[ENTER]: Choose 1:
+• This card gets +1 ATK.
+• This card gets [SHIELD 1].",aor_01_024_n
+aor_03_025_n,AOR-03-025 N,Topaz Fool 0,Blue,Deck,4,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",4,4,"override, shatter",FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+As long as this card is overridden, it gets +1 ATK and [ASSAULT].
+[SHATTER]: Put a Character that costs equal to or less than this card from your hand into play.",aor_03_025_n
+aor_04_026_n,AOR-04-026 N,"Seraph Azalea, Paragon",Pink,Deck,6,Character,Mage,Anthem of Rebellion,3,5,"barrier, shield",FALSE,1,TRUE,"[BARRIER] [SHIELD 1]
+Whenever this card attacks, it gets +1 ATK for each Enchantment in play until end of combat.",aor_04_026_n
+sd_07_014_n,SD-07-014 N,"Achillea, Vanquishing Master",Red,Deck,7,Character,Soldier,Structure Deck: Holy Verdict,7,6,enter,FALSE,1,TRUE,"[ENTER]: You may play a copy of a Dogma from your graveyard or Persona Deck. If you do, this card must be chosen as the target.
+Whenever this card attacks or blocks, trigger the [ENTER] ability of this card.",sd_07_014_n
+aor_02_026_n,AOR-02-026 N,Vestige of the Seer Stones,Red,Deck,8,Character,Vestige,"Anthem of Rebellion, Structure Deck: Holy Verdict",6,6,"vestige, enter",FALSE,1,FALSE,"[VESTIGE]: Discard 1 card.
+[ENTER]: Look at the top 4 cards of your deck. Put any number of them on the top of your deck in any order, then put the rest on the bottom of your deck.
+Whenever this card fights, draw 1 card.",aor_02_026_n
+aor_03_026_n,AOR-03-026 N,Citrine Justice XI,Blue,Deck,5,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",5,5,"override, barrier",FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+Whenever this card attacks, it gets +2 ATK and [BARRIER] until end of combat.",aor_03_026_n
+aor_04_027_n,AOR-04-027 N,"Motoyasu, Savior of Souls",Pink,Deck,7,Character,Summoner,Anthem of Rebellion,7,7,"assault, enter",FALSE,1,TRUE,"[ASSAULT]
+[ENTER]: You may put three or more Characters from your oblivion into your graveyard. If you do, put target Summon from your Persona Deck or graveyard into play.",aor_04_027_n
+aor_05_028_n,AOR-05-028 N,Archeological Discovery,Purple,Deck,1,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,3,,FALSE,1,FALSE,"PAY 3, shatter this card: Draw 2 cards.",aor_05_028_n
+aor_02_027_n,AOR-02-027 N,Vestige of the Sacred Ring,Red,Deck,8,Character,Vestige,Anthem of Rebellion,6,6,"vestige, enter",FALSE,1,FALSE,"[VESTIGE]: Obliviate 3 cards from your graveyard.
+[ENTER]: Deal 4 damage divided as you choose among up to 3 adjacent Characters.
+FRAZZLE: Deal 1 damage to target Character or Scenography.",aor_02_027_n
+aor_03_027_n,AOR-03-027 N,Garnet Magician I,Blue,Deck,5,Character,AI.doll,Anthem of Rebellion,5,5,"override, assault, shatter",FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE].
+Whenever an opposing card is shattered by an Action or ability, draw 1 card.",aor_03_027_n
+sd_09_017_n,SD-09-017 N,Contraband Weapon,Pink,Deck,1,Scenography,Weapon,Structure Deck: Streets of Honor,,2,turn start,FALSE,1,FALSE,[TURN START]: Target adjacent card gets +1 ATK until end of turn.,sd_09_017_n
+aor_01_025_n,AOR-01-025 N,"Fabian, Heroic Spirit",Green,Deck,4,Character,Soldier Hero,Anthem of Rebellion,2,5,"regeneration, worn",FALSE,1,TRUE,"[REGENERATION 1]
+You can only play this card in a slot that contains a Scenography. As long as this card is in play, that Scenography gets [WORN]. If this card does not wear a Scenography, retire it.",aor_01_025_n
+aor_02_028_n,AOR-02-028 N,Vestige of the Draconic Armor,Red,Deck,8,Character,Vestige,Anthem of Rebellion,6,9,"vestige, shield",FALSE,1,FALSE,"[VESTIGE]: Discard 1 card.
+[SHIELD 1]
+This card cannot take more than 5 damage from a single source.",aor_02_028_n
+aor_03_028_n,AOR-03-028 N,Moonstone World XXI,Blue,Deck,7,Character,AI.doll,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",2,2,override,FALSE,1,FALSE,"This card retains its abilities under [OVERRIDE] and gets +1 ATK and +1 HP for each AI.doll with a different name in your graveyard.
+Shatter the AI overriding this card: Remove all Frazzle counters from this card. Activate this ability only once per turn.",aor_03_028_n
+aor_05_030_n,AOR-05-030 N,Healing Meditation,Purple,Deck,1,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,3,"heal, shatter",FALSE,1,FALSE,"PAY 1, shatter this card: [HEAL 2] target card you control.",aor_05_030_n
+aor_01_026_n,AOR-01-026 N,Arcane Knight,Green,Deck,4,Character,Soldier Mage,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",3,3,"barrier, shield, enter, assault",FALSE,1,FALSE,"[BARRIER] [SHIELD 1]
+[ENTER]: Choose 1:
+• This card gets [ASSAULT] until end of turn.
+• Deal 3 damage to target Scenography.",aor_01_026_n
+aor_02_029_n,AOR-02-029 N,Vestige of the Heroic Banner,Red,Deck,8,Character,Vestige,Anthem of Rebellion,7,7,vestige,FALSE,1,FALSE,"[VESTIGE]: Discard 1 card.
+Whenever you play a card without paying its cost, draw 1 card.",aor_02_029_n
+aor_03_029_n,AOR-03-029 N,Titanium Cover,Blue,Deck,3,Scenography,Armor,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,3,worn,FALSE,1,FALSE,[WORN AI.doll]: The wearer of this card gets +1 ATK and +1 HP.,aor_03_029_n
+aor_01_027_n,AOR-01-027 N,"King Adelbert, Ruler of Elara",Green,Deck,4,Character,Soldier King,Anthem of Rebellion,3,3,"enter, quest",FALSE,1,TRUE,"[ENTER]: Search your deck for a Floria, the King’s Sword, Vadil, Royal Guard Captain, or Guild Tax, reveal it, and add it to your hand.
+Whenever this card would take damage, you may deal that damage to a Soldier you control instead.
+Whenever a Soldier is shattered, [QUEST 1].",aor_01_027_n
+aor_02_030_n,AOR-02-030 N,Vestige of the Royal Shield,Red,Deck,8,Character,Vestige,"Anthem of Rebellion, Structure Deck: Holy Verdict",7,7,"vestige, guard, heal",FALSE,1,FALSE,"[VESTIGE]: Obliviate 3 cards from your graveyard.
+[GUARD].
+Whenever this card fights, [HEAL 2] target card after damage exchange.",aor_02_030_n
+aor_03_030_n,AOR-03-030 N,Backup Disc,Blue,Deck,3,Scenography,Data,Anthem of Rebellion,,4,"worn, shatter",FALSE,1,FALSE,"[WORN Overridden Character]: The wearer of this card gets “[SHATTER]: Return all cards in this card’s subslots to your hand.”
+Retire this card: Draw 1 card.",aor_03_030_n
+sd_10_018_n,SD-10-018 N,Hall of Potential Reflections,Purple,Deck,3,Scenography,Recollection,Structure Deck: Echoes of Time,,4,,FALSE,1,FALSE,"Whenever you spend Fragments to activate a Scenography’s ability, recover 1 Fragment.
+PAY 1, shatter this card: Draw 1 card.",sd_10_018_n
+aor_02_031_n,AOR-02-031 N,Vestige of the Holy Sword,Red,Deck,8,Character,Vestige,Anthem of Rebellion,8,6,"vestige, explosion",FALSE,1,FALSE,"[VESTIGE]: Obliviate 3 cards from your graveyard.
+[EXPLOSION 1]
+Whenever this card shatters an opposing Character while attacking, remove 1 Frazzle counter from this card.",aor_02_031_n
+aor_03_031_n,AOR-03-031 N,Benchmark,Blue,Deck,1,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"Look at the top 4 cards of your deck. If there is a card that costs 1 or less, you can play it without paying its cost, then put the rest on the bottom of your deck.
+Add an AI from your Persona Deck to your hand.",aor_03_031_n
+aor_04_030_n,AOR-04-030 N,Unwavering Determination,Pink,Deck,2,Scenography,Concept,"Anthem of Rebellion, Structure Deck: Streets of Honor",,3,"worn, imperishable",FALSE,1,FALSE,"[WORN Unique Character]: The wearer of this card gets “If this would be shattered, it gets [IMPERISHABLE] until end of turn. Shatter Unwavering Determination“.",aor_04_030_n
+sd_06_016_n,SD-06-016 N,"Keldan, Seasoned Pathfinder",Green,Deck,5,Character,Adventurer,Structure Deck: Army of Al Shamal,3,6,"enter, quest",FALSE,1,TRUE,"[ENTER]: Deal 1 damage to all Scenographies, then [QUEST X], where X is the number of cards shattered this way.
+This card gets +1 ATK for each Scenography in your graveyard.",sd_06_016_n
+aor_01_028_n,AOR-01-028 N,"Lucretia, Elven Hierophant",Green,Deck,6,Character,Elf,Anthem of Rebellion,4,7,"guard, enter, quest",FALSE,1,TRUE,"[GUARD]
+[ENTER]: [QUEST X], where X is the number of Relics you control, then look at the top X cards of your deck. Put any number of them on the top of your deck in any order, then put the rest on the bottom of your deck.",aor_01_028_n
+aor_02_032_n,AOR-02-032 N,"Ares, Sword of the Hunter",Red,Deck,0,Scenography,Weapon,"Anthem of Rebellion, Structure Deck: Holy Verdict",,3,worn,FALSE,1,TRUE,"[WORN Exorcist or Vestige]: The wearer of this card gets “Whenever this card gains a keyword, it gets +1 ATK” until end of turn.
+PAY 1, retire this card: The card in this slot gets +1 ATK until end of turn.",aor_02_032_n
+aor_03_032_n,AOR-03-032 N,Cyber Investigation,Blue,Deck,1,Action,,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,,,FALSE,1,FALSE,"Look at the top 3 cards of a target player’s deck, then put them back on top of their owner’s deck in any order.
+Add an AI from your Persona Deck to your hand.",aor_03_032_n
+aor_04_031_n,AOR-04-031 N,Advent of the Champion,Pink,Deck,0,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"Discard 1 Character: Search your deck for a Unique Character, reveal it, and add it to your hand.",aor_04_031_n
+sd_10_019_n,SD-10-019 N,Thunder Snap,Purple,Deck,3,Scenography,Recollection,Structure Deck: Echoes of Time,,5,,FALSE,1,FALSE,"PAY 3, shatter this card: Deal 3 damage to target Character or Scenography.",sd_10_019_n
+aor_01_029_n,AOR-01-029 N,Blazing Whip Demon,Green,Deck,6,Character,Demon,Anthem of Rebellion,5,5,enter,FALSE,1,FALSE,"[ENTER]: This card deals 2 damage to target Character.
+Whenever this card attacks, it deals 1 damage before damage exchange.",aor_01_029_n
+aor_02_033_n,AOR-02-033 N,"Artemis, Silver Revolver",Red,Deck,0,Scenography,Weapon,"Anthem of Rebellion, Structure Deck: Holy Verdict",,6,worn,FALSE,1,TRUE,"[WORN Exorcist]: The wearer of this card gets “Whenever this card gains ATK, you may deal 1 damage to target Character. If you do, deal 1 damage to Artemis, Silver Revolver”.",aor_02_033_n
+aor_03_033_n,AOR-03-033 N,Finetuning the Robowaifu,Blue,Deck,1,Action,,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,,,FALSE,1,FALSE,"Look at the top 5 cards of your deck. If there is an AI.doll, reveal it, and add it to your hand. Put the rest on the bottom of your deck.
+If you haven’t added any cards to your hand, return this card to your hand.",aor_03_033_n
+aor_01_030_n,AOR-01-030 N,"Vadil, Royal Guard Captain",Green,Deck,7,Character,Soldier,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",4,3,"shield, enter",FALSE,1,TRUE,"[SHIELD 2]
+[ENTER]: Search your deck for up to two Soldiers with total cost 5 or less and put them into play.",aor_01_030_n
+aor_02_034_n,AOR-02-034 N,Monastery of the Hunters,Red,Deck,4,Scenography,Building,Anthem of Rebellion,,4,,FALSE,1,FALSE,"Exorcists and Vestiges you control gets +1 ATK during your opponent’s turn.
+Retire this card: Return target Vestige or Dogma from your graveyard to your hand.",aor_02_034_n
+aor_03_034_n,AOR-03-034 N,Firmware Update,Blue,Deck,1,Action,,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,,,FALSE,1,FALSE,"Choose 1:
+• Return target AI you control to your hand.
+• Add an AI from your Persona Deck to your hand.",aor_03_034_n
+aor_05_034_n,AOR-05-034 N,Return from the Grave,Purple,Deck,4,Scenography,Recollection,Anthem of Rebellion,,4,,FALSE,1,FALSE,"PAY X, shatter this card: Return target Character that costs X from a graveyard to play under your control.",aor_05_034_n
+aor_01_031_n,AOR-01-031 N,Guardian of Knowledge,Green,Deck,7,Character,Golem,Anthem of Rebellion,4,4,"guard, breakthrough",FALSE,1,FALSE,"[GUARD] [BREAKTHROUGH]
+This card gets +1 ATK and +1 HP for every Scroll you control.",aor_01_031_n
+aor_02_035_n,AOR-02-035 N,Call of Faith,Red,Deck,1,Action,,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,,FALSE,1,FALSE,"Look at the top 6 cards of your deck. If there is an Exorcist or a Vestige, reveal it, and add it to your hand. Put the rest of the cards on the bottom of your deck.",aor_02_035_n
+aor_03_035_n,AOR-03-035 N,System Overload,Blue,Deck,1,Action,,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,,,FALSE,1,FALSE,"Deal 1 damage to target Character.
+Add an AI from your Persona Deck to your hand.",aor_03_035_n
+aor_05_035_n,AOR-05-035 N,Bottle of Recollections,Purple,Deck,5,Scenography,Recollection,Anthem of Rebellion,,2,heal,FALSE,1,FALSE,"Whenever a card you control is shattered, you may put it into this card’s subslots face down.
+When this card leaves play, return all face down cards in its subslots to your hand.
+PAY 2, shatter this card: Recover 2 Fragments, then [HEAL 2] target card.",aor_05_035_n
+aor_01_032_n,AOR-01-032 N,"Kharvel, Devourer of Souls",Green,Deck,7,Character,Demon,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",6,7,"assault, breakthrough, heal",FALSE,1,TRUE,"[ASSAULT] [BREAKTHROUGH]
+Whenever this card shatters an opposing Character while attacking, [HEAL 2] this card.",aor_01_032_n
+aor_03_036_n,AOR-03-036 N,Firewall,Blue,Deck,2,Action,,Anthem of Rebellion,,,barrier,FALSE,1,FALSE,"Choose 1:
+• Your Protagonist gets [BARRIER] until end of turn.
+• Place 1 Frazzle counter on target attacking card.
+Add an AI from your Persona Deck to your hand.",aor_03_036_n
+aor_04_035_n,AOR-04-035 N,Recruiting into the Rebellion,Pink,Deck,1,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"Search your deck for a Rebel that costs 2, reveal it, and add it to your hand.",aor_04_035_n
+aor_05_036_n,AOR-05-036 N,Duel of Fate,Purple,Deck,5,Scenography,Recollection,Anthem of Rebellion,,4,,FALSE,1,FALSE,"PAY 4, shatter this card: Shatter target opposing Character or Scenography.",aor_05_036_n
+aor_01_033_n,AOR-01-033 N,"Rokhtar, Keeper of Secrets",Green,Deck,8,Character,Demon,Anthem of Rebellion,6,8,enter,FALSE,1,TRUE,"[ENTER]: Deal up to 4 damage to your Protagonist, then reveal that many cards from the top of your deck. Your opponent separate them into two piles. Add one to your hand, then put the other into your graveyard. Recover 1 Fragment for each card put into your graveyard this way.",aor_01_033_n
+aor_02_036_n,AOR-02-036 N,Imbue Power,Red,Deck,1,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"You may discard a card instead of paying the cost of this card.
+Target card gets +1 ATK until end of turn.",aor_02_036_n
+aor_03_037_n,AOR-03-037 N,Hacking,Blue,Deck,2,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"Target player reveals 2 cards from their hand. Choose one and that player discards it.
+Add an AI from your Persona Deck to your hand.",aor_03_037_n
+aor_04_036_n,AOR-04-036 N,Rebel Assault,Pink,Deck,2,Action,,"Anthem of Rebellion, Structure Deck: Streets of Honor",,,heal,FALSE,1,FALSE,"Target Rebel or Summon you control fights a target opposing Character.
+[HEAL 2] target Rebel or Summon.",aor_04_036_n
+aor_05_038_n,AOR-05-038 N,Underworld Connections,Purple,Deck,1,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"When you discard this card to pay the cost of a Fanatic’s ability, play it.
+Choose 1:
+• Target Character gets -1 ATK until end of turn.
+• Deal 1 damage to target Character.",aor_05_038_n
+aor_01_034_n,AOR-01-034 N,Guild Tax,Green,Deck,0,Scenography,Edict,Anthem of Rebellion,,3,,FALSE,1,FALSE,"Whenever you would gain Quest counters, place that many Tax counters on this card instead.
+FRAZZLE, remove 1 Tax counter: Target Soldier gets +1 ATK until end of turn.",aor_01_034_n
+aor_02_037_n,AOR-02-037 N,Holy Aegis,Red,Deck,2,Action,,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,shield,FALSE,1,FALSE,"You may discard an Exorcist or a Vestige instead of paying the cost of this card.
+Target card gets [SHIELD 1] until end of turn.",aor_02_037_n
+sd_08_021_n,SD-08-021 N,Log Deletion,Blue,Deck,2,Action,,Structure Deck: Ghost in the Machine,,,,FALSE,1,FALSE,"Add an AI from your Persona Deck to your hand. If you cannot do so, draw 1 card.
+Recover 2 Fragments.",sd_08_021_n
+aor_01_035_n,AOR-01-035 N,Underground Ruins,Green,Deck,4,Scenography,Dungeon,Anthem of Rebellion,,5,shatter,FALSE,1,FALSE,"Whenever you gain Quest counters, deal 1 damage to this card.
+[SHATTER]: Return target Character that costs 4 or less from your graveyard to play, then draw 1 card.",aor_01_035_n
+aor_02_038_n,AOR-02-038 N,Strike the Wicked,Red,Deck,2,Action,,"Anthem of Rebellion, Structure Deck: Holy Verdict",,,,FALSE,1,FALSE,"You may discard an Exorcist or a Vestige instead of paying the cost of this card.
+Deal 2 damage to target Character.",aor_02_038_n
+aor_03_038_n,AOR-03-038 N,System Restore,Blue,Deck,2,Action,,Anthem of Rebellion,,,heal,FALSE,1,FALSE,"[HEAL 3] target card.
+Add an AI from your Persona Deck to your hand.",aor_03_038_n
+aor_04_038_n,AOR-04-038 N,Art of Summoning,Pink,Deck,3,Action,,Anthem of Rebellion,,,"summoning, enter",FALSE,1,FALSE,"Choose 1:
+• [SUMMONING 3]
+• Target Rebel or Summoner you control triggers its [ENTER] ability.",aor_04_038_n
+aor_04_039_n,AOR-04-039 N,Celestial Shards Field,Pink,Deck,4,Action,Spell,Anthem of Rebellion,,,,FALSE,1,FALSE,"Deal 2 damage to target attacking Character.
+You may put a Protective Barrier from your hand or graveyard into play.",aor_04_039_n
+aor_01_036_n,AOR-01-036 N,Coordinated Attack,Green,Deck,2,Action,,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,,,FALSE,1,FALSE,Deal damage equal to the number of Soldiers you control to target Character or Scenography.,aor_01_036_n
+aor_02_039_n,AOR-02-039 N,Lightning Rush,Red,Deck,3,Action,,Anthem of Rebellion,,,assault,FALSE,1,FALSE,"You may discard an Exorcist or a Vestige instead of paying the cost of this card.
+Target card gets [ASSAULT] until end of turn.",aor_02_039_n
+aor_03_039_n,AOR-03-039 N,Overclock the Machine,Blue,Deck,3,Action,,Anthem of Rebellion,,,"override, shield",FALSE,1,FALSE,"Choose 1:
+• Target card under [OVERRIDE] gets +2 ATK and [SHIELD 2] until end of turn.
+• Put target AI.doll from your graveyard on top of your deck.",aor_03_039_n
+aor_05_040_n,AOR-05-040 N,Grasp of Fate,Purple,Deck,4,Action,,"Anthem of Rebellion, Structure Deck: Echoes of Time",,,,FALSE,1,FALSE,"Place 1 counter of any type on your Protagonist, then deal X damage to target Character, where X is the number of counters on your Protagonist.",aor_05_040_n
+aor_01_037_n,AOR-01-037 N,Infusing Life,Green,Deck,2,Action,,Anthem of Rebellion,,,worn,FALSE,1,FALSE,Target Scenography without [WORN] becomes a Character with ATK 3 until end of turn.,aor_01_037_n
+aor_02_040_n,AOR-02-040 N,Light of Exile,Red,Deck,7,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,"You may shatter a Vestige you control instead of paying the cost of this card.
+Your opponent chooses a Character they control and retire it.",aor_02_040_n
+aor_03_040_n,AOR-03-040 N,Power of Money,Blue,Deck,3,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,Search your deck for a card that costs equal to or less than the number of counters on your Protagonist and put it into play.,aor_03_040_n
+aor_01_038_n,AOR-01-038 N,Surge of Power,Green,Deck,3,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,Deal 1 damage to target Scroll you control: Deal 4 damage to target Character.,aor_01_038_n
+aor_01_039_n,AOR-01-039 N,Incarcerate,Green,Deck,4,Action,,"Anthem of Rebellion, Structure Deck: Army of Al Shamal",,,,FALSE,1,FALSE,"Put an opposing Character with base ATK 3 or less face down into the subslots of a Character you control. If that Character leaves play, return the card in the subslots to play face up under its owner’s control. If you cannot do so, return it to its owner’s hand.",aor_01_039_n
+aor_01_040_n,AOR-01-040 N,Scrolls Resonance,Green,Deck,5,Action,,Anthem of Rebellion,,,,FALSE,1,FALSE,Deal damage equal to the number of Scrolls you control to all Characters.,aor_01_040_n
+aor_04_006_ex,AOR-04-006 EX,"Gashadokuro, Hungry Skeleton",Pink,Persona,3,Character,Summon,Anthem of Rebellion,2,4,"regeneration, release",FALSE,1,TRUE,"[REGENERATION 1]
+Linked card gets [REGENERATION 1].
+[RELEASE]: Return this card to your Persona Deck.",aor_04_006_ex
+aor_04_009_ex,AOR-04-009 EX,"Tengu, Grim Crow",Pink,Persona,4,Character,Summon,Anthem of Rebellion,4,4,"rapid recovery, isolate, release",FALSE,1,TRUE,"[RAPID RECOVERY]
+Linked card gets [ISOLATE] and [RAPID RECOVERY].
+[RELEASE]: Place 1 Frazzle counter on this card.",aor_04_009_ex
+aor_04_012_ex,AOR-04-012 EX,Radiant Guardian Wand,Pink,Persona,7,Scenography,Magical Wand,Anthem of Rebellion,,3,"imperishable, worn, shield",FALSE,1,FALSE,"[IMPERISHABLE]
+[WORN Mage]: The wearer of this card gets “Obliviate target Spell from your graveyard: This card gets [SHIELD X] against the next source of damage this turn, where X is the cost of the Spell obliviated this way”.",aor_04_012_ex
+aor_04_014_n,AOR-04-014 N,Stylish Punk,Pink,Deck,2,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",1,2,,FALSE,1,FALSE,"FRAZZLE, retire this card: Search your deck for a Rebel that costs 3 and put it into play in the same slot.",aor_04_014_n
+aor_04_018_n,AOR-04-018 N,Follower of Goro,Pink,Deck,3,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",3,3,preemptive strike,FALSE,1,FALSE,"[PREEMPTIVE STRIKE]
+FRAZZLE, retire this card: Search your deck for Goro, Street Samurai and put it into play in the same slot.",aor_04_018_n
+aor_04_019_n,AOR-04-019 N,Street Duelist,Pink,Deck,3,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",4,4,"assault, regeneration",FALSE,1,FALSE,"[ASSAULT] [REGENERATION 1]
+This card cannot attack Protagonists.",aor_04_019_n
+aor_04_022_n,AOR-04-022 N,"Tsukiya, Silent Shadow",Pink,Deck,4,Character,Rebel,Anthem of Rebellion,4,2,"preemptive strike, enter, summoning, turn end",FALSE,1,TRUE,"[PREEMPTIVE STRIKE]
+[ENTER]: [SUMMONING “TENGU”]
+[TURN END]: Turn this card face down. On your next Turn Start phase, turn it face up. If you control a card with Tengu in the name, link it to this card.",aor_04_022_n
+aor_04_025_n,AOR-04-025 N,"Goro, Street Samurai",Pink,Deck,5,Character,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",5,4,"preemptive strike, breakthrough, enter, summoning",FALSE,1,TRUE,"[PREEMPTIVE STRIKE] [BREAKTHROUGH]
+[ENTER]: [SUMMONING 2]",aor_04_025_n
+aor_04_028_n,AOR-04-028 N,Grim Collection,Pink,Deck,1,Scenography,Treasure,Anthem of Rebellion,,3,,FALSE,1,FALSE,"Whenever a Rebel you control is obliviated, place 1 Collection counter on this card.
+FRAZZLE, remove X Collection counters: Return target Summon that costs X from your graveyard to play.",aor_04_028_n
+aor_04_029_n,AOR-04-029 N,Frozen Domain,Pink,Deck,2,Scenography,Enchantment,Anthem of Rebellion,,3,,FALSE,1,FALSE,"Whenever a Character sustains combat damage without dealing damage in return, deal 1 damage to that Character.",aor_04_029_n
+aor_04_032_n,AOR-04-032 N,Vanish into the Night,Pink,Deck,0,Action,Action,Anthem of Rebellion,,,,FALSE,1,FALSE,"Put target attacking or blocking Character you control on the top of your deck and negate the attack.
+Draw 1 card.",aor_04_032_n
+aor_04_033_n,AOR-04-033 N,Lightning Attack,Pink,Deck,1,Action,Action,"Anthem of Rebellion, Structure Deck: Streets of Honor",,,preemptive strike,FALSE,1,FALSE,Target card gets [PREEMPTIVE STRIKE] until end of turn.,aor_04_033_n
+aor_04_034_n,AOR-04-034 N,Night Ambush,Pink,Deck,1,Action,Action,"Anthem of Rebellion, Structure Deck: Streets of Honor",,,,FALSE,1,FALSE,"Choose 1:
+• Deal 1 damage to target Character.
+• Deal 2 damage to target Scenography.
+If you control a Summon, increase damage by 1.",aor_04_034_n
+aor_04_037_n,AOR-04-037 N,Unexpected Help,Pink,Deck,2,Action,Action,Anthem of Rebellion,,,heal,FALSE,1,FALSE,"Look at the top card of your deck. You may put it into your graveyard. If you do, [HEAL 3] target card.
+Draw 1 card.",aor_04_037_n
+aor_04_040_n,AOR-04-040 N,Residual Magic Barrage,Pink,Deck,5,Action,Spell,Anthem of Rebellion,,,,FALSE,1,FALSE,"Deal X damage to all opposing Characters, where X is the number of Enchantments you control.
+Damage dealt by this card cannot be reduced.",aor_04_040_n
+aor_05_004_ex,AOR-05-004 EX,"Kenji, Leader of Rebellion",Purple,Persona,4,Character,Reflection,"Anthem of Rebellion, Structure Deck: Echoes of Time",4,4,"assault, explosion",FALSE,1,TRUE,[ASSAULT] [EXPLOSION 1],aor_05_004_ex
+aor_05_009_ex,AOR-05-009 EX,"Daryl, Kinslayer",Purple,Persona,6,Character,Reflection,"Anthem of Rebellion, Structure Deck: Echoes of Time",6,5,"preemptive strike, shield",FALSE,1,TRUE,"[PREEMPTIVE STRIKE] [SHIELD 1]
+Whenever this card attacks, you may deal damage equal to half of its ATK rounded up to target Character.",aor_05_009_ex
+aor_05_010_ex,AOR-05-010 EX,"Athrias, Lightbringer",Purple,Persona,7,Character,Reflection,Anthem of Rebellion,7,7,"regeneration, breakthrough, barrier",FALSE,1,TRUE,"[REGENERATION 2] [BREAKTHROUGH]
+Whenever this card would be affected by cards that cost 6 or more, it gets [BARRIER].",aor_05_010_ex
+aor_05_012_ex,AOR-05-012 EX,"Khyrr-Tesh, He Who Alters",Purple,Persona,10,Character,Cosmic Deity,Anthem of Rebellion,9,10,"imperishable, enter",FALSE,1,TRUE,"[IMPERISHABLE]
+[ENTER]: Shatter all the other Characters and Scenographies, then each player reveals the first 3 cards of their deck and plays them without paying their cost.
+Whenever this card attacks, you can declare the blocker instead of your opponent.",aor_05_012_ex
+aor_05_014_n,AOR-05-014 N,Byproduct Entity,Purple,Deck,2,Character,Entity,"Anthem of Rebellion, Structure Deck: Echoes of Time",1,3,,FALSE,1,FALSE,"This card can be played as a Response.
+This card costs 1 less for every Scenography you control.",aor_05_014_n
+aor_05_017_n,AOR-05-017 N,"Huan Ying, Prophet’s Enforcer",Purple,Deck,3,Character,Fanatic,Anthem of Rebellion,2,2,enter,FALSE,1,TRUE,"[ENTER]: Discard 1 card, then deal 2 damage to target Character.",aor_05_017_n
+aor_05_018_n,AOR-05-018 N,Archetypal Duelist,Purple,Deck,3,Character,Entity,"Anthem of Rebellion, Structure Deck: Echoes of Time",3,2,assault,FALSE,1,FALSE,"[ASSAULT]
+This card takes no damage from cards that costs 2 or less.",aor_05_018_n
+aor_05_022_n,AOR-05-022 N,Arbiter of Rakh’shan,Purple,Deck,6,Character,Aberration,Anthem of Rebellion,6,5,advent,FALSE,1,FALSE,"[ADVENT]
+Cards with ATK less than this card cannot attack.
+This card gets -1 ATK for each opposing Character.",aor_05_022_n
+aor_05_023_n,AOR-05-023 N,"Hajime, the Last Fighter",Purple,Deck,7,Character,Machinist,Anthem of Rebellion,4,4,,FALSE,1,FALSE,"For each Reflection in your graveyard, this card gets +1 ATK and +1 HP, and gains all of their keywords.",aor_05_023_n
+aor_05_027_n,AOR-05-027 N,Slowdown Field,Purple,Deck,1,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,1,,FALSE,1,FALSE,PAY 1: Target attacking Character gets -1 ATK until end of turn.,aor_05_027_n
+aor_05_029_n,AOR-05-029 N,Getting Ready for Impact,Purple,Deck,1,Scenography,Recollection,Anthem of Rebellion,,3,shield,FALSE,1,FALSE,"PAY 1, shatter this card: Target Character gets [SHIELD 1] until end of turn.",aor_05_029_n
+aor_05_031_n,AOR-05-031 N,Pillar of Fire,Purple,Deck,1,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,3,,FALSE,1,FALSE,"PAY 2, shatter this card: Deal 1 damage to all opposing Characters.",aor_05_031_n
+aor_05_032_n,AOR-05-032 N,Ruthless Execution,Purple,Deck,3,Scenography,Recollection,Anthem of Rebellion,,4,,FALSE,1,FALSE,"PAY 3, shatter this card: Reveal the top card of your deck. Shatter target Character that costs X or less, where X is the cost of the card revealed this way, then put that card on the bottom of your deck.",aor_05_032_n
+aor_05_033_n,AOR-05-033 N,Wanderer Intervention,Purple,Deck,3,Scenography,Recollection,"Anthem of Rebellion, Structure Deck: Echoes of Time",,5,,FALSE,1,FALSE,"PAY X, shatter this card: Put target Reflection that costs X from your Persona Deck into your graveyard, then deal damage equal to its ATK to target Character.",aor_05_033_n
+aor_05_037_n,AOR-05-037 N,"Astralia Gear, Prototype",Purple,Deck,7,Scenography,Gear,"Anthem of Rebellion, Structure Deck: Echoes of Time",,7,,FALSE,1,TRUE,"Whenever you remove counters of any type from your Protagonist, you may place half as many of the same counters on your Protagonist rounded up.
+FRAZZLE: Place 1 counter of any type on your Protagonist.",aor_05_037_n
+aor_05_039_n,AOR-05-039 N,Split Open,Purple,Deck,1,Action,Action,Anthem of Rebellion,,,,FALSE,1,FALSE,Deal 3 damage to target Character that costs 2 or less and is attacking your Protagonist.,aor_05_039_n
