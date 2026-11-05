@@ -88,6 +88,21 @@ export function removeFromSelection(
   return remaining;
 }
 
+export function moveSelectedCard(
+  selection: CardSelection,
+  cardId: string,
+  targetId: string
+): CardSelection {
+  const entries = Object.entries(selection);
+  const from = entries.findIndex(([id]) => id === cardId);
+  const to = entries.findIndex(([id]) => id === targetId);
+  if (from < 0 || to < 0 || from === to) return selection;
+
+  const [entry] = entries.splice(from, 1);
+  entries.splice(to, 0, entry);
+  return Object.fromEntries(entries);
+}
+
 function commaSeparatedValues(value: string | undefined): string[] {
   return (value ?? "")
     .split(",")

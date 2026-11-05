@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   countCardIdentity,
   countSelectedCards,
@@ -28,6 +29,7 @@ interface DeckBuilderSectionProps {
   onAddCard: (card: Card) => void;
   onRemoveCard: (card: Card) => void;
   onOpenCard: (card: Card) => void;
+  onMoveCard?: (cardId: string, targetId: string) => void;
 }
 
 export default function DeckBuilderSection({
@@ -43,7 +45,10 @@ export default function DeckBuilderSection({
   onAddCard,
   onRemoveCard,
   onOpenCard,
+  onMoveCard,
 }: DeckBuilderSectionProps) {
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const limit = SECTION_LIMITS[section];
   const total = section === "protagonist" ? (protagonist ? 1 : 0) : countSelectedCards(selection);
   const selectedItems = Object.values(selection);
@@ -67,17 +72,75 @@ export default function DeckBuilderSection({
     }
 
     return (
-      <div className={styles.selectedGrid}>
-        {selectedItems.map((item) => (
-          <div key={item.card.id} className={styles.selectedItem}>
-            <div className={styles.cardWrapper}>
-              <CardDisplay card={item.card} onClick={onOpenCard} />
-              {section === "deck" && (
-                <div className={styles.qtyBadge}>{item.qty}</div>
+      <div>
+        {onMoveCard && selectedItems.length > 1 && (
+          <p className={styles.sectionHint}>Drag cards or use the arrows to change their order.</p>
+        )}
+        <div className={styles.selectedGrid}>
+          {selectedItems.map((item, index) => (
+            <div
+              key={item.card.id}
+              className={`${styles.selectedItem} ${dropTargetId === item.card.id ? styles.dropTarget : ""}`}
+              draggable={Boolean(onMoveCard && selectedItems.length > 1)}
+              onDragStart={(event) => {
+                if (!onMoveCard) return;
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", item.card.id);
+                setDraggedCardId(item.card.id);
+              }}
+              onDragOver={(event) => {
+                if (!onMoveCard || !draggedCardId || draggedCardId === item.card.id) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropTargetId(item.card.id);
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setDropTargetId(null);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggedCardId) onMoveCard?.(draggedCardId, item.card.id);
+                setDraggedCardId(null);
+                setDropTargetId(null);
+              }}
+              onDragEnd={() => {
+                setDraggedCardId(null);
+                setDropTargetId(null);
+              }}
+            >
+              <div className={styles.cardWrapper}>
+                <CardDisplay card={item.card} onClick={onOpenCard} />
+                {section === "deck" && (
+                  <div className={styles.qtyBadge}>{item.qty}</div>
+                )}
+              </div>
+              {onMoveCard && selectedItems.length > 1 && (
+                <div className={styles.orderControls}>
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    aria-label={`Move ${item.card.name} earlier`}
+                    title="Move earlier"
+                    onClick={() => onMoveCard(item.card.id, selectedItems[index - 1].card.id)}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === selectedItems.length - 1}
+                    aria-label={`Move ${item.card.name} later`}
+                    title="Move later"
+                    onClick={() => onMoveCard(item.card.id, selectedItems[index + 1].card.id)}
+                  >
+                    →
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   })();

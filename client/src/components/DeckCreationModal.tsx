@@ -10,6 +10,7 @@ import {
   COPIES_PER_CARD,
   countSelectedCards,
   FACTIONS,
+  moveSelectedCard,
   removeFromSelection,
   SECTION_LIMITS,
   shuffleCards,
@@ -55,6 +56,11 @@ export default function DeckCreationModal({
     useState<CardSelection>({});
   const [deckSelectionMap, setDeckSelectionMap] =
     useState<CardSelection>({});
+  const deckContentsKey = JSON.stringify(
+    Object.values(deckSelectionMap)
+      .map(({ card, qty }) => [card.id, qty])
+      .sort(([a], [b]) => String(a).localeCompare(String(b)))
+  );
   const [initialHand, setInitialHand] = useState<Card[]>([]);
   const [remainingDeck, setRemainingDeck] = useState<Card[]>([]);
   const [mulliganIndexes, setMulliganIndexes] = useState<number[]>([]);
@@ -139,7 +145,7 @@ export default function DeckCreationModal({
     setRemainingDeck([]);
     setMulliganIndexes([]);
     setMulliganUsed(false);
-  }, [deckSelectionMap]);
+  }, [deckContentsKey]);
 
   const simulateInitialHand = () => {
     const deck = shuffleCards(
@@ -225,6 +231,13 @@ export default function DeckCreationModal({
       ? setPersonaSelectionMap
       : setDeckSelectionMap;
     updateSelection((current) => removeFromSelection(current, card));
+  };
+
+  const moveCard = (section: "persona" | "deck", cardId: string, targetId: string) => {
+    const updateSelection = section === "persona"
+      ? setPersonaSelectionMap
+      : setDeckSelectionMap;
+    updateSelection((current) => moveSelectedCard(current, cardId, targetId));
   };
 
   const handleSave = () => {
@@ -371,6 +384,7 @@ export default function DeckCreationModal({
               onAddCard={(card) => addCard("persona", card)}
               onRemoveCard={(card) => removeCard("persona", card)}
               onOpenCard={openCardDetails}
+              onMoveCard={(cardId, targetId) => moveCard("persona", cardId, targetId)}
             />
             <DeckBuilderSection
               section="deck"
@@ -385,6 +399,7 @@ export default function DeckCreationModal({
               onAddCard={(card) => addCard("deck", card)}
               onRemoveCard={(card) => removeCard("deck", card)}
               onOpenCard={openCardDetails}
+              onMoveCard={(cardId, targetId) => moveCard("deck", cardId, targetId)}
             />
 
             <section className={`${styles.section} ${styles.handSimulator}`}>
