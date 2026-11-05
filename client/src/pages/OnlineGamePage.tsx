@@ -1190,6 +1190,7 @@ export default function OnlineGamePage() {
   const [targetingUid, setTargetingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
+  const draggedElement = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
@@ -1265,6 +1266,8 @@ export default function OnlineGamePage() {
   }, [attachingUid]);
   const startDrag: CardDrag = (event, card) => {
     draggedUid.current = card.uid;
+    draggedElement.current = event.currentTarget;
+    event.currentTarget.classList.add(styles.draggedCard);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", card.uid);
     setDragging(true);
@@ -1272,7 +1275,12 @@ export default function OnlineGamePage() {
     setTargetingUid(null);
     setMenu(null);
   };
-  const endDrag = () => { draggedUid.current = null; setDragging(false); };
+  const endDrag = () => {
+    draggedElement.current?.classList.remove(styles.draggedCard);
+    draggedElement.current = null;
+    draggedUid.current = null;
+    setDragging(false);
+  };
   const dragOver = (event: DragEvent<HTMLElement>) => {
     if (draggedUid.current) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
   };

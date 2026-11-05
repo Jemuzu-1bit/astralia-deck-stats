@@ -74,13 +74,13 @@ export default function DeckBuilderSection({
     return (
       <div>
         {onMoveCard && selectedItems.length > 1 && (
-          <p className={styles.sectionHint}>Drag cards or use the arrows to change their order.</p>
+          <p className={styles.sectionHint}>Drag cards to change their order.</p>
         )}
         <div className={styles.selectedGrid}>
-          {selectedItems.map((item, index) => (
+          {selectedItems.map((item) => (
             <div
               key={item.card.id}
-              className={`${styles.selectedItem} ${dropTargetId === item.card.id ? styles.dropTarget : ""}`}
+              className={`${styles.selectedItem} ${draggedCardId === item.card.id ? styles.draggedItem : ""} ${dropTargetId === item.card.id ? styles.dropTarget : ""}`}
               draggable={Boolean(onMoveCard && selectedItems.length > 1)}
               onDragStart={(event) => {
                 if (!onMoveCard) return;
@@ -116,28 +116,6 @@ export default function DeckBuilderSection({
                   <div className={styles.qtyBadge}>{item.qty}</div>
                 )}
               </div>
-              {onMoveCard && selectedItems.length > 1 && (
-                <div className={styles.orderControls}>
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    aria-label={`Move ${item.card.name} earlier`}
-                    title="Move earlier"
-                    onClick={() => onMoveCard(item.card.id, selectedItems[index - 1].card.id)}
-                  >
-                    ←
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === selectedItems.length - 1}
-                    aria-label={`Move ${item.card.name} later`}
-                    title="Move later"
-                    onClick={() => onMoveCard(item.card.id, selectedItems[index + 1].card.id)}
-                  >
-                    →
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>
