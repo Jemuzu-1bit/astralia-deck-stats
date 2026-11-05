@@ -931,7 +931,7 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
       editable={frazzleEditable}
       onAdjust={(delta) => onStatAdjust(item.uid, "hp", delta)}
     />}
-    {Boolean(item.counters?.length) && <div className={styles.customCounterList} aria-label="Custom counters">
+    {Boolean(item.counters?.length) && <div className={`${styles.customCounterList} ${item.revealed ? styles.countersBelowRevealed : ""}`} aria-label="Custom counters">
       {item.counters?.map((counter) => <CustomCounter
         key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`}
         counter={counter}

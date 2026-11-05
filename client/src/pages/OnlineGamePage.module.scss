@@ -663,33 +663,39 @@
 .customCounterList {
   position: absolute;
   z-index: 9;
-  right: -4px;
-  bottom: 18px;
-  left: -4px;
+  top: -7px;
+  left: -7px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   pointer-events: none;
 }
+
+.countersBelowRevealed { top: 20px; }
 
 .customCounter {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  max-width: 100%;
-  padding: 1px 3px;
+  justify-content: center;
+  gap: 3px;
+  min-width: 31px;
+  height: 23px;
+  padding: 0 5px;
+  box-sizing: border-box;
   color: #fff;
-  background: rgba(12, 19, 34, .94);
-  border: 1px solid #e4c65f;
-  border-radius: 5px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .8);
-  font-size: .58rem;
-  line-height: 1.15;
+  background: radial-gradient(circle at 35% 30%, #b892f0, #7041ad 60%, #3b2069);
+  border: 2px solid #d9baff;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(39, 14, 76, .75), inset 0 0 4px rgba(255, 255, 255, .35);
+  font-size: .72rem;
+  font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
   pointer-events: auto;
+  user-select: none;
 
-  b { color: #e4c65f; font-size: .58rem; }
+  b { font-size: inherit; }
 }
 
 .editableCustomCounter {
@@ -1046,7 +1052,9 @@
   .slotViewButton { top: -5px; right: -4px; padding: .1rem .2rem; font-size: .5rem; }
   .frazzleCounter { width: 20px; height: 20px; font-size: .62rem; }
   .statCounter { min-width: 25px; height: 20px; font-size: .6rem; }
-  .customCounter { font-size: .48rem; }
+  .customCounter { min-width: 25px; height: 20px; padding-inline: 3px; font-size: .6rem; }
+  .customCounterList { gap: 2px; }
+  .countersBelowRevealed { top: 18px; }
   .deckStack, .deckStack img { width: clamp(40px, 12vw, 54px); height: auto; aspect-ratio: 5 / 7; }
   .publicStack { height: clamp(56px, 16.8vw, 76px); }
   .publicStack .stackCard, .publicStack img { width: clamp(40px, 12vw, 54px); height: auto; aspect-ratio: 5 / 7; }
