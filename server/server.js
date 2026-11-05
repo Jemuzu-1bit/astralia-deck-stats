@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
+import { setPrintedStats } from "./cardStats.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -223,6 +224,7 @@ function dealOpeningHand(player) {
     protagonist: player.protagonistId ? [protagonistInstance(player.protagonistId)] : [],
     fragments: [],
   };
+  player.table.protagonist.forEach(setPrintedStats);
   syncCardLists(player);
 }
 
@@ -474,6 +476,7 @@ io.on("connection", (socket) => {
       const destination = target === "battle" ? table.battle[slot] : table.protagonist;
       const card = removeFoundCard(table, found);
       card.revealed = false;
+      if (!found.slotted) setPrintedStats(card);
       if (target === "protagonist" && card.isProtagonist) destination.unshift(card);
       else destination.push(card);
     } else {
@@ -539,6 +542,7 @@ io.on("connection", (socket) => {
     const targetStack = target.zone === "battle" ? table.battle[target.slot] : table.protagonist;
     const card = removeFoundCard(table, source);
     card.revealed = false;
+    if (!source.slotted) setPrintedStats(card);
     const currentTargetIndex = targetStack.findIndex((entry) => entry.uid === target.card.uid);
     targetStack.splice(currentTargetIndex + 1, 0, card);
     syncCardLists(player);
@@ -558,6 +562,7 @@ io.on("connection", (socket) => {
     const found = findCard(player.table, String(payload?.uid || ""));
     if (!found) return;
     found.card.flipped = !found.card.flipped;
+    if (found.slotted) setPrintedStats(found.card);
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:setFaceDown", (payload) => {

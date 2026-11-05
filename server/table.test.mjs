@@ -74,8 +74,8 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
 
     const readyState = waitForState(host, (state) => Boolean(state.host?.deckId && state.guest?.deckId));
     host.emit("lobby:setDeck", {
-      deckId: "host-deck", deckName: "Host deck", protagonistId: "hero",
-      personaCards: ["persona-a", "persona-b"], mainDeckCards: [{ id: "card-a", qty: 8 }],
+      deckId: "host-deck", deckName: "Host deck", protagonistId: "dcs_02_002ex",
+      personaCards: ["dcs_02_012n", "persona-b"], mainDeckCards: [{ id: "card-a", qty: 8 }],
     });
     guest.emit("lobby:setDeck", {
       deckId: "guest-deck", deckName: "Guest deck", protagonistId: "hero",
@@ -126,14 +126,35 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.ok(state.host.table.battle.every((stack) => stack.length === 0));
     assert.deepEqual(state.host.table.action, []);
     assert.equal(state.host.table.protagonist.length, 1);
-    assert.equal(state.host.table.protagonist[0].id, "hero");
+    assert.equal(state.host.table.protagonist[0].id, "dcs_02_002ex");
     assert.equal(state.host.table.protagonist[0].isProtagonist, true);
+    assert.equal(state.host.table.protagonist[0].atk, 0);
+    assert.equal(state.host.table.protagonist[0].hp, 20);
     assert.deepEqual(state.host.table.fragments, []);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
     assert.equal(opponentState.host.deckCount, 3);
     assert.equal(opponentState.host.mainDeckCards, null);
+
+    const personaUid = state.host.table.persona[0].uid;
+    const personaOnField = waitForState(guest, (next) => next.host?.table?.battle?.[1]?.[0]?.uid === personaUid);
+    host.emit("game:moveCard", { uid: personaUid, to: "battle", slot: 1 });
+    const placedPersona = (await personaOnField).host.table.battle[1][0];
+    assert.equal(placedPersona.atk, 0);
+    assert.equal(placedPersona.hp, 2);
+    const personaReturned = waitForState(host, (next) => next.host?.table?.persona?.[1]?.uid === personaUid);
+    host.emit("game:moveCard", { uid: personaUid, to: "persona" });
+    const returnedPersona = (await personaReturned).host.table.persona[1];
+    assert.equal(returnedPersona.atk, undefined);
+    assert.equal(returnedPersona.hp, undefined);
+
+    const flippedProtagonist = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.flipped === true);
+    host.emit("game:flipCard", { uid: state.host.table.protagonist[0].uid });
+    assert.equal((await flippedProtagonist).host.table.protagonist[0].atk, 3);
+    const frontProtagonist = waitForState(host, (next) => next.host?.table?.protagonist?.[0]?.flipped === false);
+    host.emit("game:flipCard", { uid: state.host.table.protagonist[0].uid });
+    assert.equal((await frontProtagonist).host.table.protagonist[0].atk, 0);
 
     const drawRequestReceived = waitForState(guest, (next) => next.deckRequest?.action === "draw" && next.deckRequest.count === 1);
     host.emit("game:requestDeckAction", { action: "draw", count: 1 });
