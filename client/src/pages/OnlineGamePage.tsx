@@ -17,6 +17,8 @@ import {
 import type { Card } from "../types/Card";
 import normalCardBack from "../assets/N_Back.png";
 import fragmentCard from "../assets/fragment.png";
+import ShortcutSettings from "../components/ShortcutSettings";
+import { normalizeShortcut, useGameShortcuts } from "./gameShortcuts";
 import styles from "./OnlineGamePage.module.scss";
 
 type InspectCard = (card: Card | null) => void;
@@ -38,6 +40,7 @@ type SlotRailControls = {
 type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
 type CounterChoice = Pick<GameCounter, "kind" | "label" | "emoji">;
+type CardMenuPanel = CardStat | "counters" | null;
 const COUNTER_PRESETS: CounterChoice[] = [
   { kind: "emoji", emoji: "📜", label: "Quest" },
   { kind: "emoji", emoji: "🔮", label: "Omen" },
@@ -291,22 +294,23 @@ function TargetArrows({ links, containerRef }: { links: TargetLink[]; containerR
 }
 
 function FragmentDock({ fragments, readOnly = false }: { fragments: boolean[]; readOnly?: boolean }) {
+  const FRAGMENT_KEYS = useGameShortcuts().fragment;
   const available = fragments.filter((spent) => !spent).length;
   const spent = fragments.length - available;
 
-  return <section className={styles.fragmentDock} aria-label={`Fragments, ${available} available and ${spent} spent`}>
+  return <section className={styles.fragmentDock} data-fragment-dock aria-label={`Fragments, ${available} available and ${spent} spent`}>
     <div className={styles.fragmentHeader}>
       <div>
         <strong>Fragment</strong>
         <span>{available} ready · {spent} spent</span>
       </div>
       {!readOnly && <div className={styles.fragmentControls}>
-        <button type="button" onClick={() => gameConnection.updateFragments("remove")} disabled={fragments.length === 0} aria-label="Remove a fragment">−</button>
-        <button type="button" onClick={() => gameConnection.updateFragments("add")} disabled={fragments.length >= 10} aria-label="Add a fragment">+</button>
-        <button type="button" onClick={() => gameConnection.updateFragments("spend")} disabled={available === 0}>Spend</button>
-        <button type="button" onClick={() => gameConnection.updateFragments("recover")} disabled={spent === 0}>Recover</button>
-        <button type="button" onClick={() => gameConnection.updateFragments("spendAll")} disabled={available === 0}>Spend all</button>
-        <button type="button" onClick={() => gameConnection.updateFragments("recoverAll")} disabled={spent === 0}>Recover all</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("remove")} disabled={fragments.length === 0} aria-label="Remove a fragment" title={`Remove a fragment · ${FRAGMENT_KEYS.remove}`}>−</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("add")} disabled={fragments.length >= 10} aria-label="Add a fragment" title={`Add a fragment · ${FRAGMENT_KEYS.add}`}>+</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("spend")} disabled={available === 0} title={`Spend · ${FRAGMENT_KEYS.spend}`}>Spend</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("recover")} disabled={spent === 0} title={`Recover · ${FRAGMENT_KEYS.recover}`}>Recover</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("spendAll")} disabled={available === 0} title={`Spend all · ${FRAGMENT_KEYS.spendAll}`}>Spend all</button>
+        <button type="button" onClick={() => gameConnection.updateFragments("recoverAll")} disabled={spent === 0} title={`Recover all · ${FRAGMENT_KEYS.recoverAll}`}>Recover all</button>
       </div>}
     </div>
     <div className={styles.fragmentRail}>
@@ -317,7 +321,7 @@ function FragmentDock({ fragments, readOnly = false }: { fragments: boolean[]; r
         className={isSpent ? styles.spentFragment : ""}
         onClick={() => gameConnection.setFragmentSpent(index, !isSpent)}
         aria-label={`Fragment ${index + 1}, ${isSpent ? "spent" : "available"}${readOnly ? "" : isSpent ? ". Recover it" : ". Spend it"}`}
-        title={isSpent ? readOnly ? "Spent" : "Spent · click to recover" : readOnly ? "Available" : "Available · click to spend"}
+        title={isSpent ? readOnly ? "Spent" : `Spent · ${FRAGMENT_KEYS[`toggle${index + 1}` as keyof typeof FRAGMENT_KEYS]} to recover` : readOnly ? "Available" : `Available · ${FRAGMENT_KEYS[`toggle${index + 1}` as keyof typeof FRAGMENT_KEYS]} to spend`}
       >
         <img src={fragmentCard} alt="" draggable={false} />
       </button>)}
@@ -359,75 +363,93 @@ function useResolvedCards(items: GameCard[]): ResolvedCard[] {
   });
 }
 
-function FrazzleCounter({ value, editable, onAdjust }: {
+function FrazzleCounter({ uid, value, editable, onAdjust }: {
+  uid: string;
   value: number;
   editable: boolean;
   onAdjust: (delta: -1 | 1) => void;
 }) {
+  const COUNTER_KEYS = useGameShortcuts().counter;
   if (value < 1) return null;
   const adjust = (delta: -1 | 1) => {
     if (editable) onAdjust(delta);
   };
   return <span
+    data-game-counter="frazzle"
+    data-counter-uid={uid}
     className={`${styles.frazzleCounter} ${editable ? styles.editableFrazzleCounter : ""}`}
     role={editable ? "button" : undefined}
     tabIndex={editable ? 0 : undefined}
     aria-label={editable ? `Frazzle ${value}. Left click increases it, right click decreases it.` : `Frazzle ${value}`}
-    title={editable ? "Left click: +1 Frazzle · Right click: -1 Frazzle" : `Frazzle ${value}`}
+    title={editable ? `Left click or ${COUNTER_KEYS.increase}: +1 Frazzle · Right click or ${COUNTER_KEYS.decrease}: -1 Frazzle` : `Frazzle ${value}`}
     onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
     onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(1); } : undefined}
     onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(-1); } : undefined}
     onKeyDown={editable ? (event) => {
-      if (event.key === "ArrowUp" || event.key === "+") { event.preventDefault(); adjust(1); }
-      if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); adjust(-1); }
+      const key = normalizeShortcut(event.nativeEvent);
+      if (key === COUNTER_KEYS.increase) { event.preventDefault(); adjust(1); }
+      if (key === COUNTER_KEYS.decrease) { event.preventDefault(); adjust(-1); }
     } : undefined}
   >{value}</span>;
 }
 
-function StatCounter({ stat, value, editable, onAdjust }: {
+function StatCounter({ uid, stat, value, editable, onAdjust }: {
+  uid: string;
   stat: CardStat;
   value: number;
   editable: boolean;
   onAdjust: (delta: -1 | 1) => void;
 }) {
+  const COUNTER_KEYS = useGameShortcuts().counter;
   const label = stat.toUpperCase();
   const adjust = (delta: -1 | 1) => {
     if (editable) onAdjust(delta);
   };
   return <span
+    data-game-counter={stat}
+    data-counter-uid={uid}
     className={`${styles.statCounter} ${styles[`${stat}Counter`]} ${editable ? styles.editableStatCounter : ""}`}
     role={editable ? "button" : undefined}
     tabIndex={editable ? 0 : undefined}
     aria-label={editable ? `${label} ${value}. Left click increases it, right click decreases it.` : `${label} ${value}`}
-    title={editable ? `Left click: +1 ${label} · Right click: -1 ${label}` : `${label} ${value}`}
+    title={editable ? `Left click or ${COUNTER_KEYS.increase}: +1 ${label} · Right click or ${COUNTER_KEYS.decrease}: -1 ${label}` : `${label} ${value}`}
     onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
     onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(1); } : undefined}
     onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); adjust(-1); } : undefined}
     onKeyDown={editable ? (event) => {
-      if (event.key === "ArrowUp" || event.key === "+") { event.preventDefault(); adjust(1); }
-      if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); adjust(-1); }
+      const key = normalizeShortcut(event.nativeEvent);
+      if (key === COUNTER_KEYS.increase) { event.preventDefault(); adjust(1); }
+      if (key === COUNTER_KEYS.decrease) { event.preventDefault(); adjust(-1); }
     } : undefined}
   ><small>{label}</small>{value}</span>;
 }
 
-function CustomCounter({ counter, editable, onAdjust }: {
+function CustomCounter({ uid, counter, editable, onAdjust }: {
+  uid: string;
   counter: GameCounter;
   editable: boolean;
   onAdjust: (delta: -1 | 1) => void;
 }) {
+  const COUNTER_KEYS = useGameShortcuts().counter;
   const description = `${counter.label} counter: ${counter.value}`;
   return <span
+    data-game-counter="custom"
+    data-counter-uid={uid}
+    data-counter-kind={counter.kind}
+    data-counter-label={counter.label}
+    data-counter-emoji={counter.emoji}
     className={`${styles.customCounter} ${editable ? styles.editableCustomCounter : ""}`}
     role={editable ? "button" : undefined}
     tabIndex={editable ? 0 : undefined}
     aria-label={editable ? `${description}. Left click adds one, right click removes one.` : description}
-    title={editable ? `${description} · Left click +1 · Right click -1` : description}
+    title={editable ? `${description} · Left click or ${COUNTER_KEYS.increase} to add · Right click or ${COUNTER_KEYS.decrease} to remove` : description}
     onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
     onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(1); } : undefined}
     onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(-1); } : undefined}
     onKeyDown={editable ? (event) => {
-      if (event.key === "ArrowUp" || event.key === "+") { event.preventDefault(); onAdjust(1); }
-      if (event.key === "ArrowDown" || event.key === "-") { event.preventDefault(); onAdjust(-1); }
+      const key = normalizeShortcut(event.nativeEvent);
+      if (key === COUNTER_KEYS.increase) { event.preventDefault(); onAdjust(1); }
+      if (key === COUNTER_KEYS.decrease) { event.preventDefault(); onAdjust(-1); }
     } : undefined}
   ><span>{counter.emoji || counter.label.slice(0, 3)}</span><b>{counter.value}</b></span>;
 }
@@ -448,6 +470,8 @@ function CardThumb({ entry, hidden = false, onInspect, onDragStart, onDragEnd, o
     style={style}
     type="button"
     data-card-uid={entry.gameCard.uid}
+    data-can-flip={entry.canFlip ? "true" : undefined}
+    data-is-action={entry.card?.type.toLowerCase() === "action" ? "true" : undefined}
     aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
@@ -482,9 +506,10 @@ function DeckStack({ count }: { count: number }) {
   </div>;
 }
 
-function DeckZone({ count, local, onDraw, onMenu, onDragOver, onDrop }: {
+function DeckZone({ count, local, owner, onDraw, onMenu, onDragOver, onDrop }: {
   count: number;
   local: boolean;
+  owner: "self" | "opponent";
   onDraw: () => void;
   onMenu: (event: MouseEvent<HTMLDivElement>) => void;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
@@ -492,6 +517,7 @@ function DeckZone({ count, local, onDraw, onMenu, onDragOver, onDrop }: {
 }) {
   return <div
     className={`${styles.zone} ${local ? styles.deckZone : ""}`}
+    data-deck-owner={owner}
     role={local ? "button" : undefined}
     tabIndex={local ? 0 : undefined}
     aria-label={local ? `Main deck, ${count} cards. Click to draw one card.` : `Main deck, ${count} cards`}
@@ -797,11 +823,12 @@ function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onIn
     <div className={`${styles.sideZones} ${styles.rightZones}`}>
       {opponentSide ? <>
         {sideZone("graveyard")}
-        <DeckZone count={player?.deckCount ?? table.deck.length} local={false} onDraw={onDrawDeck} onMenu={(event) => onDeckMenu(event, "opponent")} />
+        <DeckZone count={player?.deckCount ?? table.deck.length} local={false} owner="opponent" onDraw={onDrawDeck} onMenu={(event) => onDeckMenu(event, "opponent")} />
       </> : <>
         <DeckZone
           count={player?.deckCount ?? table.deck.length}
           local={movable}
+          owner="self"
           onDraw={onDrawDeck}
           onMenu={(event) => onDeckMenu(event, "self")}
           onDragOver={movable ? onDragOver : undefined}
@@ -915,17 +942,20 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
       className={styles.battleCard}
     />
     <FrazzleCounter
+      uid={item.uid}
       value={item.frazzle || 0}
       editable={frazzleEditable}
       onAdjust={(delta) => onFrazzleAdjust(item.uid, delta)}
     />
     {!item.faceDown && item.atk !== undefined && <StatCounter
+      uid={item.uid}
       stat="atk"
       value={item.atk}
       editable={frazzleEditable}
       onAdjust={(delta) => onStatAdjust(item.uid, "atk", delta)}
     />}
     {!item.faceDown && item.hp !== undefined && <StatCounter
+      uid={item.uid}
       stat="hp"
       value={item.hp}
       editable={frazzleEditable}
@@ -933,6 +963,7 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
     />}
     {Boolean(item.counters?.length) && <div className={`${styles.customCounterList} ${item.revealed ? styles.countersBelowRevealed : ""}`} aria-label="Custom counters">
       {item.counters?.map((counter) => <CustomCounter
+        uid={item.uid}
         key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`}
         counter={counter}
         editable={frazzleEditable}
@@ -963,9 +994,10 @@ function Inspector({ card, onClose }: { card: Card | null; onClose: () => void }
   </aside>;
 }
 
-function ContextMenu({ x, y, revealState, faceDown, statValues, counters, controlLabel, onPlayAction, onAdjustFrazzle, onSetStat, onRemoveStat, onCounterAdjust, onCounterRemove, onSwapWithMain, onStartAttach, onChooseTarget, onClearTarget, onFlip, onToggleFaceDown, onGiveControl, onMove, onToggleReveal, onClose }: {
+function ContextMenu({ x, y, initialPanel, revealState, faceDown, statValues, counters, controlLabel, onPlayAction, onAdjustFrazzle, onSetStat, onRemoveStat, onCounterAdjust, onCounterRemove, onSwapWithMain, onStartAttach, onChooseTarget, onClearTarget, onFlip, onToggleFaceDown, onGiveControl, onMove, onToggleReveal, onClose }: {
   x: number;
   y: number;
+  initialPanel?: CardMenuPanel;
   revealState?: boolean;
   faceDown?: boolean;
   statValues?: Partial<Record<CardStat, number>>;
@@ -988,11 +1020,13 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
   onToggleReveal?: () => void;
   onClose: () => void;
 }) {
-  const [selectedStat, setSelectedStat] = useState<CardStat | null>(null);
-  const [showCounters, setShowCounters] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { card: CARD_KEYS, counter: COUNTER_KEYS } = useGameShortcuts();
+  const [selectedStat, setSelectedStat] = useState<CardStat | null>(initialPanel === "atk" || initialPanel === "hp" ? initialPanel : null);
+  const [showCounters, setShowCounters] = useState(initialPanel === "counters");
   const [counterName, setCounterName] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState("");
-  const [amount, setAmount] = useState("0");
+  const [amount, setAmount] = useState(String(initialPanel === "atk" || initialPanel === "hp" ? statValues?.[initialPanel] ?? 0 : 0));
   const statValue = Number(amount);
   const validStatValue = Number.isInteger(statValue) && statValue >= 0 && statValue <= 999;
   const normalizedCounterName = counterName.trim().replace(/\s+/g, " ");
@@ -1003,6 +1037,7 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
     setSelectedStat(stat);
     setAmount(String(statValues?.[stat] ?? 0));
   };
+  useEffect(() => { if (showCounters) menuRef.current?.focus(); }, [showCounters]);
   useEffect(() => {
     const close = () => onClose();
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -1011,7 +1046,14 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("keydown", closeOnEscape); };
   }, [onClose]);
 
-  return <div className={`${styles.contextMenu} ${selectedStat || showCounters ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : showCounters ? 340 : onMove ? 410 : 150))) }} onPointerDown={(event) => event.stopPropagation()}>
+  return <div ref={menuRef} tabIndex={showCounters ? -1 : undefined} className={`${styles.contextMenu} ${selectedStat || showCounters ? styles.deckMenu : ""}`} role="menu" style={{ left: Math.max(8, Math.min(x, window.innerWidth - 235)), top: Math.max(8, Math.min(y, window.innerHeight - (selectedStat ? 175 : showCounters ? 340 : onMove ? 410 : 150))) }} onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => {
+    if (!showCounters || event.target instanceof HTMLElement && event.target.closest("input, textarea")) return;
+    const key = normalizeShortcut(event.nativeEvent);
+    const index = Array.from({ length: 7 }, (_, i) => COUNTER_KEYS[`preset${i + 1}` as keyof typeof COUNTER_KEYS]).indexOf(key || "");
+    if (index < 0) return;
+    event.preventDefault();
+    onCounterAdjust?.(COUNTER_PRESETS[index], 1);
+  }}>
     {selectedStat ? <form onSubmit={(event) => { event.preventDefault(); if (validStatValue) onSetStat?.(selectedStat, statValue); }}>
       <button type="button" onClick={() => setSelectedStat(null)}>← Actions</button>
       <label htmlFor="card-stat-value">Set {selectedStat.toUpperCase()}</label>
@@ -1028,9 +1070,15 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
       <button type="submit" disabled={!validStatValue}>Confirm</button>
     </form> : showCounters ? <div className={styles.counterMenu}>
       <button type="button" onClick={() => setShowCounters(false)}>← Actions</button>
+      <small>Premi il tasto mostrato per aggiungere un counter. Su un counter esistente: {COUNTER_KEYS.increase} / {COUNTER_KEYS.decrease} / {COUNTER_KEYS.remove}.</small>
       {Boolean(counters?.length) && <div className={styles.counterMenuCurrent}>
         <strong>On this card</strong>
-        {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`}>
+        {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`} tabIndex={0} role="group" aria-label={`${counter.label}: ${COUNTER_KEYS.increase} adds one, ${COUNTER_KEYS.decrease} removes one, ${COUNTER_KEYS.remove} removes all`} title={`Focus this counter, then use ${COUNTER_KEYS.increase}, ${COUNTER_KEYS.decrease} or ${COUNTER_KEYS.remove}`} onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          const key = normalizeShortcut(event.nativeEvent);
+          if (key === COUNTER_KEYS.increase || key === COUNTER_KEYS.decrease) { event.preventDefault(); event.stopPropagation(); onCounterAdjust?.(counter, key === COUNTER_KEYS.increase ? 1 : -1); }
+          if (key === COUNTER_KEYS.remove) { event.preventDefault(); event.stopPropagation(); onCounterRemove?.(counter); }
+        }}>
           <span title={`${counter.label} counter`}>{counter.emoji || counter.label} · {counter.value}</span>
           <button type="button" aria-label={`Remove one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, -1)}>−</button>
           <button type="button" aria-label={`Add one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, 1)}>+</button>
@@ -1039,12 +1087,12 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
       </div>}
       <strong>Game counters</strong>
       <div className={styles.counterChoices}>
-        {COUNTER_PRESETS.map((counter) => <button
+        {COUNTER_PRESETS.map((counter, index) => <button
           key={counter.emoji}
           type="button"
           title={`${counter.label} counter`}
           onClick={() => onCounterAdjust?.(counter, 1)}
-        >{counter.emoji} {counter.label}</button>)}
+        >{counter.emoji} {counter.label} <kbd>{COUNTER_KEYS[`preset${index + 1}` as keyof typeof COUNTER_KEYS]}</kbd></button>)}
       </div>
       <strong>Custom keyword counter</strong>
       <div className={styles.keywordEmojiPicker} role="group" aria-label="Choose an emoji for the keyword counter">
@@ -1074,39 +1122,40 @@ function ContextMenu({ x, y, revealState, faceDown, statValues, counters, contro
       </form>
     </div> : <>
     {onAdjustFrazzle && <>
-      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(1)}>Add Frazzle</button>
-      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(-1)}>Remove Frazzle</button>
+      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(1)}>Add Frazzle <kbd>{CARD_KEYS.frazzleAdd}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onAdjustFrazzle(-1)}>Remove Frazzle <kbd>{CARD_KEYS.frazzleRemove}</kbd></button>
     </>}
     {onSetStat && <>
-      <button type="button" role="menuitem" onClick={() => statValues?.atk !== undefined ? onRemoveStat?.("atk") : selectStat("atk")}>{statValues?.atk !== undefined ? "Remove ATK" : "Set ATK"}</button>
-      <button type="button" role="menuitem" onClick={() => statValues?.hp !== undefined ? onRemoveStat?.("hp") : selectStat("hp")}>{statValues?.hp !== undefined ? "Remove HP" : "Set HP"}</button>
+      <button type="button" role="menuitem" onClick={() => statValues?.atk !== undefined ? onRemoveStat?.("atk") : selectStat("atk")}>{statValues?.atk !== undefined ? "Remove ATK" : "Set ATK"} <kbd>{CARD_KEYS.atk}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => statValues?.hp !== undefined ? onRemoveStat?.("hp") : selectStat("hp")}>{statValues?.hp !== undefined ? "Remove HP" : "Set HP"} <kbd>{CARD_KEYS.hp}</kbd></button>
     </>}
-    {onCounterAdjust && <button type="button" role="menuitem" onClick={() => setShowCounters(true)}>Custom counters{counters?.length ? ` · ${counters.length}` : ""}…</button>}
-    {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action</button>}
-    {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card</button>}
-    {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to...</button>}
-    {onChooseTarget && <button type="button" role="menuitem" onClick={onChooseTarget}>Choose target...</button>}
-    {onClearTarget && <button type="button" role="menuitem" onClick={onClearTarget}>Clear target</button>}
-    {onFlip && <button type="button" role="menuitem" onClick={onFlip}>Flip card</button>}
-    {onToggleFaceDown && <button type="button" role="menuitem" onClick={onToggleFaceDown}>{faceDown ? "Turn face up" : "Turn face down"}</button>}
-    {onGiveControl && <button type="button" role="menuitem" onClick={onGiveControl}>{controlLabel}</button>}
-    {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"}</button>}
+    {onCounterAdjust && <button type="button" role="menuitem" onClick={() => setShowCounters(true)}>Custom counters{counters?.length ? ` · ${counters.length}` : ""}… <kbd>{CARD_KEYS.counters}</kbd></button>}
+    {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action <kbd>{CARD_KEYS.play}</kbd></button>}
+    {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card <kbd>{CARD_KEYS.swap}</kbd></button>}
+    {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to... <kbd>{CARD_KEYS.attach}</kbd></button>}
+    {onChooseTarget && <button type="button" role="menuitem" onClick={onChooseTarget}>Choose target... <kbd>{CARD_KEYS.target}</kbd></button>}
+    {onClearTarget && <button type="button" role="menuitem" onClick={onClearTarget}>Clear target <kbd>{CARD_KEYS.clearTarget}</kbd></button>}
+    {onFlip && <button type="button" role="menuitem" onClick={onFlip}>Flip card <kbd>{CARD_KEYS.flip}</kbd></button>}
+    {onToggleFaceDown && <button type="button" role="menuitem" onClick={onToggleFaceDown}>{faceDown ? "Turn face up" : "Turn face down"} <kbd>{CARD_KEYS.faceDown}</kbd></button>}
+    {onGiveControl && <button type="button" role="menuitem" onClick={onGiveControl}>{controlLabel} <kbd>{CARD_KEYS.control}</kbd></button>}
+    {revealState !== undefined && <button type="button" role="menuitem" onClick={onToggleReveal}>{revealState ? "Hide card" : "Reveal card"} <kbd>{CARD_KEYS.reveal}</kbd></button>}
     {onMove && <>
       <hr />
-      <button type="button" role="menuitem" onClick={() => onMove("deck", "top")}>Top of deck</button>
-      <button type="button" role="menuitem" onClick={() => onMove("deck", "bottom")}>Bottom of deck</button>
-      <button type="button" role="menuitem" onClick={() => onMove("oblivion")}>Oblivion</button>
-      <button type="button" role="menuitem" onClick={() => onMove("persona")}>Persona</button>
-      <button type="button" role="menuitem" onClick={() => onMove("hand")}>Hand</button>
-      <button type="button" role="menuitem" onClick={() => onMove("graveyard")}>Graveyard</button>
+      <button type="button" role="menuitem" onClick={() => onMove("deck", "top")}>Top of deck <kbd>{CARD_KEYS.deckTop}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onMove("deck", "bottom")}>Bottom of deck <kbd>{CARD_KEYS.deckBottom}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onMove("oblivion")}>Oblivion <kbd>{CARD_KEYS.oblivion}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onMove("persona")}>Persona <kbd>{CARD_KEYS.persona}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onMove("hand")}>Hand <kbd>{CARD_KEYS.hand}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onMove("graveyard")}>Graveyard <kbd>{CARD_KEYS.graveyard}</kbd></button>
     </>}
     </>}
   </div>;
 }
 
-function DeckContextMenu({ x, y, deckCount, requestMode, requestPending, onAction, onLook, onSearch, onClose }: {
+function DeckContextMenu({ x, y, initialAction, deckCount, requestMode, requestPending, onAction, onLook, onSearch, onClose }: {
   x: number;
   y: number;
+  initialAction?: CountedDeckAction | null;
   deckCount: number;
   requestMode: boolean;
   requestPending: boolean;
@@ -1115,7 +1164,8 @@ function DeckContextMenu({ x, y, deckCount, requestMode, requestPending, onActio
   onSearch: () => void;
   onClose: () => void;
 }) {
-  const [selectedAction, setSelectedAction] = useState<CountedDeckAction | null>(null);
+  const [selectedAction, setSelectedAction] = useState<CountedDeckAction | null>(initialAction ?? null);
+  const DECK_KEYS = useGameShortcuts().deck;
   const [amount, setAmount] = useState("1");
   const count = Number(amount);
   const validCount = !requestPending && Number.isInteger(count) && count >= 1 && count <= deckCount;
@@ -1154,8 +1204,8 @@ function DeckContextMenu({ x, y, deckCount, requestMode, requestPending, onActio
       />
       <button type="submit" disabled={!validCount}>Confirm</button>
     </form> : <>
-      <button type="button" role="menuitem" onClick={() => onAction("shuffle")} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to shuffle" : "Shuffle"}</button>
-      <button type="button" role="menuitem" onClick={() => onAction("draw", 1)} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to draw one" : "Draw one card"}</button>
+      <button type="button" role="menuitem" onClick={() => onAction("shuffle")} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to shuffle" : "Shuffle"} <kbd>{DECK_KEYS.shuffle}</kbd></button>
+      <button type="button" role="menuitem" onClick={() => onAction("draw", 1)} disabled={deckCount === 0 || requestPending}>{requestMode ? "Ask opponent to draw one" : "Draw one card"} <kbd>{DECK_KEYS.drawOne}</kbd></button>
       <hr />
       {COUNTED_DECK_ACTIONS.map(({ action, label }) => <button
         key={action}
@@ -1163,34 +1213,56 @@ function DeckContextMenu({ x, y, deckCount, requestMode, requestPending, onActio
         role="menuitem"
         disabled={deckCount === 0 || requestPending}
         onClick={() => setSelectedAction(action)}
-      >{requestMode ? `Ask opponent to ${label.toLowerCase()}` : label}</button>)}
+      >{requestMode ? `Ask opponent to ${label.toLowerCase()}` : label} <kbd>{DECK_KEYS[action]}</kbd></button>)}
       <hr />
-      <button type="button" role="menuitem" disabled={deckCount === 0 || requestPending} onClick={onSearch}>{requestMode ? "Ask opponent to search deck" : "Search deck"}</button>
+      <button type="button" role="menuitem" disabled={deckCount === 0 || requestPending} onClick={onSearch}>{requestMode ? "Ask opponent to search deck" : "Search deck"} <kbd>{DECK_KEYS.search}</kbd></button>
     </>}
   </div>;
 }
 
 export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const gameMenuRef = useRef<HTMLDivElement>(null);
+  const { card: CARD_KEYS, deck: DECK_KEYS, fragment: FRAGMENT_KEYS, counter: COUNTER_KEYS } = useGameShortcuts();
+  const pointerPosition = useRef<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { code: routeCode } = useParams();
   const [searchParams] = useSearchParams();
   const isSpectator = searchParams.get("watch") === "1";
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [error, setError] = useState<string | null>(null);
+  const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
+  const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [deckSearchQuery, setDeckSearchQuery] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean; canFlip: boolean } | null>(null);
-  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number; owner: "self" | "opponent" } | null>(null);
+  const [menu, setMenu] = useState<{ uid: string; x: number; y: number; isAction: boolean; canFlip: boolean; panel?: CardMenuPanel } | null>(null);
+  const [deckMenu, setDeckMenu] = useState<{ x: number; y: number; owner: "self" | "opponent"; action?: CountedDeckAction | null } | null>(null);
   const [dismissedDeckResultId, setDismissedDeckResultId] = useState<string | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [targetingUid, setTargetingUid] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
   const draggedElement = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!gameMenuOpen) return;
+    gameMenuRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); setGameMenuOpen(false); }
+      if (event.key === "Tab") {
+        const controls = [...(gameMenuRef.current?.querySelectorAll<HTMLElement>("button, a[href]") ?? [])];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === gameMenuRef.current)) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => window.removeEventListener("keydown", closeOnEscape, true);
+  }, [gameMenuOpen]);
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
@@ -1226,6 +1298,213 @@ export default function OnlineGamePage() {
   const peekedUidSet = useMemo(() => peekedUids === null ? undefined : new Set(peekedUids), [peekedUids]);
   const railCards = peekedUids !== null || deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
   const railMovable = !isSpectator && Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
+  useEffect(() => {
+    if (isSpectator || !state.started || !me?.table || shortcutSettingsOpen || gameMenuOpen) return;
+    const onGameKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.closest("input, textarea, select, [contenteditable='true'], [role='dialog']"))) return;
+      const shortcut = normalizeShortcut(event);
+      if (!shortcut) return;
+      const pointer = pointerPosition.current;
+      const hovered = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null;
+      const counterElement = !menu && !deckMenu && hovered instanceof Element
+        ? hovered.closest<HTMLElement>("[data-game-counter]") : null;
+      if (counterElement && rootRef.current?.contains(counterElement)) {
+        const delta = shortcut === COUNTER_KEYS.increase ? 1
+          : shortcut === COUNTER_KEYS.decrease ? -1 : null;
+        if (delta !== null) {
+          const counterCard = tableCards(myTable).find((item) => item.uid === counterElement.dataset.counterUid);
+          if (!counterCard || !findSlottedCard(myTable, counterCard.uid)) return;
+          if (counterElement.dataset.gameCounter === "frazzle") gameConnection.adjustCardFrazzle(counterCard.uid, delta);
+          else if (counterElement.dataset.gameCounter === "atk" || counterElement.dataset.gameCounter === "hp") {
+            gameConnection.adjustCardStat(counterCard.uid, counterElement.dataset.gameCounter, delta);
+          } else {
+            const current = counterCard.counters?.find((item) => item.kind === counterElement.dataset.counterKind
+              && item.label === counterElement.dataset.counterLabel && (item.emoji ?? "") === (counterElement.dataset.counterEmoji ?? ""));
+            if (!current) return;
+            gameConnection.adjustCardCounter(counterCard.uid, current, delta);
+          }
+          event.preventDefault();
+          return;
+        }
+        if (shortcut === COUNTER_KEYS.remove && counterElement.dataset.gameCounter === "custom") {
+          const counterCard = tableCards(myTable).find((item) => item.uid === counterElement.dataset.counterUid);
+          const current = counterCard?.counters?.find((item) => item.kind === counterElement.dataset.counterKind
+            && item.label === counterElement.dataset.counterLabel && (item.emoji ?? "") === (counterElement.dataset.counterEmoji ?? ""));
+          if (counterCard && current && findSlottedCard(myTable, counterCard.uid)) {
+            gameConnection.removeCardCounter(counterCard.uid, current);
+            event.preventDefault();
+            return;
+          }
+        }
+      }
+      const hoveredCard = hovered instanceof Element ? hovered.closest<HTMLElement>("[data-card-uid]")
+        ?? (counterElement && rootRef.current
+          ? [...rootRef.current.querySelectorAll<HTMLElement>("[data-card-uid]")].find((item) => item.dataset.cardUid === counterElement.dataset.counterUid) ?? null
+          : null) : null;
+      const focused = document.activeElement;
+      const focusedCard = focused instanceof HTMLElement && focused.matches("[data-card-uid]:focus-visible") ? focused : null;
+      const menuCardElement = menu && rootRef.current
+        ? [...rootRef.current.querySelectorAll<HTMLElement>("[data-card-uid]")].find((item) => item.dataset.cardUid === menu.uid)
+        : null;
+      const element = menuCardElement ?? (deckMenu ? null : hoveredCard ?? focusedCard);
+      const deckElement = deckMenu && rootRef.current
+        ? rootRef.current.querySelector<HTMLElement>(`[data-deck-owner="${deckMenu.owner}"]`)
+        : hovered instanceof Element ? hovered.closest<HTMLElement>("[data-deck-owner]") : null;
+      const fragmentElement = !menu && !deckMenu
+        ? hovered instanceof Element ? hovered.closest<HTMLElement>("[data-fragment-dock]")
+          : focused instanceof HTMLElement && focused.matches(":focus-visible") ? focused.closest<HTMLElement>("[data-fragment-dock]") : null
+        : null;
+      if (fragmentElement && rootRef.current?.contains(fragmentElement)) {
+        const fragments = myTable.fragments;
+        const available = fragments.filter((spent) => !spent).length;
+        const spent = fragments.length - available;
+        const index = Array.from({ length: 10 }, (_, i) => FRAGMENT_KEYS[`toggle${i + 1}` as keyof typeof FRAGMENT_KEYS]).indexOf(shortcut);
+        if (index >= 0 && index < fragments.length) {
+          gameConnection.setFragmentSpent(index, !fragments[index]);
+        } else if (shortcut === FRAGMENT_KEYS.add && fragments.length < 10) gameConnection.updateFragments("add");
+        else if (shortcut === FRAGMENT_KEYS.remove && fragments.length > 0) gameConnection.updateFragments("remove");
+        else if (shortcut === FRAGMENT_KEYS.spend && available > 0) gameConnection.updateFragments("spend");
+        else if (shortcut === FRAGMENT_KEYS.recover && spent > 0) gameConnection.updateFragments("recover");
+        else if (shortcut === FRAGMENT_KEYS.spendAll && available > 0) gameConnection.updateFragments("spendAll");
+        else if (shortcut === FRAGMENT_KEYS.recoverAll && spent > 0) gameConnection.updateFragments("recoverAll");
+        else return;
+        event.preventDefault();
+        return;
+      }
+      if (deckElement && (deckMenu || (!menuCardElement && !hoveredCard)) && rootRef.current?.contains(deckElement)) {
+        const owner = deckElement.dataset.deckOwner === "opponent" ? "opponent" : "self";
+        const deckCount = owner === "self" ? myTable.deck.length : opponent?.deckCount ?? 0;
+        const pending = owner === "opponent" && (Boolean(state.deckRequest) || !opponent?.connected);
+        if (deckCount === 0 || pending) return;
+        let handled = true;
+        let counted: CountedDeckAction | null = null;
+        switch (shortcut) {
+          case DECK_KEYS.shuffle:
+            if (owner === "self") gameConnection.deckAction("shuffle");
+            else gameConnection.requestDeckAction("shuffle");
+            break;
+          case DECK_KEYS.drawOne:
+            if (owner === "self") gameConnection.deckAction("draw", 1);
+            else gameConnection.requestDeckAction("draw", 1);
+            break;
+          case DECK_KEYS.draw: counted = "draw"; break;
+          case DECK_KEYS.discard: counted = "discard"; break;
+          case DECK_KEYS.look: counted = "look"; break;
+          case DECK_KEYS.oblivion: counted = "oblivion"; break;
+          case DECK_KEYS.search:
+            if (owner === "self") {
+              setDeckSearchQuery(""); setPeekedUids(null); setOpenZone(null); setOpenSlot(null);
+            } else gameConnection.requestDeckAction("search");
+            break;
+          default: handled = false;
+        }
+        if (!handled) return;
+        event.preventDefault();
+        if (counted) {
+          const rect = deckElement.getBoundingClientRect();
+          setDeckMenu({ owner, x: deckMenu?.x ?? rect.right, y: deckMenu?.y ?? rect.top, action: counted });
+        } else {
+          setDeckMenu(null);
+          if (owner === "self" && shortcut !== DECK_KEYS.search) {
+            setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null);
+          }
+        }
+        setInspectedCard(null);
+        return;
+      }
+      if (!element || !rootRef.current?.contains(element)) return;
+      const uid = element.dataset.cardUid;
+      const card = tableCards(myTable).find((item) => item.uid === uid);
+      if (!card) return;
+      const slotted = findSlottedCard(myTable, card.uid);
+      const inHand = myTable.hand.some((item) => item.uid === card.uid);
+      const inDeck = myTable.deck.some((item) => item.uid === card.uid);
+      const inAction = myTable.action.some((item) => item.uid === card.uid);
+      const openPanel = (panel: CardMenuPanel) => {
+        const rect = element.getBoundingClientRect();
+        setMenu({ uid: card.uid, x: menu?.x ?? rect.right, y: menu?.y ?? rect.top,
+          isAction: element.dataset.isAction === "true", canFlip: element.dataset.canFlip === "true", panel });
+      };
+      let handled = true;
+      let keepMenu = false;
+      switch (shortcut) {
+        case CARD_KEYS.graveyard: gameConnection.moveCard(card.uid, "graveyard"); break;
+        case CARD_KEYS.oblivion: gameConnection.moveCard(card.uid, "oblivion"); break;
+        case CARD_KEYS.hand: gameConnection.moveCard(card.uid, "hand"); break;
+        case CARD_KEYS.persona: gameConnection.moveCard(card.uid, "persona"); break;
+        case CARD_KEYS.deckTop: gameConnection.moveCard(card.uid, "deck", { position: "top" }); break;
+        case CARD_KEYS.deckBottom: gameConnection.moveCard(card.uid, "deck", { position: "bottom" }); break;
+        case CARD_KEYS.frazzleAdd:
+        case CARD_KEYS.frazzleRemove:
+          if (slotted) gameConnection.adjustCardFrazzle(card.uid, shortcut === CARD_KEYS.frazzleAdd ? 1 : -1);
+          else handled = false;
+          break;
+        case CARD_KEYS.atk:
+        case CARD_KEYS.hp: {
+          if (!slotted) { handled = false; break; }
+          const stat = shortcut === CARD_KEYS.atk ? "atk" : "hp";
+          if (slotted.card[stat] !== undefined) gameConnection.removeCardStat(card.uid, stat);
+          else { openPanel(stat); keepMenu = true; }
+          break;
+        }
+        case CARD_KEYS.counters:
+          if (slotted) { openPanel("counters"); keepMenu = true; }
+          else handled = false;
+          break;
+        case CARD_KEYS.attach:
+          if (!inAction && (!slotted || (slotted.index === 0 && !slotted.card.isProtagonist))) {
+            setAttachingUid(card.uid); setTargetingUid(null);
+          } else handled = false;
+          break;
+        case CARD_KEYS.control:
+          if (slotted && !slotted.card.isProtagonist && opponent?.table) {
+            gameConnection.giveCardControl(card.uid); setAttachingUid(null); setTargetingUid(null);
+          } else handled = false;
+          break;
+        case CARD_KEYS.flip:
+          if (element.dataset.canFlip === "true") gameConnection.flipCard(card.uid);
+          else handled = false;
+          break;
+        case CARD_KEYS.faceDown:
+          if (inHand && shortcut === CARD_KEYS.reveal) gameConnection.setCardRevealed(card.uid, !card.revealed);
+          else if (!inHand && !inDeck) gameConnection.setCardFaceDown(card.uid, !card.faceDown);
+          else handled = false;
+          break;
+        case CARD_KEYS.reveal:
+          if (inHand) gameConnection.setCardRevealed(card.uid, !card.revealed);
+          else handled = false;
+          break;
+        case CARD_KEYS.target:
+          setTargetingUid((current) => current === card.uid ? null : card.uid);
+          setAttachingUid(null);
+          break;
+        case CARD_KEYS.clearTarget:
+          if (card.targetUid && (card.targetExpiresAt ?? 0) > Date.now()) gameConnection.setCardTarget(card.uid, null);
+          else handled = false;
+          break;
+        case CARD_KEYS.play:
+          if (inHand && element.dataset.isAction === "true") gameConnection.playAction(card.uid);
+          else if (shortcut === CARD_KEYS.swap && slotted && slotted.index > 0) gameConnection.swapSlotCard(card.uid);
+          else handled = false;
+          break;
+        case CARD_KEYS.swap:
+          if (slotted && slotted.index > 0) gameConnection.swapSlotCard(card.uid);
+          else handled = false;
+          break;
+        default: handled = false;
+      }
+      if (handled) {
+        event.preventDefault();
+        if (!keepMenu) setMenu(null);
+        setDeckMenu(null);
+        setInspectedCard(null);
+      }
+    };
+    window.addEventListener("keydown", onGameKeyDown);
+    return () => window.removeEventListener("keydown", onGameKeyDown);
+  }, [isSpectator, state.started, me?.table, myTable, opponent, state.deckRequest, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen]);
   const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuDeckCard = menu ? myTable.deck.find((card) => card.uid === menu.uid) : undefined;
@@ -1264,6 +1543,12 @@ export default function OnlineGamePage() {
     window.addEventListener("keydown", cancelAttach);
     return () => window.removeEventListener("keydown", cancelAttach);
   }, [attachingUid]);
+  useEffect(() => {
+    if (!targetingUid) return;
+    const cancelTarget = (event: KeyboardEvent) => { if (event.key === "Escape") setTargetingUid(null); };
+    window.addEventListener("keydown", cancelTarget);
+    return () => window.removeEventListener("keydown", cancelTarget);
+  }, [targetingUid]);
   const startDrag: CardDrag = (event, card) => {
     draggedUid.current = card.uid;
     draggedElement.current = event.currentTarget;
@@ -1357,6 +1642,7 @@ export default function OnlineGamePage() {
 
   return <div
     ref={rootRef}
+    onPointerMove={(event) => { pointerPosition.current = { x: event.clientX, y: event.clientY }; }}
     className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid ? styles.targeting : ""}`}
     onClickCapture={targetingUid ? (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>("[data-card-uid]");
@@ -1369,7 +1655,7 @@ export default function OnlineGamePage() {
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
-        <Link to="/help" target="_blank" rel="noopener noreferrer">Guida</Link>
+        <button type="button" onClick={() => setGameMenuOpen(true)}>Menu</button>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
@@ -1499,10 +1785,19 @@ export default function OnlineGamePage() {
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
     <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
+    {gameMenuOpen && <div className={styles.gameMenuOverlay} onPointerDown={(event) => { if (event.target === event.currentTarget) setGameMenuOpen(false); }}>
+      <div ref={gameMenuRef} className={styles.gameMenuDialog} role="dialog" aria-modal="true" aria-labelledby="game-menu-title" tabIndex={-1}>
+        <div className={styles.gameMenuHeader}><h2 id="game-menu-title">Menu</h2><button type="button" onClick={() => setGameMenuOpen(false)} aria-label="Chiudi menu">×</button></div>
+        <button type="button" onClick={() => { setGameMenuOpen(false); setShortcutSettingsOpen(true); }}>Comandi da tastiera</button>
+        <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={() => setGameMenuOpen(false)}>Guida</Link>
+      </div>
+    </div>}
+    {shortcutSettingsOpen && <ShortcutSettings onClose={() => setShortcutSettingsOpen(false)} />}
     {menu && <ContextMenu
-      key={`${menu.uid}:${menu.x}:${menu.y}`}
+      key={`${menu.uid}:${menu.x}:${menu.y}:${menu.panel ?? "actions"}`}
       x={menu.x}
       y={menu.y}
+      initialPanel={menu.panel}
       revealState={menuHandCard ? Boolean(menuHandCard.revealed) : undefined}
       faceDown={Boolean(menuCard?.faceDown)}
       statValues={menuSlottedCard ? { atk: menuSlottedCard.card.atk, hp: menuSlottedCard.card.hp } : undefined}
@@ -1545,8 +1840,10 @@ export default function OnlineGamePage() {
       onClose={() => setMenu(null)}
     />}
     {deckMenu && <DeckContextMenu
+      key={`${deckMenu.owner}:${deckMenu.x}:${deckMenu.y}:${deckMenu.action ?? "actions"}`}
       x={deckMenu.x}
       y={deckMenu.y}
+      initialAction={deckMenu.action}
       deckCount={deckMenu.owner === "self" ? myTable.deck.length : opponent?.deckCount ?? 0}
       requestMode={deckMenu.owner === "opponent"}
       requestPending={deckMenu.owner === "opponent" && (Boolean(deckRequest) || !opponent?.connected)}

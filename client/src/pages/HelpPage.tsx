@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
+import { SHORTCUT_LABELS, useGameShortcuts, type ShortcutScope } from "./gameShortcuts";
 import styles from "./HelpPage.module.scss";
 
+const shortcutSections: { scope: ShortcutScope; title: string }[] = [
+  { scope: "card", title: "Carte" }, { scope: "deck", title: "Mazzo" },
+  { scope: "fragment", title: "Fragment" }, { scope: "counter", title: "Counter" },
+];
+
 export default function HelpPage() {
+  const shortcuts = useGameShortcuts();
   return <div className={styles.page}>
     <header className={styles.header}>
       <Link to="/" className={styles.backLink}>← Home</Link>
@@ -41,6 +48,15 @@ export default function HelpPage() {
           <article><h3>🤝 Azioni dell'avversario</h3><p>Con il clic destro sul mazzo avversario puoi chiedergli di eseguire un'azione. L'altro giocatore deve accettare la richiesta prima che venga eseguita.</p></article>
           <article><h3>↩️ Torna alla mano</h3><p>Quando apri un'altra zona, le sue carte prendono il posto della mano nella barra in basso. Premi <strong>← Hand</strong> per tornare alle tue carte.</p></article>
         </div>
+      </section>
+
+      <section aria-labelledby="keyboard-guide">
+        <h2 id="keyboard-guide">Comandi da tastiera</h2>
+        <p className={styles.intro}>Tieni il cursore sopra una tua carta, un mazzo, un counter o l'area Fragment e premi un solo tasto. Le azioni sul mazzo avversario inviano una richiesta all'altro giocatore. Puoi personalizzare i tasti dalla home o dal menu della partita. Esc annulla la scelta del bersaglio.</p>
+        {shortcutSections.map(({ scope, title }) => <div key={scope}>
+          <h3>{title}</h3>
+          <dl className={styles.shortcuts}>{Object.entries(SHORTCUT_LABELS[scope]).map(([action, label]) => <div key={action}><dt><kbd>{(shortcuts[scope] as Record<string, string>)[action]}</kbd></dt><dd>{label}</dd></div>)}</dl>
+        </div>)}
       </section>
 
       <div className={styles.footer}>
