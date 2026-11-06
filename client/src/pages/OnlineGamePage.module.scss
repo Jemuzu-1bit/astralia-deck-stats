@@ -1,9 +1,10 @@
 .root {
   position: relative;
   min-height: 100vh;
-  --inspector-width: clamp(280px, 22vw, 400px);
-  --battle-card-width: clamp(54px, min(5vw, 9dvh), 120px);
-  --side-card-width: clamp(54px, 4vw, 90px);
+  --ui-scale: 1;
+  --inspector-width: clamp(calc(280px * var(--ui-scale)), calc(22vw * var(--ui-scale)), calc(400px * var(--ui-scale)));
+  --battle-card-width: clamp(calc(54px * var(--ui-scale)), calc(min(5vw, 9dvh) * var(--ui-scale)), calc(120px * var(--ui-scale)));
+  --side-card-width: clamp(calc(54px * var(--ui-scale)), calc(4vw * var(--ui-scale)), calc(90px * var(--ui-scale)));
   color: #f5efd7;
   background:
     radial-gradient(circle at 50% 50%, rgba(45, 66, 105, .34), transparent 52%),
@@ -122,6 +123,23 @@
   button { padding: .3rem .6rem; }
 }
 
+.interfaceSizeControl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: .3rem .6rem;
+  margin: .3rem 0 0;
+  padding: .65rem;
+  border: 1px solid rgba(212, 175, 55, .4);
+  border-radius: 6px;
+  legend { padding: 0 .3rem; color: #e4c65f; }
+  .interfaceSizeEntry { display: flex; align-items: center; gap: .25rem; color: #e4c65f; font-weight: bold; }
+  .interfaceSizeEntry input { width: 4.5rem; padding: .3rem .4rem; box-sizing: border-box; color: #f5efd7; background: #242b3d; border: 1px solid rgba(255, 255, 255, .25); border-radius: 5px; font: inherit; text-align: right; }
+  > input { grid-column: 1 / -1; display: block; width: 100%; margin: .35rem 0 0; accent-color: #e4c65f; cursor: pointer; }
+  input:focus-visible { outline: 2px solid #e4c65f; outline-offset: 3px; }
+  .interfaceSizeMarks { grid-column: 1 / -1; display: flex; justify-content: space-between; opacity: .7; font-size: .8rem; }
+}
+
 .playmat {
   width: calc(100% - var(--inspector-width));
   min-width: 0;
@@ -178,7 +196,7 @@
 
 .actionCard {
   flex: 0 0 auto;
-  width: clamp(72px, 5vw, 110px);
+  width: clamp(calc(72px * var(--ui-scale)), calc(5vw * var(--ui-scale)), calc(110px * var(--ui-scale)));
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -255,7 +273,7 @@
 }
 
 .fragmentDock {
-  flex: 0 0 clamp(360px, 37vw, 460px);
+  flex: 0 0 clamp(calc(360px * var(--ui-scale)), calc(37vw * var(--ui-scale)), calc(460px * var(--ui-scale)));
   min-width: 0;
   align-self: stretch;
   display: flex;
@@ -302,7 +320,7 @@
 }
 
 .fragmentRail {
-  min-height: 58px;
+  min-height: calc(58px * var(--ui-scale));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -311,10 +329,10 @@
 
   button {
     position: relative;
-    flex: 0 0 46px;
-    width: 46px;
-    height: 64px;
-    margin-right: -17px;
+    flex: 0 0 calc(46px * var(--ui-scale));
+    width: calc(46px * var(--ui-scale));
+    height: calc(64px * var(--ui-scale));
+    margin-right: calc(-17px * var(--ui-scale));
     padding: 0;
     border: 0;
     background: none;
@@ -323,14 +341,14 @@
   }
 
   button:last-of-type { margin-right: 0; }
-  button:hover, button:focus-visible { z-index: 12; margin-right: -5px; outline: none; filter: brightness(1.18); }
+  button:hover, button:focus-visible { z-index: 12; margin-right: calc(-5px * var(--ui-scale)); outline: none; filter: brightness(1.18); }
   button:disabled { cursor: default; }
-  button:disabled:hover { margin-right: -17px; filter: none; }
+  button:disabled:hover { margin-right: calc(-17px * var(--ui-scale)); filter: none; }
   button:disabled:last-of-type:hover { margin-right: 0; }
   img {
     display: block;
-    width: 46px;
-    height: 64px;
+    width: calc(46px * var(--ui-scale));
+    height: calc(64px * var(--ui-scale));
     object-fit: cover;
     border-radius: 3px;
     box-shadow: 0 3px 9px rgba(0, 0, 0, .72);
@@ -460,7 +478,7 @@
 
   img {
     display: block;
-    width: clamp(54px, 5vw, 100px);
+    width: clamp(calc(54px * var(--ui-scale)), calc(5vw * var(--ui-scale)), calc(100px * var(--ui-scale)));
     aspect-ratio: 5 / 7;
     object-fit: cover;
     border-radius: 4px;
@@ -1000,7 +1018,7 @@
 }
 
 @media (max-width: 1200px) {
-  .fragmentDock { flex-basis: clamp(280px, 30vw, 380px); }
+  .fragmentDock { flex-basis: clamp(calc(280px * var(--ui-scale)), calc(30vw * var(--ui-scale)), calc(380px * var(--ui-scale))); }
   .tableHalf { grid-template-columns: minmax(82px, 1fr) minmax(0, 5fr) minmax(82px, 1fr); }
 }
 
@@ -1033,7 +1051,7 @@
 }
 
 @media (max-width: 700px) {
-  .root { --battle-card-width: clamp(42px, 12vw, 58px); }
+  .root { --battle-card-width: clamp(calc(42px * var(--ui-scale)), calc(12vw * var(--ui-scale)), calc(58px * var(--ui-scale))); }
   .toolbar { height: 48px; padding-inline: .5rem; }
   .toolbar div { gap: .35rem; }
   .toolbar span { font-size: .62rem; letter-spacing: .04em; }
@@ -1096,14 +1114,14 @@
   .customCounter { min-width: 25px; height: 20px; padding-inline: 3px; font-size: .6rem; }
   .customCounterList { gap: 2px; }
   .countersBelowRevealed { top: 18px; }
-  .deckStack, .deckStack img { width: clamp(40px, 12vw, 54px); height: auto; aspect-ratio: 5 / 7; }
-  .publicStack { height: clamp(56px, 16.8vw, 76px); }
-  .publicStack .stackCard, .publicStack img { width: clamp(40px, 12vw, 54px); height: auto; aspect-ratio: 5 / 7; }
+  .deckStack, .deckStack img { width: clamp(calc(40px * var(--ui-scale)), calc(12vw * var(--ui-scale)), calc(54px * var(--ui-scale))); height: auto; aspect-ratio: 5 / 7; }
+  .publicStack { height: clamp(calc(56px * var(--ui-scale)), calc(16.8vw * var(--ui-scale)), calc(76px * var(--ui-scale))); }
+  .publicStack .stackCard, .publicStack img { width: clamp(calc(40px * var(--ui-scale)), calc(12vw * var(--ui-scale)), calc(54px * var(--ui-scale))); height: auto; aspect-ratio: 5 / 7; }
 
   .divider { min-height: 76px; }
   .centerActionArea { position: relative; top: auto; left: auto; width: 100%; height: 100%; max-width: 100%; transform: none; }
   .actionStage { max-width: calc((100vw - 2rem) / 2); }
-  .actionCard, .actionCard img { width: clamp(42px, 12vw, 64px); }
+  .actionCard, .actionCard img { width: clamp(calc(42px * var(--ui-scale)), calc(12vw * var(--ui-scale)), calc(64px * var(--ui-scale))); }
 
   .handDock { flex-wrap: wrap; gap: .4rem .65rem; padding: .5rem; }
   .handDockLabel { font-size: .68rem; white-space: normal; }
@@ -1114,7 +1132,7 @@
   .deckSearchControl { flex: 1 1 180px; }
   .deckDropTargets { flex-direction: row; }
   .deckDropTargets > div { padding: .25rem .35rem; font-size: .6rem; }
-  .hand > button img { width: clamp(48px, 14vw, 64px); }
+  .hand > button img { width: clamp(calc(48px * var(--ui-scale)), calc(14vw * var(--ui-scale)), calc(64px * var(--ui-scale))); }
 
   .deckRequestNotice { flex-wrap: wrap; justify-content: flex-end; top: 52px; font-size: .72rem; }
   .deckRequestNotice span { flex-basis: 100%; }

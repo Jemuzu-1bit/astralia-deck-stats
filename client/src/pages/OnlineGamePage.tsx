@@ -41,6 +41,14 @@ type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
 type CounterChoice = Pick<GameCounter, "kind" | "label" | "emoji">;
 type CardMenuPanel = CardStat | "counters" | null;
+const INTERFACE_SIZE_KEY = "astralia.gameInterfaceSize.v1";
+function savedInterfaceSize(): number {
+  try {
+    const value = Number(localStorage.getItem(INTERFACE_SIZE_KEY));
+    if (Number.isInteger(value) && value >= 75 && value <= 150) return value;
+  } catch { /* use the default size */ }
+  return 100;
+}
 const COUNTER_PRESETS: CounterChoice[] = [
   { kind: "emoji", emoji: "📜", label: "Quest" },
   { kind: "emoji", emoji: "🔮", label: "Omen" },
@@ -1233,6 +1241,8 @@ export default function OnlineGamePage() {
   const [error, setError] = useState<string | null>(null);
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
+  const [interfaceSize, setInterfaceSize] = useState(savedInterfaceSize);
+  const [interfaceSizeDraft, setInterfaceSizeDraft] = useState(() => String(savedInterfaceSize()));
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
@@ -1246,6 +1256,20 @@ export default function OnlineGamePage() {
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
   const draggedElement = useRef<HTMLButtonElement | null>(null);
+  const commitInterfaceSize = () => {
+    const entered = Number(interfaceSizeDraft);
+    const next = interfaceSizeDraft.trim() !== "" && Number.isFinite(entered)
+      ? Math.min(150, Math.max(75, Math.round(entered))) : interfaceSize;
+    setInterfaceSize(next);
+    setInterfaceSizeDraft(String(next));
+  };
+
+  useEffect(() => {
+    const previousFontSize = document.documentElement.style.fontSize;
+    document.documentElement.style.fontSize = `${interfaceSize}%`;
+    try { localStorage.setItem(INTERFACE_SIZE_KEY, String(interfaceSize)); } catch { /* keep this session's preference */ }
+    return () => { document.documentElement.style.fontSize = previousFontSize; };
+  }, [interfaceSize]);
 
   useEffect(() => {
     if (!gameMenuOpen) return;
@@ -1253,7 +1277,7 @@ export default function OnlineGamePage() {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); setGameMenuOpen(false); }
       if (event.key === "Tab") {
-        const controls = [...(gameMenuRef.current?.querySelectorAll<HTMLElement>("button, a[href]") ?? [])];
+        const controls = [...(gameMenuRef.current?.querySelectorAll<HTMLElement>("button, a[href], input") ?? [])];
         const first = controls[0];
         const last = controls[controls.length - 1];
         if (event.shiftKey && (document.activeElement === first || document.activeElement === gameMenuRef.current)) { event.preventDefault(); last?.focus(); }
@@ -1642,6 +1666,7 @@ export default function OnlineGamePage() {
 
   return <div
     ref={rootRef}
+    style={{ "--ui-scale": interfaceSize / 100 } as CSSProperties}
     onPointerMove={(event) => { pointerPosition.current = { x: event.clientX, y: event.clientY }; }}
     className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid ? styles.targeting : ""}`}
     onClickCapture={targetingUid ? (event) => {
@@ -1655,7 +1680,7 @@ export default function OnlineGamePage() {
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
-        <button type="button" onClick={() => setGameMenuOpen(true)}>Menu</button>
+        <button type="button" onClick={() => { setInterfaceSizeDraft(String(interfaceSize)); setGameMenuOpen(true); }}>Menu</button>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
@@ -1790,6 +1815,21 @@ export default function OnlineGamePage() {
         <div className={styles.gameMenuHeader}><h2 id="game-menu-title">Menu</h2><button type="button" onClick={() => setGameMenuOpen(false)} aria-label="Chiudi menu">×</button></div>
         <button type="button" onClick={() => { setGameMenuOpen(false); setShortcutSettingsOpen(true); }}>Comandi da tastiera</button>
         <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={() => setGameMenuOpen(false)}>Guida</Link>
+        <fieldset className={styles.interfaceSizeControl}>
+          <legend>Dimensione interfaccia</legend>
+          <label htmlFor="interface-size-slider">Scala attuale</label>
+          <div className={styles.interfaceSizeEntry}>
+            <input id="interface-size-value" type="number" min={75} max={150} step={1} inputMode="numeric" aria-label="Percentuale interfaccia" value={interfaceSizeDraft} onChange={(event) => {
+              const draft = event.target.value;
+              setInterfaceSizeDraft(draft);
+              const value = Number(draft);
+              if (draft !== "" && Number.isInteger(value) && value >= 75 && value <= 150) setInterfaceSize(value);
+            }} onBlur={commitInterfaceSize} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />
+            <span>%</span>
+          </div>
+          <input id="interface-size-slider" type="range" min={75} max={150} step={1} value={interfaceSize} onChange={(event) => { const value = Number(event.target.value); setInterfaceSize(value); setInterfaceSizeDraft(String(value)); }} aria-valuetext={`${interfaceSize}%`} />
+          <div className={styles.interfaceSizeMarks}><span>75%</span><span>150%</span></div>
+        </fieldset>
       </div>
     </div>}
     {shortcutSettingsOpen && <ShortcutSettings onClose={() => setShortcutSettingsOpen(false)} />}
