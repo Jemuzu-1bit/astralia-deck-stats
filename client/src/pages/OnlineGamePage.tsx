@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type RefObject } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getCardFaces } from "../services/cardDataService";
 import { getCardImagePath } from "../services/cardImageService";
 import {
@@ -18,6 +18,9 @@ import type { Card } from "../types/Card";
 import normalCardBack from "../assets/N_Back.png";
 import fragmentCard from "../assets/fragment.png";
 import ShortcutSettings from "../components/ShortcutSettings";
+import FeedbackLink from "../components/FeedbackLink";
+import SettingsMenu from "../components/SettingsMenu";
+import { INTERFACE_SIZE_CHANGE_EVENT, savedInterfaceSize } from "../services/gameInterfaceSize";
 import { normalizeShortcut, useGameShortcuts } from "./gameShortcuts";
 import styles from "./OnlineGamePage.module.scss";
 
@@ -44,14 +47,6 @@ type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";
 type CardStat = "atk" | "hp";
 type CounterChoice = Pick<GameCounter, "kind" | "label" | "emoji">;
 type CardMenuPanel = CardStat | "counters" | null;
-const INTERFACE_SIZE_KEY = "astralia.gameInterfaceSize.v1";
-function savedInterfaceSize(): number {
-  try {
-    const value = Number(localStorage.getItem(INTERFACE_SIZE_KEY));
-    if (Number.isInteger(value) && value >= 75 && value <= 150) return value;
-  } catch { /* use the default size */ }
-  return 100;
-}
 const COUNTER_PRESETS: CounterChoice[] = [
   { kind: "emoji", emoji: "📜", label: "Quest" },
   { kind: "emoji", emoji: "🔮", label: "Omen" },
@@ -1272,7 +1267,6 @@ function DeckContextMenu({ x, y, initialAction, deckCount, requestMode, requestP
 
 export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const gameMenuRef = useRef<HTMLDivElement>(null);
   const { card: CARD_KEYS, deck: DECK_KEYS, fragment: FRAGMENT_KEYS, counter: COUNTER_KEYS } = useGameShortcuts();
   const pointerPosition = useRef<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
@@ -1284,7 +1278,6 @@ export default function OnlineGamePage() {
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [interfaceSize, setInterfaceSize] = useState(savedInterfaceSize);
-  const [interfaceSizeDraft, setInterfaceSizeDraft] = useState(() => String(savedInterfaceSize()));
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
@@ -1299,37 +1292,17 @@ export default function OnlineGamePage() {
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
   const draggedElement = useRef<HTMLButtonElement | null>(null);
-  const commitInterfaceSize = () => {
-    const entered = Number(interfaceSizeDraft);
-    const next = interfaceSizeDraft.trim() !== "" && Number.isFinite(entered)
-      ? Math.min(150, Math.max(75, Math.round(entered))) : interfaceSize;
-    setInterfaceSize(next);
-    setInterfaceSizeDraft(String(next));
-  };
-
   useEffect(() => {
     const previousFontSize = document.documentElement.style.fontSize;
     document.documentElement.style.fontSize = `${interfaceSize}%`;
-    try { localStorage.setItem(INTERFACE_SIZE_KEY, String(interfaceSize)); } catch { /* keep this session's preference */ }
     return () => { document.documentElement.style.fontSize = previousFontSize; };
   }, [interfaceSize]);
 
   useEffect(() => {
-    if (!gameMenuOpen) return;
-    gameMenuRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); setGameMenuOpen(false); }
-      if (event.key === "Tab") {
-        const controls = [...(gameMenuRef.current?.querySelectorAll<HTMLElement>("button, a[href], input") ?? [])];
-        const first = controls[0];
-        const last = controls[controls.length - 1];
-        if (event.shiftKey && (document.activeElement === first || document.activeElement === gameMenuRef.current)) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape, true);
-    return () => window.removeEventListener("keydown", closeOnEscape, true);
-  }, [gameMenuOpen]);
+    const onInterfaceSizeChange = (event: Event) => setInterfaceSize((event as CustomEvent<number>).detail);
+    window.addEventListener(INTERFACE_SIZE_CHANGE_EVENT, onInterfaceSizeChange);
+    return () => window.removeEventListener(INTERFACE_SIZE_CHANGE_EVENT, onInterfaceSizeChange);
+  }, []);
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
@@ -1760,7 +1733,7 @@ export default function OnlineGamePage() {
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
-        <button type="button" onClick={() => { setInterfaceSizeDraft(String(interfaceSize)); setGameMenuOpen(true); }}>Menu</button>
+        <button type="button" onClick={() => setGameMenuOpen(true)}>Impostazioni</button>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
@@ -1897,28 +1870,9 @@ export default function OnlineGamePage() {
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
     <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
-    {gameMenuOpen && <div className={styles.gameMenuOverlay} onPointerDown={(event) => { if (event.target === event.currentTarget) setGameMenuOpen(false); }}>
-      <div ref={gameMenuRef} className={styles.gameMenuDialog} role="dialog" aria-modal="true" aria-labelledby="game-menu-title" tabIndex={-1}>
-        <div className={styles.gameMenuHeader}><h2 id="game-menu-title">Menu</h2><button type="button" onClick={() => setGameMenuOpen(false)} aria-label="Chiudi menu">×</button></div>
-        <button type="button" onClick={() => { setGameMenuOpen(false); setShortcutSettingsOpen(true); }}>Comandi da tastiera</button>
-        <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={() => setGameMenuOpen(false)}>Guida</Link>
-        <fieldset className={styles.interfaceSizeControl}>
-          <legend>Dimensione interfaccia</legend>
-          <label htmlFor="interface-size-slider">Scala attuale</label>
-          <div className={styles.interfaceSizeEntry}>
-            <input id="interface-size-value" type="number" min={75} max={150} step={1} inputMode="numeric" aria-label="Percentuale interfaccia" value={interfaceSizeDraft} onChange={(event) => {
-              const draft = event.target.value;
-              setInterfaceSizeDraft(draft);
-              const value = Number(draft);
-              if (draft !== "" && Number.isInteger(value) && value >= 75 && value <= 150) setInterfaceSize(value);
-            }} onBlur={commitInterfaceSize} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} />
-            <span>%</span>
-          </div>
-          <input id="interface-size-slider" type="range" min={75} max={150} step={1} value={interfaceSize} onChange={(event) => { const value = Number(event.target.value); setInterfaceSize(value); setInterfaceSizeDraft(String(value)); }} aria-valuetext={`${interfaceSize}%`} />
-          <div className={styles.interfaceSizeMarks}><span>75%</span><span>150%</span></div>
-        </fieldset>
-      </div>
-    </div>}
+    {gameMenuOpen && <SettingsMenu onClose={() => setGameMenuOpen(false)} onShortcuts={() => { setGameMenuOpen(false); setShortcutSettingsOpen(true); }}>
+        <FeedbackLink onOpen={() => setGameMenuOpen(false)} />
+    </SettingsMenu>}
     {shortcutSettingsOpen && <ShortcutSettings onClose={() => setShortcutSettingsOpen(false)} />}
     {menu && <ContextMenu
       key={`${menu.uid}:${menu.x}:${menu.y}:${menu.panel ?? "actions"}`}

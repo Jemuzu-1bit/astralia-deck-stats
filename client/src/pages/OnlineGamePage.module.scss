@@ -89,59 +89,6 @@
   button:hover, a:hover, button:focus-visible, a:focus-visible { border-color: #e4c65f; outline: none; }
 }
 
-.gameMenuOverlay {
-  position: fixed;
-  z-index: 200;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, .78);
-}
-
-.gameMenuDialog {
-  display: flex;
-  flex-direction: column;
-  gap: .75rem;
-  width: min(100%, 360px);
-  padding: 1.25rem;
-  box-sizing: border-box;
-  color: #f5efd7;
-  background: #101625;
-  border: 1px solid rgba(212, 175, 55, .55);
-  border-radius: 10px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
-
-  button, a { display: block; padding: .7rem .85rem; color: inherit; background: #242b3d; border: 1px solid rgba(255, 255, 255, .14); border-radius: 6px; cursor: pointer; font: inherit; text-align: left; text-decoration: none; }
-  button:hover, a:hover, button:focus-visible, a:focus-visible { border-color: #e4c65f; outline: none; }
-}
-
-.gameMenuHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  h2 { margin: 0; }
-  button { padding: .3rem .6rem; }
-}
-
-.interfaceSizeControl {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: .3rem .6rem;
-  margin: .3rem 0 0;
-  padding: .65rem;
-  border: 1px solid rgba(212, 175, 55, .4);
-  border-radius: 6px;
-  legend { padding: 0 .3rem; color: #e4c65f; }
-  .interfaceSizeEntry { display: flex; align-items: center; gap: .25rem; color: #e4c65f; font-weight: bold; }
-  .interfaceSizeEntry input { width: 4.5rem; padding: .3rem .4rem; box-sizing: border-box; color: #f5efd7; background: #242b3d; border: 1px solid rgba(255, 255, 255, .25); border-radius: 5px; font: inherit; text-align: right; }
-  > input { grid-column: 1 / -1; display: block; width: 100%; margin: .35rem 0 0; accent-color: #e4c65f; cursor: pointer; }
-  input:focus-visible { outline: 2px solid #e4c65f; outline-offset: 3px; }
-  .interfaceSizeMarks { grid-column: 1 / -1; display: flex; justify-content: space-between; opacity: .7; font-size: .8rem; }
-}
-
 .playmat {
   width: calc(100% - var(--inspector-width));
   min-width: 0;

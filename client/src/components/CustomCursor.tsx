@@ -13,6 +13,7 @@ type Companion = {
 };
 
 const CURSOR_STATE_PATH = "/cursors/astralia/state-";
+const CURSOR_CHANGE_EVENT = "astralia:cursor-companion-change";
 
 const companions: Companion[] = [
   { id: "system", label: "Sistema" },
@@ -105,6 +106,26 @@ function storedCompanion(): CompanionId {
   return companions.some(({ id }) => id === stored) ? stored! : "chibi";
 }
 
+export function CursorPicker() {
+  const [companionId, setCompanionId] = useState<CompanionId>(storedCompanion);
+
+  const selectCompanion = (nextId: CompanionId) => {
+    setCompanionId(nextId);
+    localStorage.setItem("astralia.cursorCompanion.v2", nextId);
+    window.dispatchEvent(new CustomEvent<CompanionId>(CURSOR_CHANGE_EVENT, { detail: nextId }));
+  };
+
+  return <label className={styles.picker}
+    data-feature-classification={featureMetadata.customCursor.classification}
+    data-feature-required={featureMetadata.customCursor.required}
+  >
+    <span>Cursore personalizzato</span>
+    <select value={companionId} onChange={(event) => selectCompanion(event.target.value as CompanionId)} aria-label="Scegli il compagno del cursore">
+      {companions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+    </select>
+  </label>;
+}
+
 export default function CustomCursor() {
   const [enabled, setEnabled] = useState(false);
   const [visualState, setVisualState] = useState<CursorVisualState>("idle");
@@ -123,6 +144,12 @@ export default function CustomCursor() {
   const companion = companions.find(({ id }) => id === companionId) ?? companions[0];
   const companionSource = companion.sources?.[visualState] ?? companion.source;
   const cursorEnabled = enabled && companionId !== "system";
+
+  useEffect(() => {
+    const onCompanionChange = (event: Event) => setCompanionId((event as CustomEvent<CompanionId>).detail);
+    window.addEventListener(CURSOR_CHANGE_EVENT, onCompanionChange);
+    return () => window.removeEventListener(CURSOR_CHANGE_EVENT, onCompanionChange);
+  }, []);
 
   useEffect(() => {
     const finePointer = window.matchMedia("(pointer: fine) and (hover: hover)");
@@ -260,11 +287,6 @@ export default function CustomCursor() {
     };
   }, [cursorEnabled]);
 
-  const selectCompanion = (nextId: CompanionId) => {
-    setCompanionId(nextId);
-    localStorage.setItem("astralia.cursorCompanion.v2", nextId);
-  };
-
   return (
     <>
       {cursorEnabled && (
@@ -296,22 +318,6 @@ export default function CustomCursor() {
         </div>
       )}
 
-      <label
-        className={styles.picker}
-        data-feature-classification={featureMetadata.customCursor.classification}
-        data-feature-required={featureMetadata.customCursor.required}
-      >
-        <span>Cursor</span>
-        <select
-          value={companionId}
-          onChange={(event) => selectCompanion(event.target.value as CompanionId)}
-          aria-label="Scegli il compagno del cursore"
-        >
-          {companions.map(({ id, label }) => (
-            <option key={id} value={id}>{label}</option>
-          ))}
-        </select>
-      </label>
     </>
   );
 }

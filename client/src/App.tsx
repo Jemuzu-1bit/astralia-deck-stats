@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./App.module.scss";
+import FeedbackLink from "./components/FeedbackLink";
+import SettingsMenu from "./components/SettingsMenu";
 import ShortcutSettings from "./components/ShortcutSettings";
 import { gameConnection } from "./services/gameConnection";
 
@@ -11,6 +13,7 @@ function App() {
   const [joinMode, setJoinMode] = useState<"play" | "watch" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => gameConnection.onError(setError), []);
   const connectAnd = (action: () => void) => {
@@ -40,8 +43,10 @@ function App() {
           my decks
         </button>
         <button className={styles.helpButton} onClick={() => navigate("/help")}>Come si usa</button>
-        <button className={styles.helpButton} onClick={() => setShortcutSettingsOpen(true)}>Comandi da tastiera</button>
+        <button className={styles.helpButton} onClick={() => setSettingsOpen(true)}>Impostazioni</button>
       </div>
+      <FeedbackLink className={styles.feedbackButton}>Feedback</FeedbackLink>
+      {settingsOpen && <SettingsMenu onClose={() => setSettingsOpen(false)} onShortcuts={() => { setSettingsOpen(false); setShortcutSettingsOpen(true); }} />}
       {shortcutSettingsOpen && <ShortcutSettings onClose={() => setShortcutSettingsOpen(false)} />}
       {joinMode && (
         <div className={styles.modalOverlay} onClick={() => setJoinMode(null)}>

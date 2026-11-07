@@ -188,32 +188,25 @@
 }
 
 .picker {
-  position: fixed;
-  right: 14px;
-  bottom: 14px;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  color: #fff;
-  font-size: 0.75rem;
+  display: grid;
+  gap: .45rem;
+  padding: .7rem .85rem;
+  color: #f5efd7;
+  font-size: .9rem;
   font-weight: 700;
-  background: rgba(28, 28, 28, 0.84);
-  border: 1px solid rgba(230, 118, 173, 0.55);
-  border-radius: 10px;
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
+  background: #242b3d;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 6px;
 }
 
 .picker select {
-  max-width: 118px;
-  padding: 4px 22px 4px 7px;
-  color: #fff;
+  width: 100%;
+  padding: .5rem;
+  color: #f5efd7;
   font: inherit;
-  background: #383052;
-  border: 1px solid #7b72f1;
-  border-radius: 7px;
+  background: #101625;
+  border: 1px solid rgba(228, 198, 95, .6);
+  border-radius: 6px;
 }
 
 @keyframes idleFloat {
@@ -260,12 +253,4 @@
 @keyframes spriteFrames {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
-}
-
-@media (pointer: coarse), (hover: none) {
-  .picker { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .picker { display: none; }
 }
