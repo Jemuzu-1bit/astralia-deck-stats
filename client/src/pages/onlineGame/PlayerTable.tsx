@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useMemo, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import { gameConnection, type GameCard, type GameTable, type GameZone, type LobbyPlayerState } from "../../services/gameConnection";
 import type { CardAttachDrop, CardDrag, CardMenu, CardStat, CombatAction, CombatSelection, InspectCard, ZoneName } from "./model";
 import { CardZone, DeckZone, Zone, CardThumb } from "./CardElements";
@@ -155,9 +155,34 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
   onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
 }) {
+  const [subslotIndex, setSubslotIndex] = useState(0);
+  const subslotCount = items.length - 1;
+  const maxSubslotIndex = Math.max(0, subslotCount - 3);
+  const visibleSubslotIndex = Math.min(subslotIndex, maxSubslotIndex);
+
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
 
-  return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""}`}>
+  const renderCard = (item: GameCard, className: string) => <BattleCard
+    key={item.uid}
+    item={item}
+    movable={movable}
+    combatSelected={combatSelection?.uid === item.uid ? combatSelection.action : null}
+    menuEnabled={movable}
+    frazzleEditable={movable}
+    dropTargetEnabled={movable}
+    attachTargetEnabled={movable && attachingUid !== null && attachingUid !== item.uid}
+    onInspect={onInspect}
+    onDragStart={onDragStart}
+    onDragEnd={onDragEnd}
+    onMenu={onMenu}
+    onFrazzleAdjust={onFrazzleAdjust}
+    onStatAdjust={onStatAdjust}
+    onAttachDrop={onAttachDrop}
+    onAttachTarget={onAttachTarget}
+    className={className}
+  />;
+
+  return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""} ${items.length === 1 ? styles.soloStack : ""}`}>
     {items.length > 1 && <button
       type="button"
       className={styles.slotViewButton}
@@ -165,35 +190,27 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
       aria-label={`Show all ${items.length} cards in this ${protagonist ? "Protagonist" : "Battle"} slot`}
     >Cards · {items.length}</button>}
     <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
-      {items.map((item, index) => {
-        const subslotCount = items.length - 1;
-        const progress = subslotCount <= 1 ? 0 : (index - 1) / (subslotCount - 1);
-        const position = index === 0
-          ? items.length === 1
-            ? { left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: items.length + 1 }
-            : { left: "5px", top: "50%", transform: "translateY(-50%)", zIndex: 1 }
-          : { left: `calc(${62 + progress * 38}% - ${progress * (protagonist ? 34 : 26)}px)`, top: "50%", transform: "translate(-50%, -50%)", zIndex: index + 1 };
-        return <BattleCard
-          key={item.uid}
-          item={item}
-          movable={movable}
-          combatSelected={combatSelection?.uid === item.uid ? combatSelection.action : null}
-          menuEnabled={movable}
-          frazzleEditable={movable}
-          dropTargetEnabled={movable}
-          attachTargetEnabled={movable && attachingUid !== null && attachingUid !== item.uid}
-          onInspect={onInspect}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onMenu={onMenu}
-          onFrazzleAdjust={onFrazzleAdjust}
-          onStatAdjust={onStatAdjust}
-          onAttachDrop={onAttachDrop}
-          onAttachTarget={onAttachTarget}
-          className={index === 0 ? styles.slotMain : styles.attachedCard}
-          style={position}
-        />;
-      })}
+      <div className={styles.slotMainArea}>{renderCard(items[0], styles.slotMain)}</div>
+      {subslotCount > 0 && <div className={styles.subslotCarousel} role="group" aria-label={`Sub slot: ${subslotCount} cards`}>
+        <div className={styles.subslotViewport}>
+          <div
+            className={styles.subslotTrack}
+            data-visible={Math.min(subslotCount, 3)}
+            style={maxSubslotIndex > 0 ? { transform: `translateX(calc(-${visibleSubslotIndex * 100 / 3}% - ${visibleSubslotIndex}px))` } : undefined}
+          >
+            {items.slice(1).map((item, index) => <div
+              key={item.uid}
+              className={styles.subslotItem}
+              inert={index < visibleSubslotIndex || index >= visibleSubslotIndex + 3}
+              aria-hidden={index < visibleSubslotIndex || index >= visibleSubslotIndex + 3}
+            >{renderCard(item, styles.attachedCard)}</div>)}
+          </div>
+        </div>
+        {subslotCount > 3 && <div className={styles.subslotControls}>
+          <button type="button" aria-label="Previous sub slot card" disabled={visibleSubslotIndex === 0} onClick={() => setSubslotIndex(Math.max(0, visibleSubslotIndex - 1))}>‹</button>
+          <button type="button" aria-label="Next sub slot card" disabled={visibleSubslotIndex === maxSubslotIndex} onClick={() => setSubslotIndex(Math.min(maxSubslotIndex, visibleSubslotIndex + 1))}>›</button>
+        </div>}
+      </div>}
     </div>
   </div>;
 }
