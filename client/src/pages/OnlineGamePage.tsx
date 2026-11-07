@@ -492,7 +492,7 @@ function CardThumb({ entry, hidden = false, canAttack = false, canBlock = false,
     data-card-uid={entry.gameCard.uid}
     data-can-flip={entry.canFlip ? "true" : undefined}
     data-is-action={entry.card?.type.toLowerCase() === "action" ? "true" : undefined}
-    aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${combatSelected ? `. Selected to ${combatSelected}; choose an opponent card` : `${canAttack ? ". Click the top quarter to attack" : ""}${canBlock ? ". Click the bottom quarter to block" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
+    aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${combatSelected ? `. Selected to ${combatSelected}; choose an opponent card or click the same section to cancel` : `${canAttack ? ". Click the top quarter to declare attacker" : ""}${canBlock ? ". Click the bottom quarter to declare blocker" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
     aria-pressed={canAttack || canBlock ? Boolean(combatSelected) : undefined}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
@@ -509,10 +509,10 @@ function CardThumb({ entry, hidden = false, canAttack = false, canBlock = false,
       alt=""
       draggable={false}
     />
-    {combatSelected ? <span className={`${styles.combatSelectedBadge} ${combatSelected === "block" ? styles.blockSelectedBadge : styles.attackSelectedBadge}`} aria-hidden="true">{combatSelected === "attack" ? "Attack selected" : "Block selected"}</span>
+    {combatSelected ? <span className={`${styles.combatSelectedBadge} ${combatSelected === "block" ? styles.blockSelectedBadge : styles.attackSelectedBadge}`} aria-hidden="true">{combatSelected === "attack" ? "Attacker selected" : "Blocker selected"}</span>
       : <>
-        {canAttack && <span className={`${styles.combatHoverZone} ${styles.attackHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.attackHint}`}>Click to attack</span></span>}
-        {canBlock && <span className={`${styles.combatHoverZone} ${styles.blockHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.blockHint}`}>Click to block</span></span>}
+        {canAttack && <span className={`${styles.combatHoverZone} ${styles.attackHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.attackHint}`}>Declare Attacker</span></span>}
+        {canBlock && <span className={`${styles.combatHoverZone} ${styles.blockHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.blockHint}`}>Declare Blocker</span></span>}
       </>}
     {entry.gameCard.revealed && <span className={styles.revealedBadge}>Shown</span>}
     {entry.gameCard.ownerRole && <span className={styles.controlledBadge}>Controlled</span>}
@@ -1701,7 +1701,10 @@ export default function OnlineGamePage() {
     className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid || combatSelection ? styles.targeting : ""}`}
     onClickCapture={(event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>("[data-card-uid]");
-      if (!target?.dataset.cardUid) return;
+      if (!target?.dataset.cardUid) {
+        if (combatSelection) setCombatSelection(null);
+        return;
+      }
       if (targetingUid) {
         event.preventDefault(); event.stopPropagation();
         selectCardTarget(target.dataset.cardUid);
@@ -1725,7 +1728,7 @@ export default function OnlineGamePage() {
       const action = position < .25 ? "attack" : position >= .75 ? "block" : null;
       if (!action || (source.card.frazzle || 0) >= 1) return;
       event.preventDefault(); event.stopPropagation();
-      setCombatSelection({ uid, action });
+      setCombatSelection(combatSelection?.uid === uid && combatSelection.action === action ? null : { uid, action });
       setTargetingUid(null);
       setMenu(null);
     }}
@@ -1865,7 +1868,7 @@ export default function OnlineGamePage() {
       <button type="button" onClick={() => setTargetingUid(null)}>Cancel</button>
     </div>}
     {combatSelection && <div className={styles.attachHint} role="status">
-      {combatSelection.action === "attack" ? "Choose an opponent's card to attack" : "Choose an opponent's card to block"} · Press Esc to cancel
+      {combatSelection.action === "attack" ? "Choose an opponent's card to attack" : "Choose an opponent's card to block"} · Click the same section or outside a card to cancel
       <button type="button" onClick={() => setCombatSelection(null)}>Cancel</button>
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
