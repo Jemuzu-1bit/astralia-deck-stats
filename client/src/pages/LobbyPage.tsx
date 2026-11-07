@@ -44,7 +44,7 @@ export default function LobbyPage() {
   function leave() { gameConnection.leave(); navigate("/"); }
 
   return <div className={styles.root}>
-    <header className={styles.header}><div><h1>Online lobby</h1><p>{isSpectator ? "Watching this match. You can see public cards and actions." : "Share this code with your opponent or spectators."}</p></div><nav className={styles.headerActions}><Link to="/help" target="_blank" rel="noopener noreferrer">Guida</Link><button onClick={leave}>Leave</button></nav></header>
+    <header className={styles.header}><div><h1>Online lobby</h1><p>{isSpectator ? "Watching this match. You can see public cards and actions." : "Share this code with your opponent or spectators."}</p></div><nav className={styles.headerActions}><Link to="/help" target="_blank" rel="noopener noreferrer">Guide</Link><button onClick={leave}>Leave</button></nav></header>
     {error && <div className={styles.error}>{error}</div>}
     <div className={styles.code}>{state.code || "------"}</div>
     <p>Spectators: {state.spectatorCount ?? 0}</p>

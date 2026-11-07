@@ -1106,7 +1106,7 @@ function ContextMenu({ x, y, initialPanel, revealState, faceDown, statValues, co
       <button type="submit" disabled={!validStatValue}>Confirm</button>
     </form> : showCounters ? <div className={styles.counterMenu}>
       <button type="button" onClick={() => setShowCounters(false)}>← Actions</button>
-      <small>I counter numerici si possono aumentare con il tasto mostrato. I segnalini di stato hanno una sola copia: clic destro per rimuoverli.</small>
+      <small>Use the key shown to increase number counters. Each status marker can appear once; right click it to remove it.</small>
       {Boolean(counters?.length) && <div className={styles.counterMenuCurrent}>
         <strong>On this card</strong>
         {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`} tabIndex={0} role="group" aria-label={counter.kind === "status" ? `${counter.label}: ${COUNTER_KEYS.remove} removes it` : `${counter.label}: ${COUNTER_KEYS.increase} adds one, ${COUNTER_KEYS.decrease} removes one, ${COUNTER_KEYS.remove} removes all`} title={counter.kind === "status" ? `Focus this marker, then use ${COUNTER_KEYS.remove} to remove it` : `Focus this counter, then use ${COUNTER_KEYS.increase}, ${COUNTER_KEYS.decrease} or ${COUNTER_KEYS.remove}`} onKeyDown={(event) => {
@@ -1733,7 +1733,7 @@ export default function OnlineGamePage() {
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
-        <button type="button" onClick={() => setGameMenuOpen(true)}>Impostazioni</button>
+        <button type="button" onClick={() => setGameMenuOpen(true)}>Settings</button>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
@@ -1865,8 +1865,8 @@ export default function OnlineGamePage() {
       <button type="button" onClick={() => setTargetingUid(null)}>Cancel</button>
     </div>}
     {combatSelection && <div className={styles.attachHint} role="status">
-      {combatSelection.action === "attack" ? "Seleziona una carta avversaria da attaccare" : "Seleziona la carta avversaria da bloccare"} · Esc per annullare
-      <button type="button" onClick={() => setCombatSelection(null)}>Annulla</button>
+      {combatSelection.action === "attack" ? "Choose an opponent's card to attack" : "Choose an opponent's card to block"} · Press Esc to cancel
+      <button type="button" onClick={() => setCombatSelection(null)}>Cancel</button>
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
     <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />

@@ -16,8 +16,8 @@ const CURSOR_STATE_PATH = "/cursors/astralia/state-";
 const CURSOR_CHANGE_EVENT = "astralia:cursor-companion-change";
 
 const companions: Companion[] = [
-  { id: "system", label: "Sistema" },
-  { id: "colored", label: "Colorato" },
+  { id: "system", label: "System" },
+  { id: "colored", label: "Colored" },
   {
     id: "astralia",
     label: "Pochitan1",
@@ -45,7 +45,7 @@ const companions: Companion[] = [
   },
   {
     id: "cat",
-    label: "Gatto",
+    label: "Cat",
     sources: {
       idle: "/cursors/animals/cat-idle.gif",
       hover: "/cursors/animals/cat-hover.gif",
@@ -57,7 +57,7 @@ const companions: Companion[] = [
   },
   {
     id: "dog",
-    label: "Cane",
+    label: "Dog",
     sources: {
       idle: "/cursors/animals/dog-idle.gif",
       hover: "/cursors/animals/dog-hover.gif",
@@ -69,7 +69,7 @@ const companions: Companion[] = [
   },
   {
     id: "sea-lion",
-    label: "Leone marino",
+    label: "Sea lion",
     sources: {
       idle: "/cursors/astralia/sea-lion-closed.webp",
       hover: "/cursors/astralia/sea-lion-closed.webp",
@@ -119,8 +119,8 @@ export function CursorPicker() {
     data-feature-classification={featureMetadata.customCursor.classification}
     data-feature-required={featureMetadata.customCursor.required}
   >
-    <span>Cursore personalizzato</span>
-    <select value={companionId} onChange={(event) => selectCompanion(event.target.value as CompanionId)} aria-label="Scegli il compagno del cursore">
+    <span>Custom cursor</span>
+    <select value={companionId} onChange={(event) => selectCompanion(event.target.value as CompanionId)} aria-label="Choose your cursor companion">
       {companions.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
     </select>
   </label>;

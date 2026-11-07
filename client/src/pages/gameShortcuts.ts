@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 export const DEFAULT_SHORTCUTS = {
   card: {
     frazzleAdd: "F", frazzleRemove: "M", atk: "A", hp: "H", counters: "C",
-    play: "Spazio", swap: "Spazio", attach: "E", target: "O", clearTarget: "X",
+    play: "Space", swap: "Space", attach: "E", target: "O", clearTarget: "X",
     flip: "I", faceDown: "J", control: "G", reveal: "J",
     deckTop: "T", deckBottom: "Y", oblivion: "S", persona: "P", hand: "R", graveyard: "D",
   },
@@ -30,30 +30,30 @@ type ShortcutAction<S extends ShortcutScope> = keyof typeof DEFAULT_SHORTCUTS[S]
 
 export const SHORTCUT_LABELS: { [S in ShortcutScope]: { [A in ShortcutAction<S>]: string } } = {
   card: {
-    frazzleAdd: "Aggiungi Frazzle", frazzleRemove: "Rimuovi Frazzle", atk: "Imposta o rimuovi ATK",
-    hp: "Imposta o rimuovi HP", counters: "Apri i counter", play: "Gioca Action",
-    swap: "Scambia con la carta principale", attach: "Attacca a un'altra carta",
-    target: "Scegli bersaglio", clearTarget: "Cancella bersaglio", flip: "Gira carta",
-    faceDown: "Faccia coperta o scoperta", control: "Cedi o riprendi controllo",
-    reveal: "Rivela o nascondi dalla mano", deckTop: "In cima al mazzo",
-    deckBottom: "In fondo al mazzo", oblivion: "In Oblivion", persona: "In Persona",
-    hand: "In mano", graveyard: "Nel Graveyard",
+    frazzleAdd: "Add Frazzle", frazzleRemove: "Remove Frazzle", atk: "Set or remove ATK",
+    hp: "Set or remove HP", counters: "Open counters", play: "Play action",
+    swap: "Swap with the main card", attach: "Attach to another card",
+    target: "Choose target", clearTarget: "Clear target", flip: "Flip card",
+    faceDown: "Turn face down or up", control: "Give or take back control",
+    reveal: "Reveal or hide a card in your hand", deckTop: "Move to top of deck",
+    deckBottom: "Move to bottom of deck", oblivion: "Move to Oblivion", persona: "Move to Persona",
+    hand: "Move to hand", graveyard: "Move to Graveyard",
   },
   deck: {
-    shuffle: "Mescola", drawOne: "Pesca una carta", draw: "Pesca X carte",
-    discard: "Scarta X carte", look: "Guarda le prime X", oblivion: "X carte in Oblivion",
-    search: "Cerca nel mazzo",
+    shuffle: "Shuffle", drawOne: "Draw one card", draw: "Draw several cards",
+    discard: "Discard several cards", look: "Look at the top cards", oblivion: "Move cards to Oblivion",
+    search: "Search deck",
   },
   fragment: {
-    add: "Aggiungi Fragment", remove: "Rimuovi Fragment", spend: "Spendi Fragment",
-    recover: "Recupera Fragment", spendAll: "Spendi tutti", recoverAll: "Recupera tutti",
+    add: "Add Fragment", remove: "Remove Fragment", spend: "Spend Fragment",
+    recover: "Recover Fragment", spendAll: "Spend all", recoverAll: "Recover all",
     toggle1: "Fragment 1", toggle2: "Fragment 2", toggle3: "Fragment 3",
     toggle4: "Fragment 4", toggle5: "Fragment 5", toggle6: "Fragment 6",
     toggle7: "Fragment 7", toggle8: "Fragment 8", toggle9: "Fragment 9",
     toggle10: "Fragment 10",
   },
   counter: {
-    increase: "Aumenta counter", decrease: "Diminuisci counter", remove: "Rimuovi counter",
+    increase: "Increase counter", decrease: "Decrease counter", remove: "Remove counter",
     preset1: "Quest", preset2: "Omen", preset3: "Shield", preset4: "Astralia Gear",
     preset5: "Explosion", preset6: "Renown", preset7: "Advent",
   },
@@ -65,7 +65,7 @@ const sharedCardPairs = [new Set(["play", "swap"]), new Set(["faceDown", "reveal
 
 export function normalizeShortcut(event: KeyboardEvent): string | null {
   if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return null;
-  if (event.key === " ") return "Spazio";
+  if (event.key === " ") return "Space";
   if (event.key === "Delete") return "Delete";
   if (event.key === "ArrowUp" || event.key === "ArrowDown") return event.key;
   if (event.key === "+" || event.key === "-") return event.key;
@@ -75,7 +75,7 @@ export function normalizeShortcut(event: KeyboardEvent): string | null {
 
 function isValidBinding(value: unknown): value is string {
   if (typeof value !== "string") return false;
-  if (value === "Spazio" || value === "Delete" || value === "ArrowUp" || value === "ArrowDown") return true;
+  if (value === "Space" || value === "Delete" || value === "ArrowUp" || value === "ArrowDown") return true;
   return /^[A-Z0-9]$/.test(value) || value === "+" || value === "-";
 }
 
@@ -89,7 +89,10 @@ function loadShortcuts(): ShortcutBindings {
       ? (saved as Record<string, unknown>)[scope] : null;
     const stored = storedScope && typeof storedScope === "object" ? storedScope as Record<string, unknown> : {};
     (result as unknown as Record<string, Record<string, string>>)[scope] = Object.fromEntries(
-      Object.entries(defaults).map(([action, fallback]) => [action, isValidBinding(stored[action]) ? stored[action] : fallback]),
+      Object.entries(defaults).map(([action, fallback]) => {
+        const savedBinding = stored[action] === "Spazio" ? "Space" : stored[action];
+        return [action, isValidBinding(savedBinding) ? savedBinding : fallback];
+      }),
     );
   }
   return result;

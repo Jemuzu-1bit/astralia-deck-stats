@@ -56,16 +56,16 @@ export default function SettingsMenu({ onClose, onShortcuts, children }: Setting
 
   return <div className={styles.overlay} onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="settings-title" tabIndex={-1}>
-      <div className={styles.header}><h2 id="settings-title">Impostazioni</h2><button type="button" onClick={onClose} aria-label="Chiudi impostazioni">×</button></div>
+      <div className={styles.header}><h2 id="settings-title">Settings</h2><button type="button" onClick={onClose} aria-label="Close settings">×</button></div>
       <CursorPicker />
-      <button type="button" onClick={onShortcuts}>Comandi da tastiera</button>
-      <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={onClose}>Guida</Link>
+      <button type="button" onClick={onShortcuts}>Keyboard shortcuts</button>
+      <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={onClose}>Guide</Link>
       {children}
       <fieldset className={styles.interfaceSizeControl}>
-        <legend>Dimensione interfaccia</legend>
-        <label htmlFor="interface-size-slider">Scala della partita</label>
+        <legend>Display size</legend>
+        <label htmlFor="interface-size-slider">Match display size</label>
         <div className={styles.interfaceSizeEntry}>
-          <input id="interface-size-value" type="number" min={75} max={150} step={1} inputMode="numeric" aria-label="Percentuale interfaccia" value={interfaceSizeDraft} onChange={(event) => {
+          <input id="interface-size-value" type="number" min={75} max={150} step={1} inputMode="numeric" aria-label="Display size percentage" value={interfaceSizeDraft} onChange={(event) => {
             const draft = event.target.value;
             setInterfaceSizeDraft(draft);
             const value = Number(draft);

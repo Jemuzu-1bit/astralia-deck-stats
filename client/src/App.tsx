@@ -42,8 +42,8 @@ function App() {
         >
           my decks
         </button>
-        <button className={styles.helpButton} onClick={() => navigate("/help")}>Come si usa</button>
-        <button className={styles.helpButton} onClick={() => setSettingsOpen(true)}>Impostazioni</button>
+        <button className={styles.helpButton} onClick={() => navigate("/help")}>How to play</button>
+        <button className={styles.helpButton} onClick={() => setSettingsOpen(true)}>Settings</button>
       </div>
       <FeedbackLink className={styles.feedbackButton}>Feedback</FeedbackLink>
       {settingsOpen && <SettingsMenu onClose={() => setSettingsOpen(false)} onShortcuts={() => { setSettingsOpen(false); setShortcutSettingsOpen(true); }} />}
