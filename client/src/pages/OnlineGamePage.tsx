@@ -268,7 +268,7 @@ function TargetArrows({ links, containerRef }: { links: TargetLink[]; containerR
         }];
       });
 
-      setSize({ width: container.scrollWidth, height: container.scrollHeight });
+      setSize({ width: container.clientWidth, height: container.clientHeight });
       setPaths(nextPaths);
       if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
       const nextExpiry = activeLinks.reduce((earliest, link) => Math.min(earliest, link.expiresAt), Infinity);

@@ -19,8 +19,7 @@
   top: 0;
   left: 0;
   pointer-events: none;
-  overflow: visible;
-
+  overflow: hidden;
 }
 
 .targetArrowGroup { --arrow-color: #f6b936; --arrow-glow: rgba(255, 191, 56, .34); }
