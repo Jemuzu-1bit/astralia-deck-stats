@@ -51,5 +51,14 @@ VITE_SERVER_URL=https://tuo-server.example.com
 
 Il server mantiene le lobby in memoria: il riavvio chiude le partite attive.
 
+## Struttura del codice
+
+- `client/src/pages/onlineGame/` contiene modello della tabella, componenti della partita e gestione delle scorciatoie. `OnlineGamePage.tsx` coordina connessione, stato e interazioni.
+- `client/src/hooks/useDeckEditor.ts` gestisce il caricamento, la modifica e il salvataggio dei mazzi; `OpeningHandSimulator.tsx` gestisce la simulazione della mano.
+- `client/src/domain/` contiene le regole del deck builder; `client/src/services/` contiene persistenza, dati delle carte e connessione Socket.IO.
+- `server/gameTable.js` gestisce le operazioni sulle carte, `roomState.js` costruisce lo stato visibile ai client, `registerCardEvents.js` e `registerDeckEvents.js` registrano gli eventi della partita. `server.js` gestisce stanze, lobby e avvio del server.
+
+Verifiche disponibili: `npm --prefix client run build`, `npm --prefix client run lint`, `node client/tests/deckLinks.test.mjs` e `npm --prefix server test`.
+
 ## Contributi
 Progetto open-source, contribuzioni benvenute.
