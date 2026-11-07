@@ -13,6 +13,10 @@ const MAX_PLAYERS = 2;
 const MAX_SPECTATORS = 20;
 const ROOM_TTL_MS = 30 * 60 * 1000;
 const TARGET_DURATION_MS = 5 * 1000;
+const STATUS_COUNTERS = new Map([
+  "Barrier", "Assault", "Preemptive Defense", "Preemptive Strike",
+  "Breakthrough", "Rapid Recovery", "Guard",
+].map((label) => [label.toLocaleLowerCase(), label]));
 const COUNTER_EMOJIS = new Map([
   ["📜", "Quest"], ["🔮", "Omen"], ["🛡️", "Shield"],
   ["⚙️", "Astralia Gear"], ["💥", "Explosion"],
@@ -109,6 +113,19 @@ function emitState(room) {
   for (const spectatorId of room.spectators) {
     io.to(spectatorId).emit("lobby:state", publicState(room, spectatorId));
   }
+}
+function showTargetArrow(room, card, targetUid, kind) {
+  card.targetUid = targetUid;
+  card.targetKind = kind;
+  card.targetExpiresAt = Date.now() + TARGET_DURATION_MS;
+  const expiresAt = card.targetExpiresAt;
+  setTimeout(() => {
+    if (card.targetUid !== targetUid || card.targetExpiresAt !== expiresAt) return;
+    delete card.targetUid;
+    delete card.targetKind;
+    delete card.targetExpiresAt;
+    emitState(room);
+  }, TARGET_DURATION_MS);
 }
 function fail(socket, message) { socket.emit("lobby:error", message); }
 function currentPlayer(socket, room) {
@@ -386,11 +403,12 @@ io.on("connection", (socket) => {
     const found = findCard(player.table, String(payload?.uid || ""));
     if (!found?.slotted || (payload?.remove !== true && payload?.delta !== 1 && payload?.delta !== -1)) return;
     const kind = payload?.kind;
-    if (kind !== "emoji" && kind !== "name" && kind !== "customEmoji") return;
-    const emoji = kind === "name" ? undefined : payload?.emoji;
+    if (kind !== "emoji" && kind !== "name" && kind !== "customEmoji" && kind !== "status") return;
+    const emoji = kind === "name" || kind === "status" ? undefined : payload?.emoji;
     if (kind === "emoji" && !COUNTER_EMOJIS.has(emoji)) return;
     if (kind === "customEmoji" && !validCounterEmoji(emoji)) return;
-    const label = kind === "emoji" ? COUNTER_EMOJIS.get(emoji)
+    const label = kind === "status" ? STATUS_COUNTERS.get(String(payload?.label || "").trim().toLocaleLowerCase())
+      : kind === "emoji" ? COUNTER_EMOJIS.get(emoji)
       : String(payload?.label || "").trim().replace(/\s+/g, " ");
     if (!label || label.length > 24 || /[\x00-\x1f\x7f]/.test(label)) return;
 
@@ -402,9 +420,10 @@ io.on("connection", (socket) => {
       if (index === -1) return;
       counters.splice(index, 1);
     } else if (index === -1) {
-      if (payload.delta !== 1 || counters.length >= 8) return;
+      if (payload.delta !== 1 || (kind === "status" ? counters.length >= 15 : counters.filter((counter) => counter.kind !== "status").length >= 8)) return;
       counters.push({ kind, label, ...(emoji ? { emoji } : {}), value: 1 });
     } else {
+      if (kind === "status" && payload.delta === 1) return;
       const next = counters[index].value + payload.delta;
       if (next < 0 || next > 99) return;
       if (next === 0) counters.splice(index, 1);
@@ -581,6 +600,7 @@ io.on("connection", (socket) => {
 
     if (payload?.targetUid === null) {
       delete source.card.targetUid;
+      delete source.card.targetKind;
       delete source.card.targetExpiresAt;
     }
     else {
@@ -590,16 +610,39 @@ io.on("connection", (socket) => {
         .map((candidate) => candidate?.table ? findCard(candidate.table, targetUid) : null)
         .find(Boolean);
       if (!target) return;
-      source.card.targetUid = targetUid;
-      source.card.targetExpiresAt = Date.now() + TARGET_DURATION_MS;
-      const expiresAt = source.card.targetExpiresAt;
-      setTimeout(() => {
-        if (source.card.targetUid !== targetUid || source.card.targetExpiresAt !== expiresAt) return;
-        delete source.card.targetUid;
-        delete source.card.targetExpiresAt;
-        emitState(room);
-      }, TARGET_DURATION_MS);
+      showTargetArrow(room, source.card, targetUid, "target");
     }
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:attack", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const opponent = player.role === "host" ? room.guest : room.host;
+    if (!opponent?.table) return;
+    const source = findCard(player.table, String(payload?.uid || ""));
+    const target = findCard(opponent.table, String(payload?.targetUid || ""));
+    if (!source?.slotted || !target?.slotted || source.card.faceDown || target.card.faceDown
+      || (Number(source.card.frazzle) || 0) >= 1) return;
+
+    const assault = source.card.counters?.some((counter) => counter.kind === "status" && counter.label === "Assault");
+    const amount = assault || target.zone === "protagonist" ? 1 : 2;
+    source.card.frazzle = Math.min(2, (Number(source.card.frazzle) || 0) + amount);
+    showTargetArrow(room, source.card, target.card.uid, "attack");
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:block", (payload) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player?.table || !room.started) return;
+    const opponent = player.role === "host" ? room.guest : room.host;
+    if (!opponent?.table) return;
+    const source = findCard(player.table, String(payload?.uid || ""));
+    const target = findCard(opponent.table, String(payload?.targetUid || ""));
+    if (!source?.slotted || !target?.slotted || source.card.faceDown || target.card.faceDown
+      || (Number(source.card.frazzle) || 0) >= 1) return;
+
+    const guard = source.card.counters?.some((counter) => counter.kind === "status" && counter.label === "Guard");
+    if (!guard) source.card.frazzle = Math.min(2, (Number(source.card.frazzle) || 0) + 1);
+    showTargetArrow(room, source.card, target.card.uid, "block");
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:deckAction", (payload) => {

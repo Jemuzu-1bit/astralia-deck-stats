@@ -1,7 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 export interface GameCounter {
-  kind: "emoji" | "name" | "customEmoji";
+  kind: "emoji" | "name" | "customEmoji" | "status";
   label: string;
   emoji?: string;
   value: number;
@@ -15,6 +15,7 @@ export interface GameCard {
   faceDown?: boolean;
   targetUid?: string;
   targetExpiresAt?: number;
+  targetKind?: "target" | "attack" | "block";
   atk?: number;
   hp?: number;
   counters?: GameCounter[];
@@ -228,6 +229,8 @@ class GameConnection {
   removeCardCounter(uid: string, counter: Pick<GameCounter, "kind" | "label" | "emoji">) {
     this.socket?.emit("game:adjustCounter", { uid, ...counter, remove: true });
   }
+  attackCard(uid: string, targetUid: string) { this.socket?.emit("game:attack", { uid, targetUid }); }
+  blockCard(uid: string, targetUid: string) { this.socket?.emit("game:block", { uid, targetUid }); }
   updateFragments(action: "add" | "remove" | "spend" | "recover" | "spendAll" | "recoverAll") {
     this.socket?.emit("game:updateFragments", { action });
   }

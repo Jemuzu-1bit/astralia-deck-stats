@@ -29,9 +29,12 @@ type ResolvedCard = { gameCard: GameCard; card: Card | null; canFlip: boolean };
 type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card | null, canFlip: boolean) => void;
 type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
+type CombatAction = "attack" | "block";
+type CombatSelection = { uid: string; action: CombatAction };
 type SlotRailControls = {
   movable: boolean;
   attachingUid: string | null;
+  combatSelection: CombatSelection | null;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachDrop: CardAttachDrop;
@@ -58,6 +61,15 @@ const COUNTER_PRESETS: CounterChoice[] = [
   { kind: "emoji", emoji: "🏆", label: "Renown" },
   { kind: "emoji", emoji: "🌌", label: "Advent" },
 ];
+const STATUS_COUNTERS: Array<CounterChoice & { short: string }> = [
+  { kind: "status", label: "Barrier", short: "BR" },
+  { kind: "status", label: "Assault", short: "AS" },
+  { kind: "status", label: "Preemptive Defense", short: "PD" },
+  { kind: "status", label: "Preemptive Strike", short: "PS" },
+  { kind: "status", label: "Breakthrough", short: "BT" },
+  { kind: "status", label: "Rapid Recovery", short: "RR" },
+  { kind: "status", label: "Guard", short: "GD" },
+];
 const KEYWORD_EMOJIS = [
   { emoji: "🔥", label: "Fire" }, { emoji: "❄️", label: "Freeze" },
   { emoji: "⚡", label: "Energy" }, { emoji: "💀", label: "Death" },
@@ -81,7 +93,7 @@ function isSingleEmoji(value: string): boolean {
     && /\p{Extended_Pictographic}/u.test(value);
 }
 type SlottedCard = { card: GameCard; zone: "battle" | "protagonist"; slot?: number; index: number };
-type TargetLink = { sourceUid: string; targetUid: string; expiresAt: number };
+type TargetLink = { sourceUid: string; targetUid: string; expiresAt: number; kind: "target" | CombatAction };
 type TargetPath = TargetLink & { path: string; startX: number; startY: number };
 
 const COUNTED_DECK_ACTIONS: Array<{ action: CountedDeckAction; label: string }> = [
@@ -288,13 +300,13 @@ function TargetArrows({ links, containerRef }: { links: TargetLink[]; containerR
   if (paths.length === 0) return null;
   return <svg className={styles.targetArrows} width={size.width} height={size.height} aria-hidden="true">
     <defs>
-      <marker id="target-arrow-head" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" />
-      </marker>
+      {(["target", "attack", "block"] as const).map((kind) => <marker key={kind} id={`${kind}-arrow-head`} viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill={kind === "attack" ? "#f14646" : kind === "block" ? "#2e8fff" : "#f6b936"} />
+      </marker>)}
     </defs>
-    {paths.map(({ sourceUid, targetUid, path, startX, startY }) => <g key={`${sourceUid}:${targetUid}`}>
+    {paths.map(({ sourceUid, targetUid, path, startX, startY, kind }) => <g key={`${sourceUid}:${targetUid}:${kind}`} className={kind === "attack" ? styles.attackArrowGroup : kind === "block" ? styles.blockArrowGroup : styles.targetArrowGroup}>
       <path className={styles.targetArrowGlow} d={path} />
-      <path className={styles.targetArrow} d={path} markerEnd="url(#target-arrow-head)" />
+      <path className={styles.targetArrow} d={path} markerEnd={`url(#${kind}-arrow-head)`} />
       <path className={styles.targetArrowFlow} d={path} />
       <circle className={styles.targetArrowOrigin} cx={startX} cy={startY} r="4" />
     </g>)}
@@ -439,32 +451,37 @@ function CustomCounter({ uid, counter, editable, onAdjust }: {
   onAdjust: (delta: -1 | 1) => void;
 }) {
   const COUNTER_KEYS = useGameShortcuts().counter;
-  const description = `${counter.label} counter: ${counter.value}`;
+  const isStatus = counter.kind === "status";
+  const description = isStatus ? counter.label : `${counter.label} counter: ${counter.value}`;
   return <span
     data-game-counter="custom"
     data-counter-uid={uid}
     data-counter-kind={counter.kind}
     data-counter-label={counter.label}
     data-counter-emoji={counter.emoji}
-    className={`${styles.customCounter} ${editable ? styles.editableCustomCounter : ""}`}
+    className={`${styles.customCounter} ${isStatus ? styles.statusCounter : ""} ${editable ? styles.editableCustomCounter : ""}`}
     role={editable ? "button" : undefined}
     tabIndex={editable ? 0 : undefined}
-    aria-label={editable ? `${description}. Left click adds one, right click removes one.` : description}
-    title={editable ? `${description} · Left click or ${COUNTER_KEYS.increase} to add · Right click or ${COUNTER_KEYS.decrease} to remove` : description}
+    aria-label={editable ? isStatus ? `${description}. Right click removes it.` : `${description}. Left click adds one, right click removes one.` : description}
+    title={editable ? isStatus ? `${description} · Right click or ${COUNTER_KEYS.remove} to remove` : `${description} · Left click or ${COUNTER_KEYS.increase} to add · Right click or ${COUNTER_KEYS.decrease} to remove` : description}
     onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
-    onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(1); } : undefined}
+    onClick={editable ? (event) => { event.preventDefault(); event.stopPropagation(); if (counter.kind !== "status") onAdjust(1); } : undefined}
     onContextMenu={editable ? (event) => { event.preventDefault(); event.stopPropagation(); onAdjust(-1); } : undefined}
     onKeyDown={editable ? (event) => {
       const key = normalizeShortcut(event.nativeEvent);
-      if (key === COUNTER_KEYS.increase) { event.preventDefault(); onAdjust(1); }
+      if (key === COUNTER_KEYS.increase) { event.preventDefault(); if (!isStatus) onAdjust(1); }
       if (key === COUNTER_KEYS.decrease) { event.preventDefault(); onAdjust(-1); }
+      if (key === COUNTER_KEYS.remove && isStatus) { event.preventDefault(); onAdjust(-1); }
     } : undefined}
-  ><span>{counter.emoji || counter.label.slice(0, 3)}</span><b>{counter.value}</b></span>;
+  ><span>{isStatus ? STATUS_COUNTERS.find((item) => item.label === counter.label)?.short ?? counter.label.slice(0, 2) : counter.emoji || counter.label.slice(0, 3)}</span>{!isStatus && <b>{counter.value}</b>}</span>;
 }
 
-function CardThumb({ entry, hidden = false, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
+function CardThumb({ entry, hidden = false, canAttack = false, canBlock = false, combatSelected = null, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
   entry: ResolvedCard;
   hidden?: boolean;
+  canAttack?: boolean;
+  canBlock?: boolean;
+  combatSelected?: CombatAction | null;
   onInspect: InspectCard;
   onDragStart?: CardDrag;
   onDragEnd?: () => void;
@@ -480,7 +497,8 @@ function CardThumb({ entry, hidden = false, onInspect, onDragStart, onDragEnd, o
     data-card-uid={entry.gameCard.uid}
     data-can-flip={entry.canFlip ? "true" : undefined}
     data-is-action={entry.card?.type.toLowerCase() === "action" ? "true" : undefined}
-    aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
+    aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${combatSelected ? `. Selected to ${combatSelected}; choose an opponent card` : `${canAttack ? ". Click the top quarter to attack" : ""}${canBlock ? ". Click the bottom quarter to block" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
+    aria-pressed={canAttack || canBlock ? Boolean(combatSelected) : undefined}
     draggable={Boolean(onDragStart)}
     onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
     onDragEnd={onDragEnd}
@@ -496,6 +514,11 @@ function CardThumb({ entry, hidden = false, onInspect, onDragStart, onDragEnd, o
       alt=""
       draggable={false}
     />
+    {combatSelected ? <span className={`${styles.combatSelectedBadge} ${combatSelected === "block" ? styles.blockSelectedBadge : styles.attackSelectedBadge}`} aria-hidden="true">{combatSelected === "attack" ? "Attack selected" : "Block selected"}</span>
+      : <>
+        {canAttack && <span className={`${styles.combatHoverZone} ${styles.attackHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.attackHint}`}>Click to attack</span></span>}
+        {canBlock && <span className={`${styles.combatHoverZone} ${styles.blockHoverZone}`} aria-hidden="true"><span className={`${styles.combatHint} ${styles.blockHint}`}>Click to block</span></span>}
+      </>}
     {entry.gameCard.revealed && <span className={styles.revealedBadge}>Shown</span>}
     {entry.gameCard.ownerRole && <span className={styles.controlledBadge}>Controlled</span>}
   </button>;
@@ -623,6 +646,7 @@ function CardRail({ items, label, searchQuery, sortByName = false, faceUpUids, s
       key={entry.gameCard.uid}
       item={entry.gameCard}
       movable={slotControls.movable}
+      combatSelected={slotControls.combatSelection?.uid === entry.gameCard.uid ? slotControls.combatSelection.action : null}
       menuEnabled={slotControls.movable}
       frazzleEditable={slotControls.movable}
       attachTargetEnabled={slotControls.movable && slotControls.attachingUid !== null && slotControls.attachingUid !== entry.gameCard.uid}
@@ -727,12 +751,13 @@ function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDrag
   </div>;
 }
 
-function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, combatSelection, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
   readOnly?: boolean;
   attachingUid: string | null;
+  combatSelection: CombatSelection | null;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
   onOpenSlot: (zone: "battle" | "protagonist", slot?: number) => void;
@@ -792,6 +817,7 @@ function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onIn
             onOpen={() => onOpenSlot("protagonist")}
             movable={movable}
             attachingUid={attachingUid}
+            combatSelection={combatSelection}
             onInspect={onInspect}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
@@ -816,6 +842,7 @@ function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onIn
             onOpen={() => onOpenSlot("battle", slot)}
             movable={movable}
             attachingUid={attachingUid}
+            combatSelection={combatSelection}
             onInspect={onInspect}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
@@ -857,11 +884,12 @@ function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, onIn
   </section>;
 }
 
-function SlotStack({ items, protagonist = false, movable, attachingUid, onOpen, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
+function SlotStack({ items, protagonist = false, movable, attachingUid, combatSelection, onOpen, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
   items: GameCard[];
   protagonist?: boolean;
   movable: boolean;
   attachingUid: string | null;
+  combatSelection: CombatSelection | null;
   onOpen: () => void;
   onInspect: InspectCard;
   onDragStart: CardDrag;
@@ -894,6 +922,7 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onOpen, 
           key={item.uid}
           item={item}
           movable={movable}
+          combatSelected={combatSelection?.uid === item.uid ? combatSelection.action : null}
           menuEnabled={movable}
           frazzleEditable={movable}
           dropTargetEnabled={movable}
@@ -914,9 +943,10 @@ function SlotStack({ items, protagonist = false, movable, attachingUid, onOpen, 
   </div>;
 }
 
-function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
+function BattleCard({ item, movable, combatSelected = null, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
   item: GameCard;
   movable: boolean;
+  combatSelected?: CombatAction | null;
   menuEnabled?: boolean;
   frazzleEditable?: boolean;
   dropTargetEnabled?: boolean;
@@ -935,13 +965,16 @@ function BattleCard({ item, movable, menuEnabled = movable, frazzleEditable = mo
   const items = useMemo(() => [item], [item]);
   const cards = useResolvedCards(items);
   return cards[0] && <div
-    className={`${styles.battleCardWrap} ${attachTargetEnabled ? styles.attachTarget : ""} ${className}`}
+    className={`${styles.battleCardWrap} ${attachTargetEnabled ? styles.attachTarget : ""} ${combatSelected === "attack" ? styles.attackSelected : combatSelected === "block" ? styles.blockSelected : ""} ${className}`}
     style={style}
     onDragOver={dropTargetEnabled ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}
     onDrop={dropTargetEnabled ? (event) => onAttachDrop(event, item.uid) : undefined}
   >
     <CardThumb
       entry={cards[0]}
+      canAttack={movable && !item.faceDown && !attachTargetEnabled && (item.frazzle || 0) === 0}
+      canBlock={movable && !item.faceDown && !attachTargetEnabled && (item.frazzle || 0) === 0}
+      combatSelected={combatSelected}
       onInspect={onInspect}
       onDragStart={movable ? onDragStart : undefined}
       onDragEnd={movable ? onDragEnd : undefined}
@@ -1078,18 +1111,18 @@ function ContextMenu({ x, y, initialPanel, revealState, faceDown, statValues, co
       <button type="submit" disabled={!validStatValue}>Confirm</button>
     </form> : showCounters ? <div className={styles.counterMenu}>
       <button type="button" onClick={() => setShowCounters(false)}>← Actions</button>
-      <small>Premi il tasto mostrato per aggiungere un counter. Su un counter esistente: {COUNTER_KEYS.increase} / {COUNTER_KEYS.decrease} / {COUNTER_KEYS.remove}.</small>
+      <small>I counter numerici si possono aumentare con il tasto mostrato. I segnalini di stato hanno una sola copia: clic destro per rimuoverli.</small>
       {Boolean(counters?.length) && <div className={styles.counterMenuCurrent}>
         <strong>On this card</strong>
-        {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`} tabIndex={0} role="group" aria-label={`${counter.label}: ${COUNTER_KEYS.increase} adds one, ${COUNTER_KEYS.decrease} removes one, ${COUNTER_KEYS.remove} removes all`} title={`Focus this counter, then use ${COUNTER_KEYS.increase}, ${COUNTER_KEYS.decrease} or ${COUNTER_KEYS.remove}`} onKeyDown={(event) => {
+        {counters?.map((counter) => <div key={`${counter.kind}:${counter.label.toLocaleLowerCase()}:${counter.emoji || ""}`} tabIndex={0} role="group" aria-label={counter.kind === "status" ? `${counter.label}: ${COUNTER_KEYS.remove} removes it` : `${counter.label}: ${COUNTER_KEYS.increase} adds one, ${COUNTER_KEYS.decrease} removes one, ${COUNTER_KEYS.remove} removes all`} title={counter.kind === "status" ? `Focus this marker, then use ${COUNTER_KEYS.remove} to remove it` : `Focus this counter, then use ${COUNTER_KEYS.increase}, ${COUNTER_KEYS.decrease} or ${COUNTER_KEYS.remove}`} onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           const key = normalizeShortcut(event.nativeEvent);
-          if (key === COUNTER_KEYS.increase || key === COUNTER_KEYS.decrease) { event.preventDefault(); event.stopPropagation(); onCounterAdjust?.(counter, key === COUNTER_KEYS.increase ? 1 : -1); }
+          if (key === COUNTER_KEYS.increase || key === COUNTER_KEYS.decrease) { event.preventDefault(); event.stopPropagation(); if (counter.kind !== "status" || key === COUNTER_KEYS.decrease) onCounterAdjust?.(counter, key === COUNTER_KEYS.increase ? 1 : -1); }
           if (key === COUNTER_KEYS.remove) { event.preventDefault(); event.stopPropagation(); onCounterRemove?.(counter); }
         }}>
-          <span title={`${counter.label} counter`}>{counter.emoji || counter.label} · {counter.value}</span>
+          <span title={counter.label}>{counter.emoji || counter.label}{counter.kind !== "status" && ` · ${counter.value}`}</span>
           <button type="button" aria-label={`Remove one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, -1)}>−</button>
-          <button type="button" aria-label={`Add one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, 1)}>+</button>
+          {counter.kind !== "status" && <button type="button" aria-label={`Add one ${counter.label} counter`} onClick={() => onCounterAdjust?.(counter, 1)}>+</button>}
           <button type="button" aria-label={`Remove all ${counter.label} counters`} onClick={() => onCounterRemove?.(counter)}>Remove</button>
         </div>)}
       </div>}
@@ -1101,6 +1134,15 @@ function ContextMenu({ x, y, initialPanel, revealState, faceDown, statValues, co
           title={`${counter.label} counter`}
           onClick={() => onCounterAdjust?.(counter, 1)}
         >{counter.emoji} {counter.label} <kbd>{COUNTER_KEYS[`preset${index + 1}` as keyof typeof COUNTER_KEYS]}</kbd></button>)}
+      </div>
+      <strong>Status markers</strong>
+      <div className={styles.counterChoices}>
+        {STATUS_COUNTERS.map((counter) => <button
+          key={counter.label}
+          type="button"
+          disabled={counters?.some((current) => current.kind === "status" && current.label === counter.label)}
+          onClick={() => onCounterAdjust?.(counter, 1)}
+        >{counter.short} {counter.label}</button>)}
       </div>
       <strong>Custom keyword counter</strong>
       <div className={styles.keywordEmojiPicker} role="group" aria-label="Choose an emoji for the keyword counter">
@@ -1137,7 +1179,7 @@ function ContextMenu({ x, y, initialPanel, revealState, faceDown, statValues, co
       <button type="button" role="menuitem" onClick={() => statValues?.atk !== undefined ? onRemoveStat?.("atk") : selectStat("atk")}>{statValues?.atk !== undefined ? "Remove ATK" : "Set ATK"} <kbd>{CARD_KEYS.atk}</kbd></button>
       <button type="button" role="menuitem" onClick={() => statValues?.hp !== undefined ? onRemoveStat?.("hp") : selectStat("hp")}>{statValues?.hp !== undefined ? "Remove HP" : "Set HP"} <kbd>{CARD_KEYS.hp}</kbd></button>
     </>}
-    {onCounterAdjust && <button type="button" role="menuitem" onClick={() => setShowCounters(true)}>Custom counters{counters?.length ? ` · ${counters.length}` : ""}… <kbd>{CARD_KEYS.counters}</kbd></button>}
+    {onCounterAdjust && <button type="button" role="menuitem" onClick={() => setShowCounters(true)}>Counters & markers{counters?.length ? ` · ${counters.length}` : ""}… <kbd>{CARD_KEYS.counters}</kbd></button>}
     {onPlayAction && <button type="button" role="menuitem" onClick={onPlayAction}>Play action <kbd>{CARD_KEYS.play}</kbd></button>}
     {onSwapWithMain && <button type="button" role="menuitem" onClick={onSwapWithMain}>Swap with main card <kbd>{CARD_KEYS.swap}</kbd></button>}
     {onStartAttach && <button type="button" role="menuitem" onClick={onStartAttach}>Attach to... <kbd>{CARD_KEYS.attach}</kbd></button>}
@@ -1253,6 +1295,7 @@ export default function OnlineGamePage() {
   const [dismissedDeckResultId, setDismissedDeckResultId] = useState<string | null>(null);
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [targetingUid, setTargetingUid] = useState<string | null>(null);
+  const [combatSelection, setCombatSelection] = useState<CombatSelection | null>(null);
   const [dragging, setDragging] = useState(false);
   const draggedUid = useRef<string | null>(null);
   const draggedElement = useRef<HTMLButtonElement | null>(null);
@@ -1309,7 +1352,7 @@ export default function OnlineGamePage() {
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
   const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
     card.targetUid && card.targetExpiresAt
-      ? [{ sourceUid: card.uid, targetUid: card.targetUid, expiresAt: card.targetExpiresAt }]
+      ? [{ sourceUid: card.uid, targetUid: card.targetUid, expiresAt: card.targetExpiresAt, kind: card.targetKind ?? "target" }]
       : []), [myTable, opponentTable]);
   const openCards = openZone ? (openZone.owner === "self" ? myTable : opponentTable)[openZone.name] : EMPTY_TABLE.hand;
   const slotCards = openSlot
@@ -1347,7 +1390,7 @@ export default function OnlineGamePage() {
             const current = counterCard.counters?.find((item) => item.kind === counterElement.dataset.counterKind
               && item.label === counterElement.dataset.counterLabel && (item.emoji ?? "") === (counterElement.dataset.counterEmoji ?? ""));
             if (!current) return;
-            gameConnection.adjustCardCounter(counterCard.uid, current, delta);
+            if (current.kind !== "status" || delta === -1) gameConnection.adjustCardCounter(counterCard.uid, current, delta);
           }
           event.preventDefault();
           return;
@@ -1479,12 +1522,12 @@ export default function OnlineGamePage() {
           break;
         case CARD_KEYS.attach:
           if (!inAction && (!slotted || (slotted.index === 0 && !slotted.card.isProtagonist))) {
-            setAttachingUid(card.uid); setTargetingUid(null);
+            setAttachingUid(card.uid); setTargetingUid(null); setCombatSelection(null);
           } else handled = false;
           break;
         case CARD_KEYS.control:
           if (slotted && !slotted.card.isProtagonist && opponent?.table) {
-            gameConnection.giveCardControl(card.uid); setAttachingUid(null); setTargetingUid(null);
+            gameConnection.giveCardControl(card.uid); setAttachingUid(null); setTargetingUid(null); setCombatSelection(null);
           } else handled = false;
           break;
         case CARD_KEYS.flip:
@@ -1503,6 +1546,7 @@ export default function OnlineGamePage() {
         case CARD_KEYS.target:
           setTargetingUid((current) => current === card.uid ? null : card.uid);
           setAttachingUid(null);
+          setCombatSelection(null);
           break;
         case CARD_KEYS.clearTarget:
           if (card.targetUid && (card.targetExpiresAt ?? 0) > Date.now()) gameConnection.setCardTarget(card.uid, null);
@@ -1573,6 +1617,17 @@ export default function OnlineGamePage() {
     window.addEventListener("keydown", cancelTarget);
     return () => window.removeEventListener("keydown", cancelTarget);
   }, [targetingUid]);
+  useEffect(() => {
+    if (!combatSelection) return;
+    const cancelCombat = (event: KeyboardEvent) => { if (event.key === "Escape") setCombatSelection(null); };
+    window.addEventListener("keydown", cancelCombat);
+    return () => window.removeEventListener("keydown", cancelCombat);
+  }, [combatSelection]);
+  useEffect(() => {
+    if (!combatSelection) return;
+    const source = findSlottedCard(myTable, combatSelection.uid);
+    if (!source || source.card.faceDown || (source.card.frazzle || 0) >= 1) setCombatSelection(null);
+  }, [combatSelection, myTable]);
   const startDrag: CardDrag = (event, card) => {
     draggedUid.current = card.uid;
     draggedElement.current = event.currentTarget;
@@ -1582,6 +1637,7 @@ export default function OnlineGamePage() {
     setDragging(true);
     setAttachingUid(null);
     setTargetingUid(null);
+    setCombatSelection(null);
     setMenu(null);
   };
   const endDrag = () => {
@@ -1619,6 +1675,7 @@ export default function OnlineGamePage() {
     if (!targetingUid) return;
     gameConnection.setCardTarget(targetingUid, targetUid);
     setTargetingUid(null);
+    setCombatSelection(null);
     setInspectedCard(null);
   };
   const showMenu: CardMenu = (event, card, resolvedCard, canFlip) => {
@@ -1668,14 +1725,37 @@ export default function OnlineGamePage() {
     ref={rootRef}
     style={{ "--ui-scale": interfaceSize / 100 } as CSSProperties}
     onPointerMove={(event) => { pointerPosition.current = { x: event.clientX, y: event.clientY }; }}
-    className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid ? styles.targeting : ""}`}
-    onClickCapture={targetingUid ? (event) => {
+    className={`${styles.root} ${dragging ? styles.dragging : ""} ${targetingUid || combatSelection ? styles.targeting : ""}`}
+    onClickCapture={(event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>("[data-card-uid]");
       if (!target?.dataset.cardUid) return;
-      event.preventDefault();
-      event.stopPropagation();
-      selectCardTarget(target.dataset.cardUid);
-    } : undefined}
+      if (targetingUid) {
+        event.preventDefault(); event.stopPropagation();
+        selectCardTarget(target.dataset.cardUid);
+        return;
+      }
+      if (isSpectator || attachingUid || dragging || (event.target as HTMLElement).closest("[data-game-counter]")) return;
+      const uid = target.dataset.cardUid;
+      if (combatSelection && target.closest(`.${styles.opponentHalf}`) && findSlottedCard(opponentTable, uid)) {
+        event.preventDefault(); event.stopPropagation();
+        if (combatSelection.action === "attack") gameConnection.attackCard(combatSelection.uid, uid);
+        else gameConnection.blockCard(combatSelection.uid, uid);
+        setCombatSelection(null);
+        setInspectedCard(null);
+        return;
+      }
+      const source = findSlottedCard(myTable, uid);
+      if (!source || source.card.faceDown || !target.closest(`.${styles.playerHalf}`)) return;
+      if (event.detail === 0) return;
+      const rect = target.getBoundingClientRect();
+      const position = (event.clientY - rect.top) / rect.height;
+      const action = position < .25 ? "attack" : position >= .75 ? "block" : null;
+      if (!action || (source.card.frazzle || 0) >= 1) return;
+      event.preventDefault(); event.stopPropagation();
+      setCombatSelection({ uid, action });
+      setTargetingUid(null);
+      setMenu(null);
+    }}
   >
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
@@ -1704,6 +1784,7 @@ export default function OnlineGamePage() {
         table={opponentTable}
         opponentSide
         attachingUid={null}
+        combatSelection={null}
         onInspect={setInspectedCard}
         onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "opponent", name }); }}
         onOpenSlot={(zone, slot) => showSlot("opponent", zone, slot)}
@@ -1745,6 +1826,7 @@ export default function OnlineGamePage() {
         table={myTable}
         readOnly={isSpectator}
         attachingUid={attachingUid}
+        combatSelection={combatSelection}
         onInspect={setInspectedCard}
         onOpenZone={(name) => { setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "self", name }); }}
         onOpenSlot={(zone, slot) => showSlot("self", zone, slot)}
@@ -1787,6 +1869,7 @@ export default function OnlineGamePage() {
           slotControls={openSlot ? {
             movable: railMovable,
             attachingUid,
+            combatSelection,
             onFrazzleAdjust: (uid, delta) => gameConnection.adjustCardFrazzle(uid, delta),
             onStatAdjust: (uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta),
             onAttachDrop: dropOnCard,
@@ -1807,6 +1890,10 @@ export default function OnlineGamePage() {
     {targetingUid && <div className={styles.attachHint} role="status">
       Select a card as target
       <button type="button" onClick={() => setTargetingUid(null)}>Cancel</button>
+    </div>}
+    {combatSelection && <div className={styles.attachHint} role="status">
+      {combatSelection.action === "attack" ? "Seleziona una carta avversaria da attaccare" : "Seleziona la carta avversaria da bloccare"} · Esc per annullare
+      <button type="button" onClick={() => setCombatSelection(null)}>Annulla</button>
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
     <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
@@ -1855,9 +1942,9 @@ export default function OnlineGamePage() {
         ? () => { gameConnection.swapSlotCard(menu.uid); setMenu(null); }
         : undefined}
       onStartAttach={menuCardCanAttach
-        ? () => { setAttachingUid(menu.uid); setTargetingUid(null); setMenu(null); }
+        ? () => { setAttachingUid(menu.uid); setTargetingUid(null); setCombatSelection(null); setMenu(null); }
         : undefined}
-      onChooseTarget={() => { setTargetingUid(menu.uid); setAttachingUid(null); setMenu(null); }}
+      onChooseTarget={() => { setTargetingUid(menu.uid); setAttachingUid(null); setCombatSelection(null); setMenu(null); }}
       onClearTarget={menuCard?.targetUid && (menuCard.targetExpiresAt ?? 0) > Date.now()
         ? () => { gameConnection.setCardTarget(menu.uid, null); setMenu(null); }
         : undefined}
@@ -1868,7 +1955,7 @@ export default function OnlineGamePage() {
         ? () => { gameConnection.setCardFaceDown(menu.uid, !menuCard.faceDown); setMenu(null); setInspectedCard(null); }
         : undefined}
       onGiveControl={menuSlottedCard && !menuSlottedCard.card.isProtagonist && opponent?.table
-        ? () => { gameConnection.giveCardControl(menu.uid); setMenu(null); setInspectedCard(null); setAttachingUid(null); setTargetingUid(null); }
+        ? () => { gameConnection.giveCardControl(menu.uid); setMenu(null); setInspectedCard(null); setAttachingUid(null); setTargetingUid(null); setCombatSelection(null); }
         : undefined}
       onMove={menuCardCanMove
         ? (zone, position) => { gameConnection.moveCard(menu.uid, zone, { position }); setMenu(null); setInspectedCard(null); }

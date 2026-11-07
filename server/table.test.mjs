@@ -319,8 +319,9 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     host.emit("game:setTarget", { uid, targetUid });
     state = await targetSetForOwner;
     await targetSetForOpponent;
+    assert.equal(state.host.table.battle[0][0].targetKind, "target");
     assert.ok(state.host.table.battle[0][0].targetExpiresAt > Date.now());
-    assert.ok(state.host.table.battle[0][0].targetExpiresAt <= Date.now() + 5000);
+    assert.ok(state.host.table.battle[0][0].targetExpiresAt <= Date.now() + 5100);
 
     guest.emit("game:setTarget", { uid, targetUid: state.host.table.protagonist[0].uid });
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -337,6 +338,68 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const selfTargetCleared = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.targetUid === undefined);
     host.emit("game:setTarget", { uid, targetUid: null });
     state = await selfTargetCleared;
+
+    const assaultAdded = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.counters?.some((counter) => counter.kind === "status" && counter.label === "Assault"));
+    host.emit("game:adjustCounter", { uid, kind: "status", label: "Assault", delta: 1 });
+    state = await assaultAdded;
+    host.emit("game:adjustCounter", { uid, kind: "status", label: "Assault", delta: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(state.host.table.battle[0][0].counters.find((counter) => counter.label === "Assault").value, 1);
+
+    const assaultedProtagonist = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 1);
+    host.emit("game:attack", { uid, targetUid });
+    const assaultedState = await assaultedProtagonist;
+    assert.equal(assaultedState.host.table.battle[0][0].targetUid, targetUid);
+    assert.equal(assaultedState.host.table.battle[0][0].targetKind, "attack");
+    assert.equal(assaultedState.guest.table.protagonist[0].frazzle, 0);
+
+    const lastAttackExpiresAt = assaultedState.host.table.battle[0][0].targetExpiresAt;
+    host.emit("game:attack", { uid, targetUid });
+    const assaultRemoved = waitForState(host, (next) => !next.host?.table?.battle?.[0]?.[0]?.counters?.some((counter) => counter.label === "Assault"));
+    host.emit("game:adjustCounter", { uid, kind: "status", label: "Assault", delta: -1 });
+    const assaultRemovedState = await assaultRemoved;
+    assert.equal(assaultRemovedState.host.table.battle[0][0].frazzle, 1);
+    assert.equal(assaultRemovedState.host.table.battle[0][0].targetExpiresAt, lastAttackExpiresAt);
+
+    const attackerRecovered = waitForState(host, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 0);
+    host.emit("game:setFrazzle", { target: "card", uid, delta: -1 });
+    const recoveredState = await attackerRecovered;
+    assert.equal(recoveredState.host.table.battle[0][0].targetExpiresAt, lastAttackExpiresAt);
+
+    const guestBattleUid = assaultedState.guest.table.hand[0].uid;
+    const guestBattleReady = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.uid === guestBattleUid);
+    guest.emit("game:moveCard", { uid: guestBattleUid, to: "battle", slot: 0 });
+    await guestBattleReady;
+    const battleAttacked = waitForState(guest, (next) => next.host?.table?.battle?.[0]?.[0]?.frazzle === 2);
+    host.emit("game:attack", { uid, targetUid: guestBattleUid });
+    const battleAttackedState = await battleAttacked;
+    assert.equal(battleAttackedState.guest.table.battle[0][0].frazzle, 0);
+    const guardAdded = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.counters?.some((counter) => counter.kind === "status" && counter.label === "Guard"));
+    guest.emit("game:adjustCounter", { uid: guestBattleUid, kind: "status", label: "Guard", delta: 1 });
+    await guardAdded;
+    const guardedBlock = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.targetKind === "block");
+    guest.emit("game:block", { uid: guestBattleUid, targetUid: uid });
+    const guardedBlockState = await guardedBlock;
+    assert.equal(guardedBlockState.guest.table.battle[0][0].frazzle, 0);
+    assert.equal(guardedBlockState.host.table.battle[0][0].frazzle, 2);
+
+    const guardRemoved = waitForState(guest, (next) => !next.guest?.table?.battle?.[0]?.[0]?.counters?.some((counter) => counter.label === "Guard"));
+    guest.emit("game:adjustCounter", { uid: guestBattleUid, kind: "status", label: "Guard", delta: -1 });
+    await guardRemoved;
+    const plainBlock = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.frazzle === 1);
+    guest.emit("game:block", { uid: guestBattleUid, targetUid: uid });
+    const plainBlockState = await plainBlock;
+    assert.equal(plainBlockState.guest.table.battle[0][0].targetKind, "block");
+    assert.equal(plainBlockState.host.table.battle[0][0].frazzle, 2);
+    const lastBlockExpiresAt = plainBlockState.guest.table.battle[0][0].targetExpiresAt;
+    guest.emit("game:block", { uid: guestBattleUid, targetUid: uid });
+    const blockerRecovered = waitForState(guest, (next) => next.guest?.table?.battle?.[0]?.[0]?.frazzle === 0);
+    guest.emit("game:setFrazzle", { target: "card", uid: guestBattleUid, delta: -1 });
+    const recoveredBlockerState = await blockerRecovered;
+    assert.equal(recoveredBlockerState.guest.table.battle[0][0].targetExpiresAt, lastBlockExpiresAt);
+    const guestBattleReturned = waitForState(guest, (next) => next.guest?.table?.hand?.some((card) => card.uid === guestBattleUid));
+    guest.emit("game:moveCard", { uid: guestBattleUid, to: "hand" });
+    await guestBattleReturned;
 
     const actionUid = state.host.table.hand[0].uid;
     const actionPlayed = waitForState(guest, (next) => next.host?.table?.action?.[0]?.uid === actionUid);

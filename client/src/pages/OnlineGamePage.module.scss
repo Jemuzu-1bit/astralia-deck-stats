@@ -21,8 +21,11 @@
   pointer-events: none;
   overflow: visible;
 
-  marker path { fill: #ffe47a; }
 }
+
+.targetArrowGroup { --arrow-color: #f6b936; --arrow-glow: rgba(255, 191, 56, .34); }
+.attackArrowGroup { --arrow-color: #f14646; --arrow-glow: rgba(241, 70, 70, .34); }
+.blockArrowGroup { --arrow-color: #2e8fff; --arrow-glow: rgba(46, 143, 255, .34); }
 
 .targetArrowGlow,
 .targetArrow,
@@ -33,13 +36,13 @@
 }
 
 .targetArrowGlow {
-  stroke: rgba(255, 191, 56, .34);
+  stroke: var(--arrow-glow);
   stroke-width: 11;
   filter: blur(4px);
 }
 
 .targetArrow {
-  stroke: #f6b936;
+  stroke: var(--arrow-color);
   stroke-width: 3.5;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .9));
 }
@@ -53,7 +56,7 @@
 
 .targetArrowOrigin {
   fill: #fff4b3;
-  stroke: #f6b936;
+  stroke: var(--arrow-color);
   stroke-width: 2;
   filter: drop-shadow(0 0 5px rgba(255, 208, 73, .85));
 }
@@ -626,6 +629,30 @@
 .battleCardWrap {
   position: relative;
   width: var(--battle-card-width);
+  isolation: isolate;
+}
+
+.attackSelected::before,
+.blockSelected::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -10px;
+  right: -10px;
+  height: calc(50% + 10px);
+  pointer-events: none;
+}
+
+.attackSelected::before {
+  top: -10px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(241, 70, 70, .55), rgba(241, 70, 70, 0));
+}
+
+.blockSelected::before {
+  bottom: -10px;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(0deg, rgba(46, 143, 255, .55), rgba(46, 143, 255, 0));
 }
 
 .battleCard {
@@ -639,6 +666,67 @@
   cursor: grab;
 
   img { display: block; width: var(--battle-card-width); aspect-ratio: 5 / 7; object-fit: cover; border-radius: 4px; }
+}
+
+.combatHoverZone,
+.combatSelectedBadge {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  height: 25%;
+}
+
+.combatHoverZone { overflow: hidden; cursor: pointer; }
+.attackHoverZone, .attackSelectedBadge { top: 0; border-radius: 4px 4px 0 0; }
+.blockHoverZone, .blockSelectedBadge { bottom: 0; border-radius: 0 0 4px 4px; }
+
+.combatHint,
+.combatSelectedBadge {
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: .58rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
+}
+
+.combatHint {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity .22s ease, transform .28s ease-out;
+  pointer-events: none;
+}
+
+.attackHint {
+  background: linear-gradient(180deg, rgba(0, 0, 0, .48), rgba(0, 0, 0, .16));
+  transform: translateY(-18px);
+}
+
+.blockHint {
+  background: linear-gradient(0deg, rgba(0, 0, 0, .48), rgba(0, 0, 0, .16));
+  transform: translateY(18px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .combatHoverZone:hover .combatHint { opacity: 1; transform: translateY(0); }
+}
+
+.combatSelectedBadge {
+  font-size: .55rem;
+  pointer-events: none;
+}
+
+.attackSelectedBadge { color: #ffb3b3; }
+.blockSelectedBadge { color: #a9d2ff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .combatHint { transition: none; transform: none; }
 }
 
 .frazzleCounter {
@@ -758,6 +846,13 @@
   cursor: pointer;
 
   &:hover, &:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+}
+
+.statusCounter {
+  min-width: 27px;
+  color: #182014;
+  background: linear-gradient(145deg, #f6e9a6, #b8c983);
+  border-color: #fff1ac;
 }
 
 .revealedBadge {
