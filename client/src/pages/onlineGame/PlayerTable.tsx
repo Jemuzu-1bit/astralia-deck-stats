@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import { gameConnection, type GameCard, type GameTable, type GameZone, type LobbyPlayerState } from "../../services/gameConnection";
 import type { CardAttachDrop, CardDrag, CardMenu, CardStat, CombatAction, CombatSelection, InspectCard, ZoneName } from "./model";
 import { CardZone, DeckZone, Zone, CardThumb } from "./CardElements";
@@ -156,9 +156,23 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
   onAttachTarget: (targetUid: string) => void;
 }) {
   const [subslotIndex, setSubslotIndex] = useState(0);
+  const [visibleSubslotCount, setVisibleSubslotCount] = useState(1);
+  const subslotViewportRef = useRef<HTMLDivElement>(null);
   const subslotCount = items.length - 1;
-  const maxSubslotIndex = Math.max(0, subslotCount - 3);
+  const visibleCount = Math.min(subslotCount, visibleSubslotCount);
+  const maxSubslotIndex = Math.max(0, subslotCount - visibleCount);
   const visibleSubslotIndex = Math.min(subslotIndex, maxSubslotIndex);
+
+  useEffect(() => {
+    const viewport = subslotViewportRef.current;
+    if (!viewport) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry.contentRect.width;
+      setVisibleSubslotCount(width >= 138 ? 3 : width >= 91 ? 2 : 1);
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [subslotCount]);
 
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
 
@@ -192,21 +206,21 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
     <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
       <div className={styles.slotMainArea}>{renderCard(items[0], styles.slotMain)}</div>
       {subslotCount > 0 && <div className={styles.subslotCarousel} role="group" aria-label={`Sub slot: ${subslotCount} cards`}>
-        <div className={styles.subslotViewport}>
+        <div ref={subslotViewportRef} className={styles.subslotViewport}>
           <div
             className={styles.subslotTrack}
-            data-visible={Math.min(subslotCount, 3)}
-            style={maxSubslotIndex > 0 ? { transform: `translateX(calc(-${visibleSubslotIndex * 100 / 3}% - ${visibleSubslotIndex}px))` } : undefined}
+            data-visible={visibleCount}
+            style={maxSubslotIndex > 0 ? { transform: `translateX(calc(-${visibleSubslotIndex * 100 / visibleCount}% - ${visibleSubslotIndex * 3 / visibleCount}px))` } : undefined}
           >
             {items.slice(1).map((item, index) => <div
               key={item.uid}
               className={styles.subslotItem}
-              inert={index < visibleSubslotIndex || index >= visibleSubslotIndex + 3}
-              aria-hidden={index < visibleSubslotIndex || index >= visibleSubslotIndex + 3}
+              inert={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
+              aria-hidden={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
             >{renderCard(item, styles.attachedCard)}</div>)}
           </div>
         </div>
-        {subslotCount > 3 && <div className={styles.subslotControls}>
+        {subslotCount > visibleCount && <div className={styles.subslotControls}>
           <button type="button" aria-label="Previous sub slot card" disabled={visibleSubslotIndex === 0} onClick={() => setSubslotIndex(Math.max(0, visibleSubslotIndex - 1))}>‹</button>
           <button type="button" aria-label="Next sub slot card" disabled={visibleSubslotIndex === maxSubslotIndex} onClick={() => setSubslotIndex(Math.min(maxSubslotIndex, visibleSubslotIndex + 1))}>›</button>
         </div>}

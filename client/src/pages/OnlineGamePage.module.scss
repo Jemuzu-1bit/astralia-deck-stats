@@ -602,7 +602,8 @@
 .subslotTrack[data-visible="2"] .subslotItem { flex-basis: calc((100% - 3px) / 2); }
 
 .attachedCard {
-  width: min(100%, calc(var(--battle-card-width) * .8), 40cqh);
+  width: min(100%, var(--battle-card-width), 45cqh);
+  container-type: inline-size;
 }
 
 .protagonistStack .slotMain {
@@ -610,7 +611,7 @@
 }
 
 .protagonistStack .attachedCard {
-  width: min(100%, var(--battle-card-width), 40cqh);
+  width: min(100%, var(--battle-card-width), 45cqh);
 }
 
 .protagonistStack.soloStack .slotMain {
@@ -624,11 +625,28 @@
   width: 100%;
 }
 
-// The full slot rail keeps the counters editable; the compact carousel shows the card art.
+// Use the same stat badges as the main card.
 .attachedCard .frazzleCounter,
-.attachedCard .statCounter,
 .attachedCard .customCounterList {
   display: none;
+}
+
+// Only shrink them when the sub-slot card cannot fit both standard badges.
+@container (max-width: 48px) {
+  .attachedCard .statCounter {
+    bottom: -4px;
+    width: calc(50cqw + 4px);
+    min-width: 0;
+    height: clamp(16px, 45cqw, 23px);
+    padding-inline: 1px;
+    gap: 1px;
+    border-width: clamp(1px, 4cqw, 2px);
+    font-size: clamp(.5rem, 20cqw, .72rem);
+  }
+
+  .attachedCard .statCounter small { font-size: clamp(.3rem, 12cqw, .42rem); }
+  .attachedCard .atkCounter { left: -4px; }
+  .attachedCard .hpCounter { right: -4px; }
 }
 
 .subslotControls {
