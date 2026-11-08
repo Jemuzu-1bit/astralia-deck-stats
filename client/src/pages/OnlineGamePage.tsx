@@ -17,6 +17,10 @@ import { PlayerTable } from "./onlineGame/PlayerTable";
 import { ContextMenu, DeckContextMenu, Inspector } from "./onlineGame/GameMenus";
 import styles from "./OnlineGamePage.module.scss";
 
+const TURN_COLORS: Record<string, string> = {
+  red: "#e64a4a", blue: "#3a8ee6", green: "#34c47a", purple: "#7b72f1", pink: "#e676ad",
+};
+
 export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const { card: CARD_KEYS, deck: DECK_KEYS, fragment: FRAGMENT_KEYS, counter: COUNTER_KEYS } = useGameShortcuts();
@@ -73,6 +77,11 @@ export default function OnlineGamePage() {
   const myId = gameConnection.getSocketId();
   const me = isSpectator ? state.host : myId ? state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null : null;
   const opponent = isSpectator ? state.guest : me?.role === "host" ? state.guest : state.host;
+  const activePlayer = state.turnRole === "host" ? state.host : state.turnRole === "guest" ? state.guest : null;
+  const activeOnTop = Boolean(activePlayer && activePlayer.role === opponent?.role);
+  const turnColor = TURN_COLORS[activePlayer?.faction?.toLowerCase() ?? ""] ?? "#d4af37";
+  const myVote = !isSpectator && me ? state.startVotes?.[me.role] : null;
+  const opponentVote = !isSpectator && opponent ? state.startVotes?.[opponent.role] : null;
   const myTable = useMemo(() => playerTable(me), [me]);
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
   const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
@@ -321,26 +330,39 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <div className={styles.divider}>
-        <span>VS</span>
-        <div className={styles.centerActionArea}>
-          <ActionStage
-            items={opponentTable.action}
-            local={false}
-            onInspect={setInspectedCard}
-            onDragStart={startDrag}
-            onDragEnd={endDrag}
-            onMenu={showMenu}
-          />
-          <ActionStage
-            items={myTable.action}
-            local={!isSpectator && Boolean(me?.table)}
-            onInspect={setInspectedCard}
-            onDragStart={startDrag}
-            onDragEnd={endDrag}
-            onMenu={showMenu}
-          />
+      <div className={`${styles.divider} ${activePlayer ? activeOnTop ? styles.turnTop : styles.turnBottom : ""}`} style={{ "--turn-color": turnColor } as CSSProperties}>
+        <div className={styles.actionStageSlot}><ActionStage
+          items={opponentTable.action}
+          local={false}
+          onInspect={setInspectedCard}
+          onDragStart={startDrag}
+          onDragEnd={endDrag}
+          onMenu={showMenu}
+        /></div>
+        <div className={`${styles.turnControl} ${activePlayer ? styles.turnActive : ""}`}>
+          {activePlayer ? <>
+            <span className={styles.turnStatus}>Turn {state.turnNumber ?? 1} · {activePlayer.name}</span>
+            <button type="button" className={styles.turnButton} aria-label={`Turn ${state.turnNumber ?? 1}: ${activePlayer.name}. ${isSpectator ? "Spectating" : me?.role === state.turnRole ? "End turn" : "Opponent's turn"}`} disabled={isSpectator || me?.role !== state.turnRole} onClick={() => gameConnection.endTurn()}>
+              <span className={styles.turnButtonFull}>{isSpectator ? "Current turn" : me?.role === state.turnRole ? "End turn" : "Opponent's turn"}</span>
+              <span className={styles.turnButtonCompact}>{isSpectator ? "Watching" : me?.role === state.turnRole ? "End" : "Their turn"}</span>
+            </button>
+          </> : state.started ? <>
+            <span className={styles.turnStatus}>Choose who starts</span>
+            {!isSpectator && me && opponent ? <div className={styles.starterChoices}>
+              <button type="button" aria-pressed={myVote === me.role} onClick={() => gameConnection.chooseStarter(me.role)}>Me</button>
+              <button type="button" aria-label={`Choose ${opponent.name} to start`} aria-pressed={myVote === opponent.role} onClick={() => gameConnection.chooseStarter(opponent.role)}><span className={styles.starterNameFull}>{opponent.name}</span><span className={styles.starterNameCompact}>Them</span></button>
+            </div> : null}
+            <span className={`${styles.voteStatus} ${myVote && opponentVote && myVote !== opponentVote ? styles.voteMismatch : ""}`}>{isSpectator ? "Waiting for the players" : myVote && opponentVote && myVote !== opponentVote ? "Different choices · choose again" : myVote ? "Waiting for the other player" : "Both players must agree"}</span>
+          </> : <span className={styles.turnStatus}>Waiting for match</span>}
         </div>
+        <div className={styles.actionStageSlot}><ActionStage
+          items={myTable.action}
+          local={!isSpectator && Boolean(me?.table)}
+          onInspect={setInspectedCard}
+          onDragStart={startDrag}
+          onDragEnd={endDrag}
+          onMenu={showMenu}
+        /></div>
       </div>
       <PlayerTable
         player={me}

@@ -75,10 +75,10 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const readyState = waitForState(host, (state) => Boolean(state.host?.deckId && state.guest?.deckId));
     host.emit("lobby:setDeck", {
       deckId: "host-deck", deckName: "Host deck", protagonistId: "dcs_02_002ex",
-      personaCards: ["dcs_02_012n", "persona-b"], mainDeckCards: [{ id: "card-a", qty: 8 }],
+      personaCards: ["dcs_01_003ex", "dcs_01_004ex"], mainDeckCards: [{ id: "card-a", qty: 8 }],
     });
     guest.emit("lobby:setDeck", {
-      deckId: "guest-deck", deckName: "Guest deck", protagonistId: "hero",
+      deckId: "guest-deck", deckName: "Guest deck", protagonistId: "dcs_02_001ex",
       personaCards: [], mainDeckCards: [{ id: "card-b", qty: 8 }],
     });
     await readyState;
@@ -90,6 +90,14 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     let state = await started;
     const opponentState = await opponentStarted;
     const earlySpectatorState = await spectatorStarted;
+    assert.equal(state.turnRole, "host");
+    assert.equal(state.turnNumber, 1);
+    const turnPassed = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 2);
+    host.emit("game:endTurn");
+    await turnPassed;
+    const turnReturned = waitForState(host, (next) => next.turnRole === "host" && next.turnNumber === 3);
+    guest.emit("game:endTurn");
+    state = await turnReturned;
     assert.equal(earlySpectatorState.host.table.hand.length, 0);
     assert.equal(earlySpectatorState.guest.table.hand.length, 0);
     assert.equal(earlySpectatorState.host.table.deck.length, 0);
@@ -141,8 +149,8 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const personaOnField = waitForState(guest, (next) => next.host?.table?.battle?.[1]?.[0]?.uid === personaUid);
     host.emit("game:moveCard", { uid: personaUid, to: "battle", slot: 1 });
     const placedPersona = (await personaOnField).host.table.battle[1][0];
-    assert.equal(placedPersona.atk, 0);
-    assert.equal(placedPersona.hp, 2);
+    assert.equal(placedPersona.atk, undefined);
+    assert.equal(placedPersona.hp, 3);
     const personaReturned = waitForState(host, (next) => next.host?.table?.persona?.[1]?.uid === personaUid);
     host.emit("game:moveCard", { uid: personaUid, to: "persona" });
     const returnedPersona = (await personaReturned).host.table.persona[1];
@@ -691,19 +699,27 @@ test("a disconnected player can resume the same game without changing the table 
 
     const readyState = waitForState(host, (state) => Boolean(state.host?.deckId && state.guest?.deckId));
     host.emit("lobby:setDeck", {
-      deckId: "host-deck", deckName: "Host deck", protagonistId: "host-hero",
-      personaCards: ["persona-a", "persona-b"],
+      deckId: "host-deck", deckName: "Host deck", protagonistId: "dcs_02_002ex",
+      personaCards: ["dcs_01_003ex", "dcs_01_004ex"],
       mainDeckCards: [{ id: "card-a", qty: 6 }, { id: "card-b", qty: 6 }],
     });
     guest.emit("lobby:setDeck", {
-      deckId: "guest-deck", deckName: "Guest deck", protagonistId: "guest-hero",
-      personaCards: ["persona-c"], mainDeckCards: [{ id: "card-c", qty: 12 }],
+      deckId: "guest-deck", deckName: "Guest deck", protagonistId: "dcs_02_002ex",
+      personaCards: ["dcs_01_004ex", "dcs_01_003ex"], mainDeckCards: [{ id: "card-c", qty: 12 }],
     });
     await readyState;
 
     const started = waitForState(host, (state) => state.started);
     host.emit("lobby:startRequest");
     let state = await started;
+    assert.equal(state.turnRole, null);
+    assert.equal(state.turnNumber, 0);
+    const firstVote = waitForState(host, (next) => next.startVotes?.host === "guest" && next.turnRole === null);
+    host.emit("game:chooseStarter", "guest");
+    await firstVote;
+    const agreedStarter = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 1);
+    guest.emit("game:chooseStarter", "guest");
+    state = await agreedStarter;
     const movedUid = state.host.table.hand[0].uid;
     const moved = waitForState(host, (next) => next.host?.table?.battle?.[2]?.[0]?.uid === movedUid);
     host.emit("game:moveCard", { uid: movedUid, to: "battle", slot: 2 });

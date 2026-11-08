@@ -71,6 +71,9 @@ export interface LobbyState {
   host: LobbyPlayerState | null;
   guest: LobbyPlayerState | null;
   started: boolean;
+  turnRole?: "host" | "guest" | null;
+  turnNumber?: number;
+  startVotes?: { host: "host" | "guest" | null; guest: "host" | "guest" | null };
   code?: string;
   viewerRole?: "host" | "guest" | "spectator" | null;
   spectatorCount?: number;
@@ -254,6 +257,8 @@ class GameConnection {
   setCardTarget(uid: string, targetUid: string | null) { this.socket?.emit("game:setTarget", { uid, targetUid }); }
   triggerShuffle() { this.socket?.emit("lobby:shuffle"); }
   startRequest() { this.socket?.emit("lobby:startRequest"); }
+  chooseStarter(role: "host" | "guest") { this.socket?.emit("game:chooseStarter", role); }
+  endTurn() { this.socket?.emit("game:endTurn"); }
   leave() {
     const code = this.state.code || this.resumeCode;
     const wasSpectator = this.state.viewerRole === "spectator" || Boolean(this.watchCode);

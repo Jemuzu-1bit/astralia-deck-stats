@@ -8,6 +8,7 @@ import { publicState } from "./roomState.js";
 import { cardInstance, dealOpeningHand, makeId } from "./gameTable.js";
 import { registerCardEvents } from "./registerCardEvents.js";
 import { registerDeckEvents } from "./registerDeckEvents.js";
+import { startingPlayer } from "./turnOrder.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -229,10 +230,31 @@ io.on("connection", (socket) => {
     if (!room || room.host?.socketId !== socket.id) return fail(socket, "Only the host can start the match.");
     if (room.started) return;
     if (!room.guest || !room.host.deckId || !room.guest.deckId) return fail(socket, "Both players must select a deck first.");
+    try { room.turnRole = startingPlayer(room.host, room.guest); }
+    catch (error) { return fail(socket, error.message); }
+    room.startVotes = { host: null, guest: null };
+    room.turnNumber = room.turnRole ? 1 : 0;
     dealOpeningHand(room.host);
     dealOpeningHand(room.guest);
     room.started = true; room.lastActivity = Date.now(); emitState(room);
     io.to(room.code).emit("lobby:started", { hostDeckId: room.host.deckId, guestDeckId: room.guest.deckId });
+  });
+  socket.on("game:chooseStarter", (role) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!room?.started || !player || room.turnRole || (role !== "host" && role !== "guest")) return;
+    room.startVotes[player.role] = role;
+    if (room.startVotes.host && room.startVotes.host === room.startVotes.guest) {
+      room.turnRole = role;
+      room.turnNumber = 1;
+    }
+    room.lastActivity = Date.now(); emitState(room);
+  });
+  socket.on("game:endTurn", () => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!room?.started || !player || room.turnRole !== player.role) return;
+    room.turnRole = player.role === "host" ? "guest" : "host";
+    room.turnNumber += 1;
+    room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("lobby:leave", () => {
     const room = currentRoom(socket); if (!room) return;
