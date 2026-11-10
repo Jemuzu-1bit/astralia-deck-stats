@@ -3,7 +3,7 @@ import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { Deck } from "../types/Deck";
 
-export const FACTIONS = ["red", "blue", "green", "purple", "pink"] as const;
+export const FACTIONS = ["green", "red", "blue", "pink", "purple"] as const;
 export const CARDS_PER_DECK = 45;
 export const PERSONA_LIMIT = 5;
 export const COPIES_PER_CARD = 4;

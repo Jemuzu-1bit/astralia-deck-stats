@@ -110,14 +110,15 @@
 
 .factionLabel {
   display: inline-block;
+  max-width: 100%;
   background: rgba(0,0,0,0.45);
   padding: 6px 10px;
   border-radius: 8px;
   backdrop-filter: blur(1px);
   -webkit-backdrop-filter: blur(1px);
   transform-origin: center;
-  white-space: nowrap;
-  font-size: 1.25rem;
+  text-align: center;
+  font-size: clamp(0.9rem, 1.25vw, 1.1rem);
 }
 
 @media (max-width: 920px) {
