@@ -4,6 +4,8 @@
 ## Descrizione
 Applicazione web per creare, visualizzare e gestire mazzi di carte. Progetto pensato per scopi di apprendimento e divertimento.
 
+L'elenco delle funzionalità attuali è in [FEATURES.md](FEATURES.md).
+
 ## Come eseguire il progetto
 ### 1. Clona il repository
 ```bash
