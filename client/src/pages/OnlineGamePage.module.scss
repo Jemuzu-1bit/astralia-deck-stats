@@ -1162,30 +1162,52 @@
   padding-inline: min(1.5%, .75rem);
   box-sizing: border-box;
   background: linear-gradient(90deg, transparent, var(--turn-color) 20%, var(--turn-color) 80%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--turn-color) 60%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--turn-glow-color) var(--turn-line-glow-opacity), transparent);
 }
 
 .divider::before {
   content: "";
   position: absolute;
-  left: 50%;
+  left: var(--turn-glow-x, 50%);
   width: min(35rem, 70%);
   height: clamp(90px, 16dvh, 180px);
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(var(--turn-glow-size, 1));
   pointer-events: none;
   opacity: 0;
 }
 
+.turnGlowSide::before { width: min(14rem, 25%); }
+
 .turnTop::before {
   bottom: 100%;
   opacity: 1;
-  background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--turn-color) 32%, transparent), transparent 72%);
+  transform-origin: 50% 100%;
+  background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--turn-glow-color) var(--turn-glow-opacity), transparent), transparent 72%);
 }
 
 .turnBottom::before {
   top: 100%;
   opacity: 1;
-  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--turn-color) 32%, transparent), transparent 72%);
+  transform-origin: 50% 0%;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--turn-glow-color) var(--turn-glow-opacity), transparent), transparent 72%);
+}
+
+.divider[data-glow-shape="round"].turnTop::before {
+  width: clamp(90px, 16dvh, 180px);
+  background: radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--turn-glow-color) var(--turn-glow-opacity), transparent), transparent 72%);
+}
+
+.divider[data-glow-shape="round"].turnBottom::before {
+  width: clamp(90px, 16dvh, 180px);
+  background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--turn-glow-color) var(--turn-glow-opacity), transparent), transparent 72%);
+}
+
+.divider[data-glow-shape="cone"].turnTop::before {
+  clip-path: polygon(10% 0, 90% 0, 50% 100%);
+}
+
+.divider[data-glow-shape="cone"].turnBottom::before {
+  clip-path: polygon(50% 0, 90% 100%, 10% 100%);
 }
 
 .turnControl {
@@ -1202,9 +1224,17 @@
   border: 1px solid var(--turn-color);
   border-radius: 10px;
   background: #101729;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--turn-color) 55%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--turn-glow-color) var(--turn-button-glow-opacity), transparent);
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.turnControlMoved {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(22%, calc(120px * var(--ui-scale)));
+  transform: translate(-50%, -50%);
 }
 
 .turnStatus { color: var(--turn-color); font-size: .65rem; font-weight: 800; line-height: 1.2; }
@@ -1228,7 +1258,8 @@
 .turnButton:focus-visible, .starterChoices button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .actionStageSlot { display: flex; min-width: 0; justify-content: flex-end; }
-.actionStageSlot:last-child { justify-content: flex-start; }
+.actionStageSlot:first-child { grid-column: 1; }
+.actionStageSlot:last-child { grid-column: 3; justify-content: flex-start; }
 .actionStageSlot .actionStage { min-width: 0; max-width: min(340px, 100%); }
 
 @media (max-width: 1200px) {

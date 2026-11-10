@@ -176,6 +176,7 @@ export function CardZone({ name, items, movable, onInspect, onOpen, onDragStart,
 }) {
   return <div
     className={`${styles.zone} ${styles.expandableZone}`}
+    data-zone-name={name}
     role="button"
     tabIndex={0}
     aria-label={`Show ${ZONE_NAMES[name]}, ${items.length} cards`}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { gameConnection, type DeckAction, type GameZone, type LobbyState, type RequestedDeckAction } from "../services/gameConnection";
 import type { Card } from "../types/Card";
@@ -6,6 +6,8 @@ import ShortcutSettings from "../components/ShortcutSettings";
 import FeedbackLink from "../components/FeedbackLink";
 import SettingsMenu from "../components/SettingsMenu";
 import { INTERFACE_SIZE_CHANGE_EVENT, savedInterfaceSize } from "../services/gameInterfaceSize";
+import { TURN_BUTTON_POSITION_CHANGE_EVENT, savedTurnButtonPosition, type TurnButtonPosition } from "../services/turnButtonPosition";
+import { TURN_GLOW_CHANGE_EVENT, savedTurnGlowPreferences, type TurnGlowPreferences } from "../services/turnGlowPreferences";
 import { useGameShortcuts } from "./gameShortcuts";
 import { useGameKeyboardShortcuts } from "./onlineGame/useGameKeyboardShortcuts";
 import { EMPTY_TABLE, ZONE_NAMES, describeDeckRequest, findSlottedCard, playerTable, tableCards, type CardAttachDrop, type CardDrag, type CardMenu, type CardMenuPanel, type CombatSelection, type CountedDeckAction, type OpenSlot, type OpenZone } from "./onlineGame/model";
@@ -23,6 +25,8 @@ const TURN_COLORS: Record<string, string> = {
 
 export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLDivElement>(null);
+  const turnControlRef = useRef<HTMLDivElement>(null);
   const { card: CARD_KEYS, deck: DECK_KEYS, fragment: FRAGMENT_KEYS, counter: COUNTER_KEYS } = useGameShortcuts();
   const pointerPosition = useRef<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
@@ -34,6 +38,8 @@ export default function OnlineGamePage() {
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [interfaceSize, setInterfaceSize] = useState(savedInterfaceSize);
+  const [turnButtonPosition, setTurnButtonPosition] = useState(savedTurnButtonPosition);
+  const [turnGlow, setTurnGlow] = useState(savedTurnGlowPreferences);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
@@ -59,6 +65,48 @@ export default function OnlineGamePage() {
     window.addEventListener(INTERFACE_SIZE_CHANGE_EVENT, onInterfaceSizeChange);
     return () => window.removeEventListener(INTERFACE_SIZE_CHANGE_EVENT, onInterfaceSizeChange);
   }, []);
+
+  useEffect(() => {
+    const onPositionChange = (event: Event) => setTurnButtonPosition((event as CustomEvent<TurnButtonPosition>).detail);
+    window.addEventListener(TURN_BUTTON_POSITION_CHANGE_EVENT, onPositionChange);
+    return () => window.removeEventListener(TURN_BUTTON_POSITION_CHANGE_EVENT, onPositionChange);
+  }, []);
+
+  useEffect(() => {
+    const onGlowChange = (event: Event) => setTurnGlow((event as CustomEvent<TurnGlowPreferences>).detail);
+    window.addEventListener(TURN_GLOW_CHANGE_EVENT, onGlowChange);
+    return () => window.removeEventListener(TURN_GLOW_CHANGE_EVENT, onGlowChange);
+  }, []);
+
+  useLayoutEffect(() => {
+    const divider = dividerRef.current;
+    const control = turnControlRef.current;
+    if (!divider || !control) return;
+    if (turnButtonPosition === "center") {
+      divider.style.removeProperty("--turn-glow-x");
+      return;
+    }
+
+    const selector = turnButtonPosition === "oblivion" ? '[data-zone-name="oblivion"]' : "[data-deck-owner]";
+    const zones = [...(rootRef.current?.querySelectorAll<HTMLElement>(selector) ?? [])];
+    if (zones.length !== 2) return;
+
+    const alignWithZones = () => {
+      const centers = zones.map((zone) => {
+        const rect = zone.getBoundingClientRect();
+        return rect.left + rect.width / 2;
+      });
+      const x = `${(centers[0] + centers[1]) / 2 - divider.getBoundingClientRect().left}px`;
+      control.style.left = x;
+      divider.style.setProperty("--turn-glow-x", x);
+    };
+    alignWithZones();
+    const observer = new ResizeObserver(alignWithZones);
+    zones.forEach((zone) => observer.observe(zone));
+    observer.observe(divider);
+    window.addEventListener("resize", alignWithZones);
+    return () => { observer.disconnect(); window.removeEventListener("resize", alignWithZones); };
+  }, [turnButtonPosition]);
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
@@ -330,7 +378,14 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <div className={`${styles.divider} ${activePlayer ? activeOnTop ? styles.turnTop : styles.turnBottom : ""}`} style={{ "--turn-color": turnColor } as CSSProperties}>
+      <div ref={dividerRef} className={`${styles.divider} ${activePlayer ? activeOnTop ? styles.turnTop : styles.turnBottom : ""} ${activePlayer && turnButtonPosition !== "center" ? styles.turnGlowSide : ""}`} data-glow-shape={turnGlow.shape} style={{
+        "--turn-color": turnColor,
+        "--turn-glow-color": turnGlow.colorMode === "custom" ? turnGlow.customColor : turnColor,
+        "--turn-glow-opacity": `${Math.round(turnGlow.intensity * 32 / 100)}%`,
+        "--turn-line-glow-opacity": `${Math.min(100, Math.round(turnGlow.intensity * 60 / 100))}%`,
+        "--turn-button-glow-opacity": `${Math.min(100, Math.round(turnGlow.intensity * 55 / 100))}%`,
+        "--turn-glow-size": turnGlow.size / 100,
+      } as CSSProperties}>
         <div className={styles.actionStageSlot}><ActionStage
           items={opponentTable.action}
           local={false}
@@ -339,7 +394,7 @@ export default function OnlineGamePage() {
           onDragEnd={endDrag}
           onMenu={showMenu}
         /></div>
-        <div className={`${styles.turnControl} ${activePlayer ? styles.turnActive : ""}`}>
+        <div ref={turnControlRef} className={`${styles.turnControl} ${activePlayer && turnButtonPosition !== "center" ? styles.turnControlMoved : ""} ${activePlayer ? styles.turnActive : ""}`}>
           {activePlayer ? <>
             <span className={styles.turnStatus}>Turn {state.turnNumber ?? 1} · {activePlayer.name}</span>
             <button type="button" className={styles.turnButton} aria-label={`Turn ${state.turnNumber ?? 1}: ${activePlayer.name}. ${isSpectator ? "Spectating" : me?.role === state.turnRole ? "End turn" : "Opponent's turn"}`} disabled={isSpectator || me?.role !== state.turnRole} onClick={() => gameConnection.endTurn()}>

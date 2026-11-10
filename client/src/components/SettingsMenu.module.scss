@@ -31,9 +31,52 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  h2 { margin: 0; }
+  gap: .5rem;
+  h2 { flex: 1; margin: 0; }
   button { padding: .3rem .6rem; }
+}
+
+.appearanceSettings {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.turnPositionControl {
+  display: grid;
+  gap: .4rem;
+  margin: .3rem 0 0;
+  padding: .65rem;
+  border: 1px solid rgba(212, 175, 55, .4);
+  border-radius: 6px;
+  legend { padding: 0 .3rem; color: #e4c65f; }
+  label { font-size: .85rem; }
+  select { width: 100%; padding: .45rem; color: #f5efd7; background: #242b3d; border: 1px solid rgba(255, 255, 255, .25); border-radius: 5px; font: inherit; }
+  select:focus-visible { outline: 2px solid #e4c65f; outline-offset: 2px; }
+}
+
+.glowControl {
+  display: grid;
+  gap: .35rem;
+  margin: .3rem 0 0;
+  padding: .65rem;
+  border: 1px solid rgba(212, 175, 55, .4);
+  border-radius: 6px;
+  legend { padding: 0 .3rem; color: #e4c65f; }
+  label { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .85rem; }
+  output { color: #e4c65f; font-weight: 700; }
+  > input[type="range"] { width: 100%; margin: 0; accent-color: #e4c65f; cursor: pointer; }
+  select { width: 100%; padding: .45rem; color: #f5efd7; background: #242b3d; border: 1px solid rgba(255, 255, 255, .25); border-radius: 5px; font: inherit; }
+  input:focus-visible, select:focus-visible { outline: 2px solid #e4c65f; outline-offset: 2px; }
+  .glowMarks { display: flex; justify-content: space-between; margin-bottom: .45rem; opacity: .7; font-size: .75rem; }
+  .customGlowColor { margin-top: .2rem; }
+  input[type="color"] { width: 3rem; height: 2rem; padding: .15rem; border: 1px solid rgba(255, 255, 255, .25); border-radius: 5px; background: #242b3d; cursor: pointer; }
+  .glowPreview { position: relative; height: 5rem; overflow: hidden; background: #0b1020; border: 1px solid rgba(255, 255, 255, .14); border-radius: 5px; }
+  .glowPreview::before { content: ""; position: absolute; left: 50%; bottom: 50%; width: 70%; height: 4rem; transform: translateX(-50%) scale(var(--preview-glow-size)); transform-origin: 50% 100%; background: radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--preview-glow-color) var(--preview-glow-opacity), transparent), transparent 72%); }
+  .glowPreview[data-glow-shape="round"]::before { width: 4rem; background: radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--preview-glow-color) var(--preview-glow-opacity), transparent), transparent 72%); }
+  .glowPreview[data-glow-shape="cone"]::before { clip-path: polygon(10% 0, 90% 0, 50% 100%); }
+  .glowPreview span { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: linear-gradient(90deg, transparent, #d4af37 20%, #d4af37 80%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--preview-glow-color) var(--preview-line-opacity), transparent); }
+  .glowPreviewNote { margin: 0 0 .4rem; opacity: .7; font-size: .75rem; }
 }
 
 .interfaceSizeControl {
