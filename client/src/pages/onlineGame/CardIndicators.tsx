@@ -36,7 +36,7 @@ export function FragmentDock({ fragments, readOnly = false }: { fragments: boole
       >
         <img src={fragmentCard} alt="" draggable={false} />
       </button>)}
-      {fragments.length === 0 && <span className={styles.fragmentEmpty}>Add a Fragment</span>}
+      {fragments.length === 0 && <span className={styles.fragmentEmpty}>{readOnly ? "No fragments" : "Add a Fragment"}</span>}
     </div>
   </section>;
 }

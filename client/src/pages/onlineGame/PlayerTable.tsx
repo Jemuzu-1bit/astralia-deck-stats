@@ -29,8 +29,6 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
   onDrop: (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number) => void;
 }) {
   const movable = !readOnly && !opponentSide && Boolean(player?.table);
-  const readyFragments = table.fragments.filter((spent) => !spent).length;
-  const spentFragments = table.fragments.length - readyFragments;
   const protagonistIndex = opponentSide ? 1 : 4;
   // Each battle slot is stored from its owner's point of view. The opponent's
   // grid is rotated by 180 degrees, so logical slots must be rendered in the
@@ -127,15 +125,6 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
         {sideZone("graveyard")}
       </>}
     </div>
-    {opponentSide && <button
-      type="button"
-      className={styles.handLabel}
-      aria-label={`Show revealed cards in opponent hand, ${player?.handCount ?? table.hand.length} cards total`}
-      onClick={() => onOpenZone("hand")}
-    >Hand · {player?.handCount ?? table.hand.length}</button>}
-    {opponentSide && <div className={styles.opponentFragmentStatus} aria-label={`Opponent fragments: ${readyFragments} ready and ${spentFragments} spent`}>
-      <strong>Fragment</strong><span>{readyFragments} ready · {spentFragments} spent</span>
-    </div>}
   </section>;
 }
 

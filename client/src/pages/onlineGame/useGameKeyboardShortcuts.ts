@@ -33,9 +33,10 @@ type KeyboardOptions = {
   setAttachingUid: Dispatch<SetStateAction<string | null>>;
   setTargetingUid: Dispatch<SetStateAction<string | null>>;
   setCombatSelection: Dispatch<SetStateAction<CombatSelection | null>>;
+  setOwnHandExpanded: Dispatch<SetStateAction<boolean>>;
 };
 
-export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection }: KeyboardOptions) {
+export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection, setOwnHandExpanded }: KeyboardOptions) {
   useEffect(() => {
     if (isSpectator || !state.started || !me?.table || shortcutSettingsOpen || gameMenuOpen) return;
     const onGameKeyDown = (event: KeyboardEvent) => {
@@ -133,7 +134,7 @@ export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator
           case DECK_KEYS.oblivion: counted = "oblivion"; break;
           case DECK_KEYS.search:
             if (owner === "self") {
-              setDeckSearchQuery(""); setPeekedUids(null); setOpenZone(null); setOpenSlot(null);
+              setOwnHandExpanded(true); setDeckSearchQuery(""); setPeekedUids(null); setOpenZone(null); setOpenSlot(null);
             } else gameConnection.requestDeckAction("search");
             break;
           default: handled = false;
@@ -243,5 +244,5 @@ export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator
     };
     window.addEventListener("keydown", onGameKeyDown);
     return () => window.removeEventListener("keydown", onGameKeyDown);
-  }, [isSpectator, state.started, me?.table, myTable, opponent, state.deckRequest, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, pointerPosition, rootRef, setAttachingUid, setCombatSelection, setDeckMenu, setDeckSearchQuery, setInspectedCard, setMenu, setOpenSlot, setOpenZone, setPeekedUids, setTargetingUid]);
+  }, [isSpectator, state.started, me?.table, myTable, opponent, state.deckRequest, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, pointerPosition, rootRef, setAttachingUid, setCombatSelection, setDeckMenu, setDeckSearchQuery, setInspectedCard, setMenu, setOpenSlot, setOpenZone, setPeekedUids, setTargetingUid, setOwnHandExpanded]);
 }

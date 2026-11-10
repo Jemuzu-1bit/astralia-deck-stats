@@ -97,8 +97,10 @@
   padding-top: 52px;
   box-sizing: border-box;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 4px minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) 4px minmax(0, 1fr) auto;
 }
+
+.bothHandsExpanded { min-height: 920px; }
 
 .tableHalf {
   position: relative;
@@ -119,8 +121,6 @@
 .opponentHalf {
   background: linear-gradient(180deg, rgba(147, 73, 102, .15), transparent 72%);
   .playerBadge { top: .65rem; left: 1rem; }
-  .handLabel { top: .7rem; right: 1rem; }
-  .opponentFragmentStatus { top: 2.65rem; right: 1rem; }
 }
 
 .playerHalf {
@@ -176,50 +176,86 @@
   span { max-width: 220px; opacity: .6; font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
-.handLabel {
-  position: absolute;
-  padding: .35rem .7rem;
-  font-size: .78rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: #e4c65f;
-  background: rgba(5, 8, 18, .72);
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-
-  &:hover, &:focus-visible { outline: 1px solid #e4c65f; }
-}
-
-.opponentFragmentStatus {
-  position: absolute;
-  z-index: 4;
-  display: flex;
-  align-items: baseline;
-  gap: .45rem;
-  padding: .3rem .65rem;
-  color: rgba(245, 239, 215, .82);
-  background: rgba(5, 8, 18, .72);
-  border: 1px solid rgba(212, 175, 55, .28);
-  border-radius: 999px;
-  font-size: .72rem;
-  white-space: nowrap;
-
-  strong { color: #e4c65f; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
-}
-
 .handDock {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
   min-width: 0;
-  min-height: clamp(108px, 13dvh, 155px);
   width: 100%;
-  padding: .4rem 1rem;
   box-sizing: border-box;
   background: rgba(5, 8, 18, .92);
   border-top: 1px solid rgba(212, 175, 55, .35);
 }
+
+.opponentHandDock {
+  background: rgba(17, 12, 27, .94);
+  border-top-color: rgba(220, 147, 171, .42);
+}
+
+.handDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 33px;
+  padding: .15rem 1rem;
+}
+
+.handDockToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  min-width: 0;
+  padding: .2rem .3rem;
+  color: #e4c65f;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-align: left;
+  cursor: pointer;
+
+  > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &:hover { color: #fff0a7; }
+  &:focus-visible { outline: 2px solid #e4c65f; outline-offset: 2px; }
+}
+
+.handDockChevron {
+  display: inline-block;
+  font-size: 1.2rem;
+  line-height: .6;
+  transform: rotate(180deg);
+  transition: transform .32s cubic-bezier(.2, .75, .25, 1);
+}
+
+.handDockCollapsed .handDockChevron { transform: rotate(0); }
+.handDockAction { color: rgba(245, 239, 215, .68); font-size: .65rem; font-weight: 500; letter-spacing: 0; }
+.handDockSummary { color: rgba(245, 239, 215, .7); font-size: .7rem; white-space: nowrap; }
+
+.handDockPanel {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows .34s cubic-bezier(.2, .75, .25, 1), opacity .25s ease;
+}
+
+.handDockCollapsed .handDockPanel {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.handDockPanelInner { min-height: 0; overflow: hidden; }
+
+.handDockContent {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: clamp(108px, 13dvh, 155px);
+  padding: .4rem 1rem;
+  box-sizing: border-box;
+}
+
+.opponentHandDock .handDockContent { min-height: clamp(90px, 11dvh, 145px); }
 
 .fragmentDock {
   flex: 0 0 clamp(calc(360px * var(--ui-scale)), calc(37vw * var(--ui-scale)), calc(460px * var(--ui-scale)));
@@ -312,14 +348,6 @@
 }
 
 .fragmentEmpty { opacity: .3; font-size: .62rem; letter-spacing: .07em; text-transform: uppercase; }
-
-.handDockLabel {
-  color: #e4c65f;
-  font-size: .78rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  white-space: nowrap;
-}
 
 .deckDropTargets {
   flex: 0 0 auto;
@@ -1272,8 +1300,10 @@
     width: 100%;
     height: auto;
     min-height: 0;
-    grid-template-rows: minmax(270px, 34dvh) 4px minmax(270px, 34dvh) auto;
+    grid-template-rows: auto minmax(270px, 34dvh) 4px minmax(270px, 34dvh) auto;
   }
+
+  .bothHandsExpanded { min-height: 0; }
 
   .inspector { display: none; }
   .inspectorOpen {
@@ -1305,7 +1335,7 @@
 
   .playmat {
     padding-top: 48px;
-    grid-template-rows: minmax(225px, auto) minmax(44px, auto) minmax(225px, auto) auto;
+    grid-template-rows: auto minmax(225px, auto) minmax(44px, auto) minmax(225px, auto) auto;
   }
 
   .tableHalf {
@@ -1327,26 +1357,6 @@
     font-size: .72rem;
   }
   .playerBadge span { max-width: min(150px, 38vw); font-size: .62rem; }
-  .handLabel, .opponentHalf .handLabel {
-    position: static;
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: end;
-    align-self: start;
-    padding: .2rem .35rem;
-    font-size: .6rem;
-    letter-spacing: 0;
-  }
-  .opponentFragmentStatus, .opponentHalf .opponentFragmentStatus {
-    position: static;
-    grid-column: 1 / -1;
-    grid-row: 3;
-    justify-self: end;
-    padding: .15rem .4rem;
-    font-size: .62rem;
-  }
-  .opponentFragmentStatus strong { font-size: .6rem; }
-
   .leftZones { grid-column: 1; grid-row: 2; }
   .battleGrid { grid-column: 2; grid-row: 2; }
   .rightZones { grid-column: 3; grid-row: 2; }
@@ -1388,8 +1398,11 @@
   .actionStageSlot .actionStage { max-width: 100%; }
   .actionCard, .actionCard img { width: clamp(calc(36px * var(--ui-scale)), calc(10vw * var(--ui-scale)), calc(50px * var(--ui-scale))); }
 
-  .handDock { flex-wrap: wrap; gap: .4rem .65rem; padding: .5rem; }
-  .handDockLabel { font-size: .68rem; white-space: normal; }
+  .handDockHeader { gap: .4rem; padding-inline: .5rem; }
+  .handDockToggle { gap: .35rem; font-size: .65rem; letter-spacing: 0; }
+  .handDockAction { display: none; }
+  .handDockSummary { font-size: .58rem; }
+  .handDockContent { flex-wrap: wrap; gap: .4rem .65rem; padding: .5rem; }
   .hand { order: 2; flex: 1 1 100%; min-height: 78px; }
   .fragmentDock { order: 3; flex: 1 1 100%; min-height: 75px; padding: .35rem 0 0; border-left: 0; border-top: 1px solid rgba(212, 175, 55, .35); }
   .fragmentHeader { flex-wrap: wrap; }
@@ -1403,4 +1416,14 @@
   .deckRequestNotice span { flex-basis: 100%; }
   .attachHint { left: .5rem; right: .5rem; justify-content: space-between; }
   .inspectorOpen { max-height: 48dvh; padding: .65rem; }
+}
+
+@media (max-width: 420px) {
+  .opponentHandDock .handDockHeader { flex-wrap: wrap; }
+  .opponentHandDock .handDockSummary { padding-left: 1.35rem; }
+  .fragmentRail { justify-content: flex-start; overflow-x: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handDockPanel, .handDockChevron { transition: none; }
 }
