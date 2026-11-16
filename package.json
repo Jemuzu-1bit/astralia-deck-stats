@@ -1,0 +1,17 @@
+{
+  "name": "astralia-deck-stats",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "build": "npm --prefix client run build",
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "test": "npm --prefix server test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ioredis": "^6.0.0",
+    "papaparse": "^5.7.0",
+    "socket.io": "^4.8.1"
+  }
+}

@@ -34,6 +34,8 @@ function publicPlayer(player, viewerId) {
 export function publicState(room, viewerId) {
   const viewer = [room.host, room.guest].find((player) => player?.socketId === viewerId);
   return {
+    instanceId: room.instanceId,
+    revision: room.revision,
     host: room.host ? publicPlayer(room.host, viewerId) : null,
     guest: room.guest ? publicPlayer(room.guest, viewerId) : null,
     started: room.started,

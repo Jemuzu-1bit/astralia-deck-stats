@@ -51,14 +51,16 @@ server `server/` su un servizio Node/WebSocket e impostare nel client:
 VITE_SERVER_URL=https://tuo-server.example.com
 ```
 
-Il server mantiene le lobby in memoria: il riavvio chiude le partite attive.
+In sviluppo, senza Redis, il server mantiene le lobby in memoria. Il deploy
+completo su Vercel usa Redis condiviso per conservare le partite tra istanze
+e riavvii. Configurazione e verifiche sono in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Struttura del codice
 
 - `client/src/pages/onlineGame/` contiene modello della tabella, componenti della partita e gestione delle scorciatoie. `OnlineGamePage.tsx` coordina connessione, stato e interazioni.
 - `client/src/hooks/useDeckEditor.ts` gestisce il caricamento, la modifica e il salvataggio dei mazzi; `OpeningHandSimulator.tsx` gestisce la simulazione della mano.
 - `client/src/domain/` contiene le regole del deck builder; `client/src/services/` contiene persistenza, dati delle carte e connessione Socket.IO.
-- `server/gameTable.js` gestisce le operazioni sulle carte, `roomState.js` costruisce lo stato visibile ai client, `registerCardEvents.js` e `registerDeckEvents.js` registrano gli eventi della partita. `server.js` gestisce stanze, lobby e avvio del server.
+- `server/gameTable.js` gestisce le operazioni sulle carte, `roomState.js` costruisce lo stato visibile ai client, `registerCardEvents.js` e `registerDeckEvents.js` registrano gli eventi della partita. `roomCommands.js` coordina le regole, `roomStore.js` e `redisBackend.js` salvano e distribuiscono gli aggiornamenti; `createGameServer.js` gestisce connessioni e recupero delle sessioni. `server.js` avvia il server locale e `api/game.js` lo espone su Vercel.
 
 Verifiche disponibili: `npm --prefix client run build`, `npm --prefix client run lint`, `node client/tests/deckLinks.test.mjs` e `npm --prefix server test`.
 
