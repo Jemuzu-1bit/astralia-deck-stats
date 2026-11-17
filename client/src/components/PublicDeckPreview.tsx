@@ -1,0 +1,48 @@
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import type { PublicDeck } from "../domain/publicDecks";
+import type { Card } from "../types/Card";
+import { getCardFaces } from "../services/cardDataService";
+import { useModalFocus } from "../hooks/useModalFocus";
+import CardDetailsModal from "./CardDetailsModal";
+import styles from "./PublicDeckCollection.module.scss";
+
+export default function PublicDeckPreview({ deck, onClose, onImport, importDisabled, importing, error, imported }: {
+  deck: PublicDeck; onClose: () => void; onImport: () => void; importDisabled: boolean;
+  importing: boolean; error: string | null; imported: { id: string; name: string } | null;
+}) {
+  const [catalog, setCatalog] = useState<Map<string, Card>>(new Map());
+  const [detail, setDetail] = useState<Card | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const modal = useRef<HTMLDivElement>(null);
+  useModalFocus(modal, Boolean(detail));
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError(false);
+    const ids = [...new Set([...(deck.protagonist ? [deck.protagonist] : []), ...deck.persona, ...deck.deck.map(entry => entry.id)])];
+    void Promise.all(ids.map(async id => [id, (await getCardFaces(id)).front] as const)).then(entries => {
+      if (active) setCatalog(new Map(entries.filter((entry): entry is readonly [string, Card] => Boolean(entry[1]))));
+    }).catch(() => { if (active) setLoadError(true); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [deck]);
+  const sections = [
+    { name: "Protagonist", entries: deck.protagonist ? [{ id: deck.protagonist, qty: 1 }] : [] },
+    { name: "Persona", entries: deck.persona.map(id => ({ id, qty: 1 })) },
+    { name: "Main deck", entries: deck.deck },
+  ];
+  return <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div ref={modal} className={styles.preview} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>
+      <header><div><h2 id="public-deck-title">{deck.name}</h2><Link className={styles.author} to={`/players/${deck.ownerId}`} onClick={onClose}>By {deck.author?.name || "Player"} →</Link></div><button onClick={onClose} aria-label="Close deck preview">Close</button></header>
+      {loading && <p role="status">Loading card names...</p>}
+      {loadError && <p role="alert">Card details could not be loaded. Card IDs are shown below.</p>}
+      <div className={styles.sections}>{sections.map(section => <section key={section.name}><h3>{section.name} <span>{section.entries.reduce((sum, entry) => sum + entry.qty, 0)}</span></h3>{section.entries.length === 0 && <p>No cards</p>}<ul>{section.entries.map((entry, index) => <li key={`${entry.id}-${index}`}><span>{entry.qty}×</span><button disabled={!catalog.has(entry.id)} onClick={() => setDetail(catalog.get(entry.id) ?? null)}>{catalog.get(entry.id)?.name || entry.id}</button></li>)}</ul></section>)}</div>
+      <p>Import a private copy to your collection. Custom backgrounds are not copied.</p>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {imported && <p role="status" className={styles.success}>“{imported.name}” imported. <Link to={`/my-decks?edit=${encodeURIComponent(imported.id)}`}>Open my copy →</Link></p>}
+      <button className={styles.import} disabled={importDisabled} onClick={onImport}>{importing ? "Importing..." : "Import deck"}</button>
+      {detail && <CardDetailsModal card={detail} onClose={() => setDetail(null)} />}
+    </div>
+  </div>;
+}

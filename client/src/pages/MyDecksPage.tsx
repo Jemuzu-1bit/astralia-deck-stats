@@ -16,9 +16,9 @@ import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
 import modalStyles from "../components/ModalDialog.module.scss";
-import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
+import { Link, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { supabase } from "../services/supabaseClient";
-import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, updateCloudDeck } from "../services/cloudDeckService";
+import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, updateCloudDeck, setDeckVisibility } from "../services/cloudDeckService";
 
 import ArchiveIcon from "../components/ArchiveIcon";
 import { FACTIONS } from "../domain/deckBuilder";
@@ -29,6 +29,11 @@ export default function MyDecksPage() {
   const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
+  const [publishingDeck, setPublishingDeck] = useState<Deck | null>(null);
+  const [publicationBusy, setPublicationBusy] = useState(false);
+  const [publicationError, setPublicationError] = useState<string | null>(null);
+  const [publicationMessage, setPublicationMessage] = useState<string | null>(null);
+  const publicationPending = useRef(false);
   const [showImport, setShowImport] = useState(false);
   const [importCode, setImportCode] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -184,6 +189,8 @@ export default function MyDecksPage() {
         <div><span className={styles.eyebrow}>YOUR COLLECTION</span><h1>My decks <span>{decks.length}</span></h1><p>A home for every strategy. Keep building.</p></div>
         <div className={styles.headerActions}><button className={styles.importButton} onClick={() => setShowImport(true)}>Import deck</button><button className={styles.newButton} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><ArchiveIcon name="plus" size={17} /> New deck</button></div>
       </header>
+      <p className={styles.notice}><Link to="/public-decks">Explore public decks →</Link>{!user && " Sign in with Discord and copy your local decks to publish them."}</p>
+      {publicationMessage && <p role="status" className={styles.notice}>{publicationMessage}</p>}
       <details className={styles.backupPanel}><summary>Backups &amp; transfers</summary>
       <div className={styles.backupActions}>
         <button type="button" className={styles.importButton} disabled={!authReady || importingBackup}
@@ -239,6 +246,7 @@ export default function MyDecksPage() {
               setShowDelete(true);
             }}
             onShare={handleShare}
+            onPublish={user ? (deck) => { setPublicationError(null); setPublishingDeck(deck); } : undefined}
           />
         ))}
         <button className={styles.createTile} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><span><ArchiveIcon name="plus" size={26} /></span><strong>Create a new deck</strong><small>Your next chapter awaits</small></button>
@@ -257,6 +265,32 @@ export default function MyDecksPage() {
           }}
         />
       )}
+
+      {publishingDeck && <ModalDialog
+        title={publishingDeck.visibility === "public" ? "Unpublish deck" : "Publish deck"}
+        ariaId="publish-title"
+        onClose={() => { if (!publicationPending.current) setPublishingDeck(null); }}
+        secondary={{ label: "Cancel", disabled: publicationBusy, onClick: () => setPublishingDeck(null) }}
+        primary={{ label: publicationBusy ? "Saving..." : publishingDeck.visibility === "public" ? "Unpublish" : "Publish", disabled: publicationBusy, onClick: async () => {
+          if (publicationPending.current) return;
+          publicationPending.current = true;
+          setPublicationBusy(true);
+          setPublicationError(null);
+          try {
+            const visibility = publishingDeck.visibility === "public" ? "private" : "public";
+            const saved = await setDeckVisibility(publishingDeck, visibility);
+            setDecks(current => current.map(deck => deck.id === saved.id ? saved : deck));
+            setPublicationMessage(visibility === "public" ? "Deck published. Other players can now view and import it." : "Deck is private again.");
+            setPublishingDeck(null);
+          } catch (error) {
+            setPublicationError(error instanceof Error ? error.message : "Could not change deck visibility. Close this dialog and reload to try again.");
+          } finally { publicationPending.current = false; setPublicationBusy(false); }
+        } }}>
+        <p>{publishingDeck.visibility === "public"
+          ? "This deck will disappear from the public collection. Copies already imported by other players will remain theirs."
+          : "Everyone will be able to view and import this deck and see your player profile: name, avatar, bio, favorite chronicle and website. Saved edits to this deck will also be public."}</p>
+        {publicationError && <p role="alert" className={styles.error}>{publicationError}</p>}
+      </ModalDialog>}
 
       {showShare && (
         <ModalDialog

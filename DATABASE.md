@@ -3,7 +3,8 @@
 ## Configurazione
 
 1. Crea un progetto Supabase. In **SQL Editor**, esegui
-   `supabase/migrations/202611170001_decks.sql`. La migrazione crea tabella,
+   `supabase/migrations/202611170001_decks.sql` e poi
+   `supabase/migrations/202611170002_public_profiles.sql`. La prima migrazione crea tabella,
    indici, trigger, regole RLS e bucket privato per gli sfondi.
 2. In **Authentication → Sign In / Providers**, abilita Discord. Crea un'app
    nel Discord Developer Portal, aggiungi il Callback URL mostrato da Supabase
@@ -63,12 +64,53 @@ dispositivo: in caso di conflitto, l'editor chiede di ricaricare.
 
 I mazzi nascono `private`. Le policy RLS consentono al proprietario di
 leggerli e modificarli; chiunque può leggere solo quelli `public`. La data
-`published_at` è controllata dal trigger. L'interfaccia per pubblicare e
-sfogliare i mazzi non è ancora presente: in futuro potrà cambiare
-`visibility` e interrogare l'indice `decks_public_recent_idx` senza cambiare il
-formato dei mazzi. Per cercare mazzi che contengono una determinata carta su
+`published_at` è controllata dal trigger. Da **My decks**, il proprietario può
+usare **Publish** e **Unpublish**. Le modifiche salvate a un mazzo pubblico
+sono subito visibili. **Public decks** permette ricerca per nome, filtro per
+cronaca, paginazione, anteprima delle carte e importazione come copia privata.
+Gli ospiti importano sul dispositivo; gli utenti connessi nel proprio account.
+Gli sfondi personalizzati non sono copiati. Un mazzo ritirato non può più essere
+importato, ma le copie già create restano ai rispettivi giocatori.
+Per cercare mazzi che contengono una determinata carta su
 grandi volumi si potrà aggiungere un indice derivato (`deck_cards_index`) dai
 JSONB, senza modificare i record esistenti.
+
+### Profili pubblici e aggiornamento di un database esistente
+
+Se la prima migrazione è già stata eseguita, applica soltanto
+`supabase/migrations/202611170002_public_profiles.sql` nel SQL Editor prima di
+distribuire il nuovo frontend. Non rieseguire la prima migrazione.
+
+La seconda migrazione crea `player_profiles`, popola gli utenti esistenti e
+mantiene i campi sincronizzati con un trigger su `auth.users`. Espone soltanto
+nome, avatar, bio, cronaca preferita e sito: nessuna email o dato di sessione.
+Il browser può leggere ma non scrivere direttamente questa tabella; l'editor
+continua a salvare attraverso `auth.updateUser` e il trigger aggiorna la
+proiezione pubblica nella stessa transazione. La policy RLS consente la lettura
+del proprio profilo o di quello di un autore con almeno un mazzo pubblico.
+Ritirando l'ultimo mazzo, il profilo non è più consultabile dagli altri.
+
+Il nome dell'autore in **Public decks** apre `/players/:playerId`, con profilo
+e soli mazzi pubblicati da quel giocatore. `/profile` resta la pagina personale
+con il comando per modificare bio, preferenze e link.
+
+La migrazione corregge anche la policy di lettura degli sfondi pubblici,
+qualificando il percorso dell'oggetto nella sottoquery: lo sfondo diventa
+leggibile quando il mazzo è pubblico e torna privato al ritiro. Gli URL firmati
+già emessi restano validi fino alla loro scadenza.
+
+Test delle migrazioni e delle policy su Postgres isolato, senza accesso al
+progetto Supabase (PowerShell):
+
+```powershell
+$env:PUBLIC_DECKS_TEST_RUNTIME = Join-Path $env:TEMP 'astralia-public-decks-tests'
+npm install --prefix $env:PUBLIC_DECKS_TEST_RUNTIME --no-save --ignore-scripts @electric-sql/pglite
+node supabase/tests/publicDecks.test.mjs
+```
+
+Il test esegue entrambe le migrazioni e verifica pubblicazione, visibilità dei
+profili, sincronizzazione dei campi, accesso agli sfondi, proprietà dei mazzi,
+conflitti di revisione e conservazione delle copie dopo il ritiro.
 
 Gli sfondi scelti dagli utenti vivono nel bucket privato `deck-backgrounds`,
 con percorso `userId/deckId/file`. Le policy permettono al proprietario di

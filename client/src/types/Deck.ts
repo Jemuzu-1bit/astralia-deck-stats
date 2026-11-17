@@ -13,4 +13,6 @@ export interface Deck {
   backgroundImage?: string | null;
   updatedAt: number;
   revision?: number;
+  visibility?: "private" | "public";
+  publishedAt?: number | null;
 }

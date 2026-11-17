@@ -13,7 +13,7 @@ export default function ArchiveLayout() {
   const authSession = useAuthSession();
   const [settings, setSettings] = useState(false);
   const [shortcuts, setShortcuts] = useState(false);
-  const title = location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
+  const title = location.pathname === "/public-decks" ? "Public decks" : location.pathname.startsWith("/players/") ? "Player profile" : location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
   return <div className={styles.layout}>
     <aside className={styles.sidebar}>
       <Link to="/" className={styles.brand}><span className={styles.brandMark}>A<span>✦</span></span><span>ASTRALIA<small>DECK ARCHIVE</small></span></Link>
@@ -22,6 +22,7 @@ export default function ArchiveLayout() {
       <nav className={styles.nav} aria-label="Main navigation">
         <NavLink to="/" end className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="home" /><span>Overview</span></NavLink>
         <NavLink to="/my-decks" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="decks" /><span>My decks</span></NavLink>
+        <NavLink to="/public-decks" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="user" /><span>Public decks</span></NavLink>
         <NavLink to="/cards" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="cards" /><span>Card library</span></NavLink>
         <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="book" /><span>How to play</span></NavLink>
       </nav>

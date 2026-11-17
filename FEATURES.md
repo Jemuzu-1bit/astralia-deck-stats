@@ -20,6 +20,9 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Share a deck through an import link compatible with the official site. The link is copied to the clipboard automatically when the browser allows it.
 - Import from official links, local links with a `deck` parameter, and older compact codes from this project. Opening a local link on **My Decks** opens the import dialog directly.
 - Imported decks are saved among local decks. Custom background images are not included in the shared format.
+- Signed-in players can publish and unpublish their cloud decks from **My decks**. Saved edits to a published deck are public; imports remain independent private copies.
+- **Public decks** provides name search, chronicle filters, pagination, card previews, and import to an account or guest browser storage. Custom backgrounds are not copied.
+- Author names open public player profiles with their bio, avatar, favorite chronicle, website, and published decks. Profiles become public when their owner publishes a deck; email and authentication data stay private.
 
 ## Lobby and online matches
 

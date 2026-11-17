@@ -95,7 +95,7 @@ export default function ProfilePage({ editing = false }: { editing?: boolean }) 
           </dl>
         </div>
       </section>
-      <p className={styles.hint}>Only you can view this profile for now. Public player profiles will arrive with deck sharing.</p>
+      <p className={styles.hint}>When you publish a deck, other players can see this profile and your published decks. <Link to={`/players/${user.id}`}>View author page →</Link></p>
     </>}
   </div>;
 }
