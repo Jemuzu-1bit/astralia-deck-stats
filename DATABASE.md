@@ -82,11 +82,16 @@ La funzione che costruisce gli URL è in `client/src/services/cardImageService.t
 Oggi usa `/cards/{faction}/{imageId}-{thumb|full}.webp` sul dominio del sito.
 Quando le immagini saranno su Cloudflare R2:
 
-1. Carica gli stessi file mantenendo il percorso `cards/...` e abilita un
-   dominio pubblico personalizzato per il bucket.
-2. Imposta `VITE_CARD_IMAGE_BASE_URL` al dominio, per esempio
-   `https://cards.example.com`, senza `/cards` finale.
-3. Verifica miniature e immagini complete in editor, lobby e partita; poi
+1. Esegui `npm run cards:r2:upload` per caricare gli stessi file mantenendo il
+   percorso `cards/...` nel bucket `astralia-card-images`.
+2. Distribuisci il Worker in `cloudflare/card-images`, che legge il bucket con
+   un binding R2 e serve le immagini sul suo URL `workers.dev`. Il bucket può
+   restare privato. Dalla cartella del Worker esegui `npx wrangler login` e
+   `npm run deploy`, poi prova un URL `/cards/...`. In seguito puoi assegnare
+   al Worker un dominio tuo.
+3. Imposta `VITE_CARD_IMAGE_BASE_URL` all'URL del Worker, per esempio
+   `https://astralia-card-images.example.workers.dev`, senza `/cards` finale.
+4. Verifica miniature e immagini complete in editor, lobby e partita; poi
    distribuisci la nuova build. I mazzi nel database non richiedono migrazione.
 
 Se in futuro il catalogo non userà più nomi file prevedibili, aggiungi una

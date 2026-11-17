@@ -6,6 +6,8 @@
   "scripts": {
     "build": "npm --prefix client run build",
     "build:vercel": "node scripts/build-vercel.mjs",
+    "cards:r2:check": "node scripts/upload-cards-r2.mjs --check",
+    "cards:r2:upload": "node scripts/upload-cards-r2.mjs --upload",
     "test": "npm --prefix server test"
   },
   "dependencies": {
@@ -13,5 +15,8 @@
     "ioredis": "^6.0.0",
     "papaparse": "^5.7.0",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1170.0"
   }
 }

@@ -59,26 +59,34 @@ async function loadOptions(faction: string): Promise<DeckCardOptions> {
   return { protagonist, persona, deck };
 }
 
-export function useDeckCardOptions(faction: string | null): DeckCardOptions {
+export function useDeckCardOptions(faction: string | null): DeckCardOptions & { loading: boolean; error: string | null } {
   const [options, setOptions] = useState<DeckCardOptions>(EMPTY_OPTIONS);
+  const [loading, setLoading] = useState(Boolean(faction));
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     if (!faction) {
       setOptions(EMPTY_OPTIONS);
+      setLoading(false);
       return () => {
         active = false;
       };
     }
 
+    setLoading(true);
+    setError(null);
+    setOptions(EMPTY_OPTIONS);
     void loadOptions(faction).then((loadedOptions) => {
       if (active) setOptions(loadedOptions);
-    });
+    }).catch(() => {
+      if (active) setError("Could not load cards. Close and reopen the builder to try again.");
+    }).finally(() => { if (active) setLoading(false); });
 
     return () => {
       active = false;
     };
   }, [faction]);
 
-  return options;
+  return { ...options, loading, error };
 }

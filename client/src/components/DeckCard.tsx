@@ -1,109 +1,22 @@
-import { useState } from "react";
 import type { Deck } from "../types/Deck";
-import DeckCreationModal from "./DeckCreationModal.tsx";
+import { CHRONICLES } from "../data/chronicles";
+import { SECTION_LIMITS } from "../domain/deckBuilder";
+import ArchiveIcon from "./ArchiveIcon";
 import styles from "./DeckCard.module.scss";
 
 interface DeckCardProps {
-  deck?: Deck;
-  isAddButton?: boolean;
-  onAddSaved?: (deck: Deck) => void;
-  onEdit?: (deck: Deck) => void;
-  onDelete?: (deck: Deck) => void;
-  onShare?: (deck: Deck) => void;
-  saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>;
+  deck: Deck;
+  onEdit: (deck: Deck) => void;
+  onDelete: (deck: Deck) => void;
+  onShare: (deck: Deck) => void;
 }
 
-export default function DeckCard({
-  deck,
-  isAddButton,
-  onAddSaved,
-  onEdit,
-  onDelete,
-  onShare,
-  saveDeck,
-}: DeckCardProps) {
-  const [showModal, setShowModal] = useState(false);
-
-  const factionMap: Record<string, string> = {
-    red: styles.factionRed,
-    blue: styles.factionBlue,
-    green: styles.factionGreen,
-    purple: styles.factionPurple,
-    pink: styles.factionPink,
-  };
-
-  const factionClass = deck?.faction
-    ? factionMap[deck.faction.toLowerCase()] ?? ""
-    : "";
-
-  const handleClick = () => {
-    if (isAddButton) {
-      setShowModal(true);
-    } else if (deck) {
-      onEdit?.(deck);
-    }
-  };
-
-  return (
-    <>
-      <div
-        className={`${styles.card} ${isAddButton ? styles.addCard : ""} ${
-          !isAddButton && factionClass ? factionClass : ""
-        }`}
-        onClick={handleClick}
-      >
-        {isAddButton ? (
-          "+"
-        ) : (
-          <div
-            className={styles.cardInner}
-            style={
-              deck?.backgroundImage
-                ? {
-                    backgroundImage: `url(${deck.backgroundImage})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }
-                : undefined
-            }
-          >
-            <div className={styles.cardTitle}>
-              {deck?.name || "Unnamed Deck"}
-            </div>
-            <div className={styles.actions}>
-              <button
-                className={`${styles.action} ${styles.primary}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (deck) onShare?.(deck);
-                }}
-              >
-                Share
-              </button>
-              <button
-                className={`${styles.action} ${styles.danger}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (deck) onDelete?.(deck);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {showModal && (
-        <DeckCreationModal
-          onClose={() => setShowModal(false)}
-          saveDeck={saveDeck}
-          onSaved={(d) => {
-            setShowModal(false);
-            onAddSaved?.(d);
-          }}
-        />
-      )}
-    </>
-  );
+export default function DeckCard({ deck, onEdit, onDelete, onShare }: DeckCardProps) {
+  const chronicle = CHRONICLES[deck.faction.toLowerCase()];
+  const total = deck.deck.reduce((sum, card) => sum + card.qty, 0);
+  const complete = total === SECTION_LIMITS.deck && deck.persona.length === SECTION_LIMITS.persona && Boolean(deck.protagonist);
+  return <article className={styles.card}>
+    <button className={styles.cover} aria-label={`Edit ${deck.name}`} onClick={() => onEdit(deck)} style={{ backgroundImage: `linear-gradient(0deg, #1b1c21 0%, #1b1c2110 85%), url(${deck.backgroundImage || chronicle?.image || ""})` }}><span className={styles.status}>{complete ? "Complete" : "Draft"}</span><span className={styles.faction} style={{ color: chronicle?.color }}>CHRONICLE OF {chronicle?.name.toUpperCase() ?? deck.faction.toUpperCase()}</span></button>
+    <div className={styles.info}><button className={styles.title} onClick={() => onEdit(deck)}>{deck.name || "Untitled deck"}</button><div className={styles.meta}><span>{total} / {SECTION_LIMITS.deck} cards</span><span>{new Date(deck.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div><div className={styles.actions}><button onClick={() => onEdit(deck)}><ArchiveIcon name="decks" size={14} /> Edit deck</button><button onClick={() => onShare(deck)}>Share ↗</button><button className={styles.delete} onClick={() => onDelete(deck)} aria-label={`Delete ${deck.name}`}>Delete</button></div></div>
+  </article>;
 }

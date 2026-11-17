@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useModalFocus } from "../hooks/useModalFocus";
 import type { Card } from "../types/Card";
 import { getCardImagePath } from "../services/cardImageService";
 import styles from "./CardDetailsModal.module.scss";
@@ -10,15 +11,27 @@ interface Props {
 
 export default function CardDetailsModal({ card, onClose }: Props) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const modal = useRef<HTMLDivElement>(null);
+  useModalFocus(modal);
 
   useEffect(() => {
     setImageLoaded(false);
+    setImageError(false);
   }, [card.id]);
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <div
-        className={`${styles.modal} ${imageLoaded ? styles.loaded : ""}`}
+        ref={modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label={card.name}
+        tabIndex={-1}
+        className={`${styles.modal} ${styles.loaded}`}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") { event.stopPropagation(); onClose(); }
+        }}
         onClick={(e) => {
           e.stopPropagation();
         }}
@@ -28,12 +41,14 @@ export default function CardDetailsModal({ card, onClose }: Props) {
         </button>
 
         <div className={styles.content}>
-          {!imageLoaded && <div className={styles.loading}>Loading...</div>}
+          {!imageLoaded && !imageError && <div className={styles.loading}>Loading...</div>}
+          {imageError && <p role="status">Card artwork is unavailable.</p>}
           <img
             src={getCardImagePath(card, "full")}
             alt={card.name}
             className={styles.image}
             onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
             style={{ opacity: imageLoaded ? 1 : 0 }}
           />
 

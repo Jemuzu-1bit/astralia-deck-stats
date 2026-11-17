@@ -2,7 +2,7 @@ import type { Card } from "../types/Card.ts";
 
 export type CardImageVariant = "thumb" | "full";
 
-// Use the same /cards tree on a Cloudflare custom domain when it is ready.
+// The Cloudflare Worker serves the same /cards tree from R2 when configured.
 const cardImageOrigin = import.meta.env.VITE_CARD_IMAGE_BASE_URL?.replace(/\/+$/, "") ?? "";
 
 export function getCardImagePath(

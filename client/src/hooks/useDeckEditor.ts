@@ -8,11 +8,13 @@ import { addToSelection, buildDeckPayload, COPIES_PER_CARD, moveSelectedCard, re
 import { useCardFilters } from "../hooks/useCardFilters";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 
-export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { initialDeck?: Deck; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck> }) {
+export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck> }) {
+  const [loadingDeck, setLoadingDeck] = useState(Boolean(initialDeck));
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedFaction, setSelectedFaction] = useState<string | null>(
-    initialDeck?.faction ?? null
+    initialDeck?.faction ?? initialFaction ?? null
   );
   const [deckName, setDeckName] = useState<string>(
     initialDeck?.name ?? "New Deck"
@@ -41,12 +43,15 @@ export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { ini
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        if (detailCard) closeCardDetails();
+        else onClose();
+      }
     };
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
+  }, [onClose, detailCard]);
 
   useEffect(() => {
     let active = true;
@@ -96,7 +101,11 @@ export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { ini
       setPersonaSelectionMap(pMap);
       setBackgroundImage(initialDeck.backgroundImage ?? null);
     };
-    void tryPrefill();
+    setLoadingDeck(true);
+    setLoadError(null);
+    void tryPrefill().catch(() => {
+      if (active) setLoadError("Could not load this deck. Close and reopen it to try again.");
+    }).finally(() => { if (active) setLoadingDeck(false); });
     return () => {
       active = false;
     };
@@ -149,7 +158,7 @@ export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { ini
   };
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || loadingDeck || loadError || cardOptions.loading || cardOptions.error) return;
     if (!selectedFaction) {
       alert("Please select a faction first.");
       return;
@@ -180,5 +189,5 @@ export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { ini
     }
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
 }

@@ -16,9 +16,13 @@ import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
 import modalStyles from "../components/ModalDialog.module.scss";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabaseClient";
 import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, updateCloudDeck } from "../services/cloudDeckService";
+
+import ArchiveIcon from "../components/ArchiveIcon";
+import { FACTIONS } from "../domain/deckBuilder";
+import { CHRONICLES } from "../data/chronicles";
 
 export default function MyDecksPage() {
   const location = useLocation();
@@ -40,6 +44,20 @@ export default function MyDecksPage() {
   const [importingBackup, setImportingBackup] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const backupInput = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+  const [faction, setFaction] = useState("");
+  const [sort, setSort] = useState("recent");
+  const params = new URLSearchParams(location.search);
+  const creatingDeck = params.has("new");
+  const requestedFaction = params.get("faction") ?? "";
+  const visibleDecks = decks.filter(deck => (!faction || deck.faction === faction) && deck.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : b.updatedAt - a.updatedAt);
+
+  useEffect(() => {
+    const editId = new URLSearchParams(location.search).get("edit");
+    if (!editId || !authReady || loading) return;
+    const deck = decks.find(item => item.id === editId);
+    if (deck) { setEditingDeck(deck); navigate("/my-decks", { replace: true }); }
+  }, [location.search, decks, authReady, loading, navigate]);
 
   const refresh = () => {
     setLocalDecks(listDecks());
@@ -199,37 +217,12 @@ export default function MyDecksPage() {
 
   return (
     <div className={styles.pageRoot}>
-      <div className={styles.pageHeader}>
-        <Link to="/" className={styles.homeButton} aria-label="Home">
-          <svg
-            className={styles.homeIcon}
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M15 18L9 12L15 6"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className={styles.homeLabel}>Home</span>
-        </Link>
-        <h1>My Decks</h1>
-        <Link to="/help" className={styles.helpLink}>Guide</Link>
-      </div>
+      <header className={styles.pageHeader}>
+        <div><span className={styles.eyebrow}>YOUR COLLECTION</span><h1>My decks <span>{decks.length}</span></h1><p>A home for every strategy. Keep building.</p></div>
+        <div className={styles.headerActions}><button className={styles.importButton} onClick={() => setShowImport(true)}>Import deck</button><button className={styles.newButton} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><ArchiveIcon name="plus" size={17} /> New deck</button></div>
+      </header>
+      <details className={styles.backupPanel}><summary>Backups &amp; transfers</summary>
       <div className={styles.backupActions}>
-        <button
-          className={styles.importButton}
-          onClick={() => setShowImport(true)}
-        >
-          Import Deck
-        </button>
         <button type="button" className={styles.importButton} disabled={!authReady || importingBackup}
           onClick={() => backupInput.current?.click()}>
           {importingBackup ? "Importing..." : "Import backup"}
@@ -244,6 +237,7 @@ export default function MyDecksPage() {
           }} />
       </div>
       <p className={styles.backupHint}>Moving from the old Render site? Download your browser decks there, then import the backup here.</p>
+      </details>
       {backupMessage && <p role="status" className={styles.notice}>{backupMessage}</p>}
       {supabase && <section className={styles.accountPanel} aria-label="Deck account">
         {user ? <>
@@ -269,11 +263,17 @@ export default function MyDecksPage() {
         </>}
         {authMessage && <p role="status">{authMessage}</p>}
       </section>}
-      {!supabase && <p className={styles.notice}>Decks are saved on this device. Configure Supabase to enable cloud accounts.</p>}
+      {!supabase && <p className={styles.notice}>Decks are saved on this device. Download a backup to keep a copy.</p>}
       {pageError && <p role="alert" className={styles.error}>{pageError}</p>}
       {loading && <p className={styles.notice}>Loading decks...</p>}
+      <div className={styles.libraryToolbar}>
+        <label className={styles.deckSearch}><ArchiveIcon name="search" size={17} /><input aria-label="Search decks" placeholder="Search your decks…" value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <select aria-label="Filter decks by chronicle" value={faction} onChange={event => setFaction(event.target.value)}><option value="">All chronicles</option>{FACTIONS.map(value => <option key={value} value={value}>{CHRONICLES[value].name}</option>)}</select>
+        <select aria-label="Sort decks" value={sort} onChange={event => setSort(event.target.value)}><option value="recent">Recently updated</option><option value="name">Name</option></select>
+      </div>
+      {!loading && visibleDecks.length === 0 && <div className={styles.empty}><ArchiveIcon name="decks" size={34} /><h2>{decks.length ? "No matching decks" : "Your next great deck starts here."}</h2><p>{decks.length ? "Try a different name or chronicle." : "Choose your chronicle, discover your cards, and start building."}</p>{decks.length > 0 && <button onClick={() => { setSearch(""); setFaction(""); }}>Reset filters</button>}</div>}
       <div className={styles.deckSlots}>
-        {decks.map((d) => (
+        {visibleDecks.map((d) => (
           <DeckCard
             key={d.id}
             deck={d}
@@ -285,8 +285,10 @@ export default function MyDecksPage() {
             onShare={handleShare}
           />
         ))}
-        <DeckCard isAddButton onAddSaved={() => refresh()} saveDeck={saveDeck} />
+        <button className={styles.createTile} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><span><ArchiveIcon name="plus" size={26} /></span><strong>Create a new deck</strong><small>Your next chapter awaits</small></button>
       </div>
+
+      {creatingDeck && authReady && <DeckCreationModal initialFaction={FACTIONS.includes(requestedFaction as typeof FACTIONS[number]) ? requestedFaction : undefined} saveDeck={saveDeck} onClose={() => navigate("/my-decks", { replace: true })} onSaved={() => refresh()} />}
 
       {editingDeck && (
         <DeckCreationModal
@@ -385,4 +387,5 @@ export default function MyDecksPage() {
       )}
     </div>
   );
+
 }

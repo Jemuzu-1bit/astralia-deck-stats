@@ -22,11 +22,17 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
   const inspecting = useRef(false);
 
   useEffect(() => {
+    let active = true;
+    setCurrentFace(card);
+    setBackFace(null);
     (async () => {
       if (!enableFlip) return;
-      const { back } = await getCardFaces(card.id);
-      if (back) setBackFace(back);
+      try {
+        const { back } = await getCardFaces(card.id);
+        if (active && back) setBackFace(back);
+      } catch { /* The front face remains available if the reverse cannot load. */ }
     })();
+    return () => { active = false; };
   }, [card, enableFlip]);
 
   const handleFlip = () => {
@@ -54,7 +60,15 @@ const CardDisplay: React.FC<CardDisplayProps> = ({
           onInspect?.(null);
         }
       }}
-      tabIndex={onInspect ? 0 : undefined}
+      tabIndex={onInspect || onClick ? 0 : undefined}
+      role={onClick ? "button" : undefined}
+      aria-label={onClick ? `Inspect ${currentFace.name}` : undefined}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
     >
       <img
         src={getCardImagePath(currentFace, "thumb")}
