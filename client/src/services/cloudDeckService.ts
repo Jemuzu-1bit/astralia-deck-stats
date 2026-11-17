@@ -105,10 +105,14 @@ export async function importLocalDecks(decks: Deck[]): Promise<number> {
     if (imported.has(deck.id)) continue;
     try {
       await createCloudDeck(deck, deck.id);
+      imported.add(deck.id);
       count++;
     } catch (error) {
       // A retry after a lost response may find an already imported deck.
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") continue;
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+        imported.add(deck.id);
+        continue;
+      }
       throw error;
     }
   }

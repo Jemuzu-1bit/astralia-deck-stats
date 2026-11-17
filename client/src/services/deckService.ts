@@ -31,6 +31,20 @@ export function listDecks(): Deck[] {
   return loadAll().sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+export function mergeLocalDecks(imported: Deck[]): number {
+  const decks = loadAll();
+  const ids = new Set(decks.map((deck) => deck.id));
+  let added = 0;
+  for (const deck of imported) {
+    if (ids.has(deck.id)) continue;
+    decks.push(deck);
+    ids.add(deck.id);
+    added++;
+  }
+  if (added) saveAll(decks);
+  return added;
+}
+
 export function getDeck(id: string): Deck | undefined {
   return loadAll().find((d) => d.id === id);
 }

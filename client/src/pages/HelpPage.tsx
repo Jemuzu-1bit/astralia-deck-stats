@@ -26,7 +26,7 @@ export default function HelpPage() {
       <section aria-labelledby="getting-started">
         <h2 id="getting-started">Start in 3 steps</h2>
         <ol className={styles.steps}>
-          <li><span className={styles.number}>1</span><h3>Get your deck ready</h3><p>Open <strong>My Decks</strong> to create a deck, or choose <strong>Import Deck</strong> to paste a deck link. Your decks are saved in this browser.</p></li>
+          <li><span className={styles.number}>1</span><h3>Get your deck ready</h3><p>Open <strong>My Decks</strong> to create a deck, or choose <strong>Import Deck</strong> to paste a deck link. Guests save decks in this browser; signed-in players save them online. To move decks from the old Render site, download a backup there and choose <strong>Import backup</strong> here.</p></li>
           <li><span className={styles.number}>2</span><h3>Join a game</h3><p>On the home page, choose <strong>host game</strong> to create a lobby. If a friend sent you a code, choose <strong>join game</strong> and enter it.</p></li>
           <li><span className={styles.number}>3</span><h3>Pick your decks and start</h3><p>Each player chooses a deck in the lobby. Once both players are ready, the host selects <strong>Start match</strong>.</p></li>
         </ol>

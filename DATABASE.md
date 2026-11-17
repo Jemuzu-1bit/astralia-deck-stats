@@ -22,6 +22,28 @@
    Prova anche da un altro browser. Per i mazzi precedenti usa **Copy local
    decks**: l'operazione è ripetibile e conserva gli originali sul dispositivo.
 
+### Trasferire i mazzi dal vecchio sito Render
+
+Il browser separa i dati di `astralia-deck-lab.onrender.com` da quelli di
+`astralia-sim.vercel.app`: **Copy local decks** vede solo i mazzi dell'indirizzo
+che stai visitando.
+
+1. Apri `https://astralia-deck-lab.onrender.com/my-decks` nello stesso browser e
+   profilo in cui avevi salvato i mazzi. Premi **Download browser decks** e
+   conserva il file JSON. Il vecchio sito deve avere distribuita la versione
+   che contiene questo pulsante.
+2. Apri `https://astralia-sim.vercel.app/my-decks` e premi **Import backup**.
+   Se hai effettuato l'accesso, i mazzi vengono copiati direttamente su
+   Supabase; altrimenti sono salvati in questo browser e puoi usare **Copy
+   local decks** dopo la registrazione.
+3. Controlla che il numero e i nomi dei mazzi corrispondano. Puoi ripetere
+   l'importazione: gli ID già copiati vengono saltati e i mazzi esistenti
+   restano invariati. Il file e i mazzi sul vecchio sito non vengono cancellati.
+
+Se il vecchio deploy non mostra **Download browser decks**, aggiorna il deploy
+Render oppure usa **Share** su ogni mazzo e incolla i link in **Import Deck** sul
+nuovo sito. I link singoli trasferiscono le carte, non gli sfondi personali.
+
 Senza le due variabili Supabase, l'app continua a salvare i mazzi nel browser.
 Con un account attivo, i nuovi mazzi vengono salvati sul cloud. Le partite in
 corso continuano a usare Redis per lo stato temporaneo della stanza.

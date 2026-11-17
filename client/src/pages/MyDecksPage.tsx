@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import DeckCard from "../components/DeckCard.tsx";
 import type { Deck } from "../types/Deck";
@@ -9,7 +9,9 @@ import {
   importDeck,
   createDeck,
   updateDeck,
+  mergeLocalDecks,
 } from "../services/deckService";
+import { parseDeckBackup, serializeDeckBackup } from "../services/deckBackup";
 import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
@@ -37,6 +39,9 @@ export default function MyDecksPage() {
   const [reloadVersion, setReloadVersion] = useState(0);
   const [localDecks, setLocalDecks] = useState<Deck[]>(() => listDecks());
   const [importingLocal, setImportingLocal] = useState(false);
+  const [importingBackup, setImportingBackup] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
     setLocalDecks(listDecks());
@@ -169,6 +174,36 @@ export default function MyDecksPage() {
     }
   };
 
+  const downloadBrowserDecks = () => {
+    const blob = new Blob([serializeDeckBackup(localDecks)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `astralia-decks-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  const importBackupFile = async (file: File) => {
+    setImportingBackup(true);
+    setBackupMessage(null);
+    setPageError(null);
+    try {
+      if (file.size > 25 * 1024 * 1024) throw new Error("Backup file is too large (maximum 25 MB).");
+      const imported = parseDeckBackup(await file.text());
+      const count = user ? await importLocalDecks(imported) : mergeLocalDecks(imported);
+      setBackupMessage(`${count} deck${count === 1 ? "" : "s"} imported. Existing decks and the backup file were kept.`);
+      refresh();
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "Could not import the backup.");
+      refresh();
+    } finally {
+      setImportingBackup(false);
+    }
+  };
+
   return (
     <div className={styles.pageRoot}>
       <div className={styles.pageHeader}>
@@ -195,16 +230,28 @@ export default function MyDecksPage() {
         <h1>My Decks</h1>
         <Link to="/help" className={styles.helpLink}>Guide</Link>
       </div>
-      <div
-        style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}
-      >
+      <div className={styles.backupActions}>
         <button
           className={styles.importButton}
           onClick={() => setShowImport(true)}
         >
           Import Deck
         </button>
+        <button type="button" className={styles.importButton} disabled={!authReady || importingBackup}
+          onClick={() => backupInput.current?.click()}>
+          {importingBackup ? "Importing..." : "Import backup"}
+        </button>
+        {localDecks.length > 0 && <button type="button" className={styles.importButton}
+          onClick={downloadBrowserDecks}>Download browser decks</button>}
+        <input ref={backupInput} type="file" accept=".json,application/json" hidden
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) void importBackupFile(file);
+          }} />
       </div>
+      <p className={styles.backupHint}>Moving from the old Render site? Download your browser decks there, then import the backup here.</p>
+      {backupMessage && <p role="status" className={styles.notice}>{backupMessage}</p>}
       {supabase && <section className={styles.accountPanel} aria-label="Deck account">
         {user ? <>
           <span>Cloud decks · {user.email}</span>
