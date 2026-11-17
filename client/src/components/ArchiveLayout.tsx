@@ -4,13 +4,16 @@ import ArchiveIcon from "./ArchiveIcon";
 import SettingsMenu from "./SettingsMenu";
 import ShortcutSettings from "./ShortcutSettings";
 import FeedbackLink from "./FeedbackLink";
+import DiscordProfile from "./DiscordProfile";
+import useAuthSession from "../hooks/useAuthSession";
 import styles from "./ArchiveLayout.module.scss";
 
 export default function ArchiveLayout() {
   const location = useLocation();
+  const authSession = useAuthSession();
   const [settings, setSettings] = useState(false);
   const [shortcuts, setShortcuts] = useState(false);
-  const title = location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
+  const title = location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
   return <div className={styles.layout}>
     <aside className={styles.sidebar}>
       <Link to="/" className={styles.brand}><span className={styles.brandMark}>A<span>✦</span></span><span>ASTRALIA<small>DECK ARCHIVE</small></span></Link>
@@ -22,15 +25,16 @@ export default function ArchiveLayout() {
         <NavLink to="/cards" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="cards" /><span>Card library</span></NavLink>
         <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="book" /><span>How to play</span></NavLink>
       </nav>
+      <DiscordProfile {...authSession} onSettings={() => setSettings(true)} />
       <div className={styles.sidebarBottom}>
-        <button onClick={() => setSettings(true)}><ArchiveIcon name="settings" /> Settings</button>
+        {!authSession.user && <button onClick={() => setSettings(true)}><ArchiveIcon name="settings" /> Settings</button>}
         <FeedbackLink>Send feedback ↗</FeedbackLink>
         <p>Made for your next great deck.</p>
       </div>
     </aside>
     <div className={styles.workspace}>
       <header className={styles.topbar}><span>Astralia <span className={styles.slash}>/</span> <strong>{title}</strong></span><Link to="/cards" className={styles.search}><ArchiveIcon name="search" size={16} /><span>Find a card…</span></Link></header>
-      <main className={styles.content}><Outlet /></main>
+      <main className={styles.content}><Outlet context={authSession} /></main>
       <footer className={styles.footer}><span>ASTRALIA <span>DECK ARCHIVE</span></span><Link to="/help">Build. Refine. Play.</Link></footer>
     </div>
     {settings && <SettingsMenu onClose={() => setSettings(false)} onShortcuts={() => { setSettings(false); setShortcuts(true); }} />}

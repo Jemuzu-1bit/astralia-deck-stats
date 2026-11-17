@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 
 const paths = {
+  user: "M20 21v-2a7 7 0 0 0-14 0v2 M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+  edit: "m16 3 5 5-12 12-6 1 1-6z M14 5l5 5",
+  logout: "M9 4H3v16h6 M9 12h12 m-5-5 5 5-5 5",
   home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",
   cards: "M8 3h11v15H8z M5 6H3v15h11v-1",
   decks: "m12 3 10 5-10 5L2 8z M2 12l10 5 10-5 M2 16l10 5 10-5",

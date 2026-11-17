@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { AuthSession } from "../hooks/useAuthSession";
 import DeckCard from "../components/DeckCard.tsx";
 import type { Deck } from "../types/Deck";
 import {
@@ -16,7 +16,7 @@ import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
 import modalStyles from "../components/ModalDialog.module.scss";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { supabase } from "../services/supabaseClient";
 import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, updateCloudDeck } from "../services/cloudDeckService";
 
@@ -32,10 +32,8 @@ export default function MyDecksPage() {
   const [showImport, setShowImport] = useState(false);
   const [importCode, setImportCode] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(!supabase);
-  const [authBusy, setAuthBusy] = useState(false);
-  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const { user, authReady } = useOutletContext<AuthSession>();
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
@@ -63,24 +61,6 @@ export default function MyDecksPage() {
     setLocalDecks(listDecks());
     setReloadVersion((value) => value + 1);
   };
-
-  useEffect(() => {
-    if (!supabase) return;
-    let active = true;
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      if (error) setPageError(error.message);
-      setUser(data.session?.user ?? null);
-      setAuthReady(true);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) {
-        setUser(session?.user ?? null);
-        setAuthReady(true);
-      }
-    });
-    return () => { active = false; listener.subscription.unsubscribe(); };
-  }, []);
 
   useEffect(() => {
     if (!authReady) return;
@@ -111,23 +91,6 @@ export default function MyDecksPage() {
     return initialDeck
       ? updateDeck({ ...input, id: initialDeck.id, updatedAt: initialDeck.updatedAt })
       : createDeck(input);
-  };
-
-  const signInWithDiscord = async () => {
-    if (!supabase) return;
-    setAuthBusy(true);
-    setAuthMessage(null);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "discord",
-        options: { redirectTo: `${window.location.origin}/my-decks` },
-      });
-      if (error) setAuthMessage(error.message);
-    } catch (error) {
-      setAuthMessage(error instanceof Error ? error.message : "Could not connect to sign in.");
-    } finally {
-      setAuthBusy(false);
-    }
   };
 
   useEffect(() => {
@@ -239,29 +202,22 @@ export default function MyDecksPage() {
       <p className={styles.backupHint}>Moving from the old Render site? Download your browser decks there, then import the backup here.</p>
       </details>
       {backupMessage && <p role="status" className={styles.notice}>{backupMessage}</p>}
-      {supabase && <section className={styles.accountPanel} aria-label="Deck account">
+      {supabase && <section className={styles.accountPanel} aria-label="Deck storage">
         {user ? <>
-          <span>Cloud decks · {user.email}</span>
-          <button type="button" onClick={() => void supabase?.auth.signOut()}>Sign out</button>
+          <span>Cloud decks</span>
           {localDecks.length > 0 && <button type="button" disabled={importingLocal} onClick={async () => {
             setImportingLocal(true);
             setPageError(null);
             try {
               const count = await importLocalDecks(localDecks);
-              setAuthMessage(`${count} deck${count === 1 ? "" : "s"} copied from this browser. Local copies were kept.`);
+              setTransferMessage(`${count} deck${count === 1 ? "" : "s"} copied from this browser. Local copies were kept.`);
               refresh();
             } catch (error) {
               setPageError(error instanceof Error ? error.message : "Could not copy local decks.");
             } finally { setImportingLocal(false); }
           }}>{importingLocal ? "Copying..." : `Copy local decks (${localDecks.length})`}</button>}
-        </> : <>
-          <span>Decks on this device · Sign in to save them online</span>
-          <button type="button" className={styles.discordButton} disabled={authBusy}
-            onClick={() => void signInWithDiscord()}>
-            {authBusy ? "Connecting..." : "Continue with Discord"}
-          </button>
-        </>}
-        {authMessage && <p role="status">{authMessage}</p>}
+        </> : <span>Decks on this device</span>}
+        {user && transferMessage && <p role="status">{transferMessage}</p>}
       </section>}
       {!supabase && <p className={styles.notice}>Decks are saved on this device. Download a backup to keep a copy.</p>}
       {pageError && <p role="alert" className={styles.error}>{pageError}</p>}

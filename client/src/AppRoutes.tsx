@@ -6,6 +6,7 @@ import OnlineGamePage from "./pages/OnlineGamePage.tsx";
 import HelpPage from "./pages/HelpPage.tsx";
 import ArchiveLayout from "./components/ArchiveLayout";
 import CardLibraryPage from "./pages/CardLibraryPage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function AppRoutes() {
   return (
@@ -15,6 +16,8 @@ export default function AppRoutes() {
         <Route path="/my-decks" element={<MyDecksPage />} />
         <Route path="/cards" element={<CardLibraryPage />} />
         <Route path="/help" element={<HelpPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/edit" element={<ProfilePage editing />} />
       </Route>
       <Route path="/lobby" element={<LobbyPage />} />
       <Route path="/lobby/:code" element={<LobbyPage />} />
