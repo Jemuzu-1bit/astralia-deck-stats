@@ -5,10 +5,14 @@
 1. Crea un progetto Supabase. In **SQL Editor**, esegui
    `supabase/migrations/202611170001_decks.sql`. La migrazione crea tabella,
    indici, trigger, regole RLS e bucket privato per gli sfondi.
-2. In **Authentication → Providers**, abilita Email. Configura l'URL del sito
-   e gli URL di redirect per il dominio Vercel, compresi eventuali domini di
-   preview. Se lasci attiva la conferma email, i nuovi account devono
-   confermare il messaggio ricevuto prima di accedere.
+2. In **Authentication → Sign In / Providers**, abilita Email e lascia attiva
+   la conferma email. In **URL Configuration**, imposta il dominio Vercel come
+   Site URL e consenti nei Redirect URLs il dominio di produzione, le preview
+   che usi e `http://localhost:5173/**` per lo sviluppo locale. Il modulo di
+   registrazione passa l'origine corrente come redirect dopo la conferma.
+   Prima di aprire le registrazioni al pubblico, configura un SMTP personalizzato
+   in **Authentication → SMTP Settings**: il servizio email predefinito di
+   Supabase invia solo agli indirizzi dei membri del team del progetto.
 3. In Vercel, imposta `VITE_SUPABASE_URL` e
    `VITE_SUPABASE_PUBLISHABLE_KEY` per gli ambienti appropriati e ricompila il
    frontend. Per lo sviluppo locale, inseriscile in `client/.env.local`.

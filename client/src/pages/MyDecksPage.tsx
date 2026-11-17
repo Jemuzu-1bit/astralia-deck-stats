@@ -98,7 +98,11 @@ export default function MyDecksPage() {
     setAuthMessage(null);
     try {
       const { data, error } = register
-        ? await supabase.auth.signUp({ email, password })
+        ? await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/my-decks` },
+        })
         : await supabase.auth.signInWithPassword({ email, password });
       setAuthMessage(error?.message ?? (register && !data.session
         ? "Check your email to confirm your account, then sign in."
