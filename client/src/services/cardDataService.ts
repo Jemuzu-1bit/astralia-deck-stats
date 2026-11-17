@@ -4,7 +4,12 @@ import type { Card } from "../types/Card.ts";
 export async function getAllCards(): Promise<Card[]> {
   const cards = await readCardData();
 
-  return cards.filter((card) => card.face === 1 && !isAlternativeArt(card));
+  return cards.filter(
+    (card) =>
+      card.face === 1 &&
+      !isAlternativeArt(card) &&
+      card.type.trim().toLowerCase() !== "fragment"
+  );
 }
 
 export async function getCardsByField<T extends keyof Card>(
