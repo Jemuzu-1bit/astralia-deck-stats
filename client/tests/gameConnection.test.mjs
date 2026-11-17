@@ -18,6 +18,24 @@ function waitForState(connection, predicate) {
   });
 }
 
+test("the Vercel socket path connects without a trailing slash and creates a lobby", async (t) => {
+  const app = await createGameServer({ backend: new MemoryBackend(), socketPath: "/api/game/socket.io" });
+  app.server.listen(0, "127.0.0.1");
+  await once(app.server, "listening");
+  const url = `http://127.0.0.1:${app.server.address().port}`;
+  const host = new GameConnection({ url, path: "/api/game/socket.io" });
+  const upgradePaths = [];
+  app.server.on("upgrade", (request) => upgradePaths.push(request.url));
+  t.after(async () => { host.leave(); await app.close(); });
+
+  const joined = waitForState(host, (state) => Boolean(state.code && state.host));
+  host.connect();
+  host.runWhenConnected(() => host.host("Host"));
+  const state = await joined;
+  assert.match(state.code, /^[A-F0-9]{6}$/);
+  assert.ok(upgradePaths.some((path) => path.startsWith("/api/game/socket.io?")), "the upgrade must omit the trailing slash");
+});
+
 test("the browser service resumes before replaying a committed action whose acknowledgement was lost", async (t) => {
   const values = new Map();
   globalThis.localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };

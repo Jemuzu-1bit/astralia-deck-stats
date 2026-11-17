@@ -142,7 +142,7 @@ export class GameConnection {
     }
     const url = this.endpoint.url || import.meta.env?.VITE_SERVER_URL || undefined;
     const path = this.endpoint.path || import.meta.env?.VITE_SOCKET_PATH || "/socket.io";
-    this.socket = io(url, { path, autoConnect: false, transports: ["websocket"] });
+    this.socket = io(url, { path, addTrailingSlash: !path.startsWith("/api/"), autoConnect: false, transports: ["websocket"] });
     this.socket.on("connect", () => {
       this.sessionReady = false;
       if (this.watchCode) this.emitWatch();

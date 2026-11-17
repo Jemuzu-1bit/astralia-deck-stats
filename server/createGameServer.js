@@ -25,7 +25,12 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
   const store = new RoomStore(backend);
   const app = express();
   const server = http.createServer(app);
-  const io = new Server(server, { path: socketPath, cors: { origin: true }, transports: ["websocket"] });
+  const io = new Server(server, {
+    path: socketPath,
+    addTrailingSlash: !socketPath.startsWith("/api/"),
+    cors: { origin: true },
+    transports: ["websocket"],
+  });
   app.get(["/api/health", "/api/game", "/api/game/health"], async (_req, res) => {
     try { await backend.ping(); res.json({ ok: true, rooms: await backend.count() }); }
     catch { res.status(503).json({ ok: false }); }
