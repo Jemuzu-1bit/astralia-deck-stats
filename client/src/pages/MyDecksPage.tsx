@@ -30,8 +30,6 @@ export default function MyDecksPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -97,21 +95,16 @@ export default function MyDecksPage() {
       : createDeck(input);
   };
 
-  const signIn = async (register: boolean) => {
+  const signInWithDiscord = async () => {
     if (!supabase) return;
     setAuthBusy(true);
     setAuthMessage(null);
     try {
-      const { data, error } = register
-        ? await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/my-decks` },
-        })
-        : await supabase.auth.signInWithPassword({ email, password });
-      setAuthMessage(error?.message ?? (register && !data.session
-        ? "Check your email to confirm your account, then sign in."
-        : null));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "discord",
+        options: { redirectTo: `${window.location.origin}/my-decks` },
+      });
+      if (error) setAuthMessage(error.message);
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Could not connect to sign in.");
     } finally {
@@ -269,12 +262,10 @@ export default function MyDecksPage() {
           }}>{importingLocal ? "Copying..." : `Copy local decks (${localDecks.length})`}</button>}
         </> : <>
           <span>Decks on this device · Sign in to save them online</span>
-          <form onSubmit={(event) => { event.preventDefault(); void signIn(false); }}>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" required aria-label="Email" />
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" minLength={6} required aria-label="Password" />
-            <button type="submit" disabled={authBusy}>Sign in</button>
-            <button type="button" disabled={authBusy || !email || password.length < 6} onClick={() => void signIn(true)}>Create account</button>
-          </form>
+          <button type="button" className={styles.discordButton} disabled={authBusy}
+            onClick={() => void signInWithDiscord()}>
+            {authBusy ? "Connecting..." : "Continue with Discord"}
+          </button>
         </>}
         {authMessage && <p role="status">{authMessage}</p>}
       </section>}

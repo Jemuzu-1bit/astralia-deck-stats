@@ -47,9 +47,9 @@
   gap: .75rem;
   flex-wrap: wrap;
 
-  form { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
-  input { min-width: 10rem; padding: .55rem .7rem; border-radius: 8px; border: 1px solid #777; background: #242424; color: #fff; }
   button { padding: .55rem .8rem; border: 1px solid #aaa; border-radius: 8px; background: #343044; color: #fff; cursor: pointer; }
+  .discordButton { background: #5865f2; border-color: #7983f5; font-weight: 700; }
+  .discordButton:hover { background: #4752c4; }
   button:disabled { opacity: .55; cursor: wait; }
   p { width: 100%; text-align: center; margin: 0; }
 }
