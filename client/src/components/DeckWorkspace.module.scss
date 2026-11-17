@@ -45,3 +45,4 @@
   .catalogHeader { margin-bottom: 22px; h3 { font-size: 18px; } } .sectionTabs { gap: 20px; button { font-size: 11px; } }
   .factionPicker { padding: 30px 16px; h1 { font-size: 29px; } } .factionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 24px; button { height: 230px; &:last-child { grid-column: 1 / -1; height: 160px; background-position: center 30%; } } } .rules { line-height: 2; span { padding-inline: 4px; } }
 }
+.descriptionField { padding: 16px 20px; border-bottom: 1px solid #34363e; label { display: block; color: #dbdde5; font-size: 12px; margin-bottom: 8px; } textarea { display: block; width: 100%; padding: 10px; border: 1px solid #3b3d46; border-radius: 5px; background: #141519; color: #dbdde5; font: inherit; font-size: 12px; line-height: 1.5; resize: vertical; } span { display: block; margin-top: 8px; color: #a5a9b7; font-size: 10px; line-height: 1.5; } }

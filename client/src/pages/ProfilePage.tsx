@@ -95,7 +95,7 @@ export default function ProfilePage({ editing = false }: { editing?: boolean }) 
           </dl>
         </div>
       </section>
-      <p className={styles.hint}>When you publish a deck, other players can see this profile and your published decks. <Link to={`/players/${user.id}`}>View author page →</Link></p>
+      <p className={styles.hint}>When you publish a deck or comment on a public deck, other players can see this profile and your published decks. <Link to={`/players/${user.id}`}>View public profile →</Link></p>
     </>}
   </div>;
 }

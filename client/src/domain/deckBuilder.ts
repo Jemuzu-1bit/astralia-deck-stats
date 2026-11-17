@@ -170,6 +170,7 @@ export function filterCards(
 
 export function buildDeckPayload({
   name,
+  description = "",
   faction,
   protagonist,
   persona,
@@ -177,6 +178,7 @@ export function buildDeckPayload({
   backgroundImage,
 }: {
   name: string;
+  description?: string;
   faction: string;
   protagonist: SelectedCard | null;
   persona: CardSelection;
@@ -194,6 +196,7 @@ export function buildDeckPayload({
 
   return {
     name: name.trim() || "New Deck",
+    description: description.trim(),
     faction,
     protagonist: protagonist?.card.id ?? null,
     persona: Object.values(persona).map((item) => item.card.id),

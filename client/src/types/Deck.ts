@@ -6,6 +6,7 @@ export interface DeckEntry {
 export interface Deck {
   id: string;
   name: string;
+  description?: string;
   faction: string;
   protagonist?: string | null;
   persona: string[];

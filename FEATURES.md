@@ -8,6 +8,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Five selectable factions: Chronicle of Heroes, Chronicle of Twilight, Chronicle of Progress, Chronicle of Surveillance, and Chronicle of Catastrophe. The selected faction determines which cards are available for the deck.
 - Create, edit, and delete decks on the **My Decks** page. Decks are stored in the browser's `localStorage` and sorted by most recent edit; deletion requires confirmation.
 - Set a deck name and custom background image, and remove the background image later.
+- Add a description (up to 5000 characters) to any deck, including private and browser-local decks. Descriptions are included in backups and public deck imports, and can also be edited during publication.
 - Separate **Protagonist**, **Persona Cards**, and **Deck Cards** sections, with counters and limits of 1, 5, and 45 cards respectively. The main deck allows up to four copies of the same card identity, including across APX print variants; Persona cards are limited to one copy per identity. Alternate artwork is excluded from deck builder choices.
 - Add and remove cards with `+` and `-` controls; reorder Persona cards and main deck cards by dragging them.
 - Search by card name or ID and combine filters for cost, type, subtype, keyword, ATK, and HP. Keyword and stat filters also consider a card's reverse face, where present. Clear all filters with one click.
@@ -22,7 +23,8 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Imported decks are saved among local decks. Custom background images are not included in the shared format.
 - Signed-in players can publish and unpublish their cloud decks from **My decks**. Saved edits to a published deck are public; imports remain independent private copies.
 - **Public decks** provides name search, chronicle filters, pagination, card previews, and import to an account or guest browser storage. Custom backgrounds are not copied.
-- Author names open public player profiles with their bio, avatar, favorite chronicle, website, and published decks. Profiles become public when their owner publishes a deck; email and authentication data stay private.
+- Author names open public player profiles with their bio, avatar, favorite chronicle, website, and published decks. Profiles become public when their owner publishes a deck or comments on a public deck; email and authentication data stay private.
+- Public deck previews display card images, the creator's description, and comments with threaded replies. Signed-in creators and other players can participate; comments show names, avatars, profile links, and a creator badge. Discussions are hidden when a deck is withdrawn and retained for republication.
 
 ## Lobby and online matches
 

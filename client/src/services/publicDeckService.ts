@@ -2,10 +2,10 @@ import { supabase } from "./supabaseClient";
 import { privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicProfile } from "../domain/publicDecks";
 
 const PAGE_SIZE = 24;
-const COLUMNS = "id, owner_id, name, faction, protagonist_id, content, background_image_path, updated_at, published_at";
+const COLUMNS = "id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, published_at";
 type ProfileRow = { id: string; name: string; avatar: string; bio: string; favorite_chronicle: string; website: string };
 type PublicRow = {
-  id: string; owner_id: string; name: string; faction: string; protagonist_id: string | null;
+  id: string; owner_id: string; name: string; description: string; faction: string; protagonist_id: string | null;
   content: { persona: string[]; deck: { id: string; qty: number }[] };
   background_image_path: string | null; updated_at: string; published_at: string;
 };
@@ -27,6 +27,14 @@ export async function getPublicProfile(id: string): Promise<PublicProfile | null
   return data ? profile(data as ProfileRow) : null;
 }
 
+export async function getPublicProfiles(ids: string[]): Promise<Map<string, PublicProfile>> {
+  if (!ids.length) return new Map();
+  const { data, error } = await client().from("player_profiles")
+    .select("id, name, avatar, bio, favorite_chronicle, website").in("id", [...new Set(ids)]);
+  if (error) throw error;
+  return new Map((data as ProfileRow[]).map(row => [row.id, profile(row)]));
+}
+
 export async function listPublicDecks({ search = "", faction = "", ownerId, page = 0 }: {
   search?: string; faction?: string; ownerId?: string; page?: number;
 } = {}): Promise<{ decks: PublicDeck[]; hasMore: boolean }> {
@@ -39,10 +47,7 @@ export async function listPublicDecks({ search = "", faction = "", ownerId, page
   if (error) throw error;
   const rows = (data as PublicRow[]).slice(0, PAGE_SIZE);
   if (!rows.length) return { decks: [], hasMore: false };
-  const { data: authors, error: authorError } = await client().from("player_profiles")
-    .select("id, name, avatar, bio, favorite_chronicle, website").in("id", [...new Set(rows.map(row => row.owner_id))]);
-  if (authorError) throw authorError;
-  const byId = new Map((authors as ProfileRow[]).map(row => [row.id, profile(row)]));
+  const byId = await getPublicProfiles(rows.map(row => row.owner_id));
   const decks = await Promise.all(rows.map(async (row): Promise<PublicDeck> => {
     let backgroundImage: string | null = null;
     if (row.background_image_path) {
@@ -50,7 +55,7 @@ export async function listPublicDecks({ search = "", faction = "", ownerId, page
       backgroundImage = data?.signedUrl ?? null;
     }
     return { id: row.id, ownerId: row.owner_id, author: byId.get(row.owner_id) ?? null,
-      name: row.name, faction: row.faction, protagonist: row.protagonist_id,
+      name: row.name, description: row.description, faction: row.faction, protagonist: row.protagonist_id,
       persona: row.content.persona, deck: row.content.deck, backgroundImage,
       updatedAt: Date.parse(row.updated_at), publishedAt: Date.parse(row.published_at), visibility: "public" };
   }));
@@ -64,6 +69,6 @@ export async function fetchPublicDeckCopy(id: string) {
   if (error) throw error;
   if (!data) throw new Error("This deck is no longer public. Refresh the collection.");
   const row = data as PublicRow;
-  return privateDeckCopy({ id: row.id, name: row.name, faction: row.faction,
+  return privateDeckCopy({ id: row.id, name: row.name, description: row.description, faction: row.faction,
     protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck, updatedAt: 0 });
 }

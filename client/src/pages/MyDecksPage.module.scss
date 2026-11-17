@@ -15,3 +15,4 @@
 .empty { text-align: center; padding: 30px 16px 40px; color: #878c9a; h2 { font-size: 21px; font-weight: 500; color: #d8d9df; margin-bottom: 8px; } p { font-size: 12px; } button { background: none; border: 1px solid #7b6946; color: #ddbd7d; padding: 8px 14px; border-radius: 4px; } }
 @media (max-width: 900px) { .pageRoot { padding: 24px; } .pageHeader { align-items: flex-start; flex-direction: column; gap: 18px; } }
 @media (max-width: 700px) { .pageRoot { padding: 24px 16px; } .pageHeader h1 { font-size: 28px; } .libraryToolbar { flex-wrap: wrap; } .deckSearch { flex-basis: 100%; padding: 2px 12px; } .libraryToolbar select { flex: 1; } }
+.publicationDescription { display: block; font-size: 13px; textarea { display: block; width: 100%; margin: 10px 0; padding: 12px; border: 1px solid #3b3d46; border-radius: 5px; background: #141519; color: #dbdde5; font: inherit; line-height: 1.5; resize: vertical; } span { color: #a5a9b7; font-size: 11px; } }

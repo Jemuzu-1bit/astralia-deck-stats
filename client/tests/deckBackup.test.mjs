@@ -19,6 +19,13 @@ test("a Render browser backup preserves deck IDs, cards, dates, and backgrounds"
   assert.deepEqual(parseDeckBackup(JSON.stringify([oldDeck])), [oldDeck]);
 });
 
+test("backups retain private deck descriptions and reject invalid descriptions", () => {
+  const deck = { ...oldDeck, description: "Private notes\nSecond line" };
+  assert.deepEqual(parseDeckBackup(serializeDeckBackup([deck])), [deck]);
+  assert.throws(() => parseDeckBackup(JSON.stringify([{ ...oldDeck, description: "x".repeat(5001) }])));
+  assert.throws(() => parseDeckBackup(JSON.stringify([{ ...oldDeck, description: {} }])));
+});
+
 test("reimporting a backup keeps existing local edits and adds only missing decks", (t) => {
   const originalStorage = globalThis.localStorage;
   const saved = new Map();

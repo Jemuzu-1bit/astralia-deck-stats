@@ -19,6 +19,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
   const [deckName, setDeckName] = useState<string>(
     initialDeck?.name ?? "New Deck"
   );
+  const [description, setDescription] = useState(initialDeck?.description ?? "");
   const [backgroundImage, setBackgroundImage] = useState<string | null>(
     initialDeck?.backgroundImage ?? null
   );
@@ -166,6 +167,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
 
     const payload = buildDeckPayload({
       name: deckName,
+      description,
       faction: selectedFaction,
       protagonist: protagonistSelection,
       persona: personaSelectionMap,
@@ -189,5 +191,5 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
     }
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
 }

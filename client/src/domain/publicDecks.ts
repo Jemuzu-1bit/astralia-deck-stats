@@ -20,6 +20,7 @@ export function safeProfileUrl(value: string): string {
 export function privateDeckCopy(deck: Deck): Omit<Deck, "id" | "updatedAt"> {
   return {
     name: deck.name,
+    ...(deck.description !== undefined ? { description: deck.description } : {}),
     faction: deck.faction,
     protagonist: deck.protagonist ?? null,
     persona: [...deck.persona],

@@ -1,0 +1,16 @@
+.discussion { margin-top: 32px; padding-top: 24px; border-top: 1px solid #34363e; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; h3 { margin: 0; } }
+.composer { margin: 20px 0; padding: 16px; border: 1px solid #3b3d46; border-radius: 8px; background: #17181d; label { display: block; margin-bottom: 10px; font-size: 13px; color: #dbdde5; } textarea { display: block; width: 100%; padding: 10px; border: 1px solid #3b3d46; border-radius: 5px; background: #101113; color: #dbdde5; font: inherit; font-size: 13px; line-height: 1.6; resize: vertical; } }
+.composerActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; span { margin-right: auto; color: #a5a9b7; font-size: 11px; } }
+.discussion .hint { font-size: 11px; margin-bottom: 0; }
+.commentList { list-style: none; padding: 0; }
+.comment { margin-block: 16px; padding: 16px; border: 1px solid #34363e; border-radius: 8px; min-width: 0; }
+.commentHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; time { color: #9296a2; font-size: 10px; margin-left: auto; } }
+.identity { display: inline-flex; align-items: center; gap: 10px; color: #ddbd7d; font-size: 13px; min-width: 0; span { overflow-wrap: anywhere; } }
+.avatar { width: 32px; height: 32px; flex: 0 0 32px; object-fit: cover; border-radius: 50%; display: grid; place-items: center; background: #5865f2; color: white; }
+.creator { font-size: 10px; color: #ddbd7d; border: 1px solid #6a593b; border-radius: 4px; padding: 3px 6px; }
+.replyContext { display: block; margin-top: 12px; color: #9296a2; font-size: 11px; overflow-wrap: anywhere; }
+.discussion .body { color: #dbdde5; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.discussion .error { color: #f0acac; }
+.discussion .success { color: #9ee6b4; }
+@media (max-width: 600px) { .comment { padding: 12px; } .commentHeader time { width: 100%; margin-left: 42px; } .composer { padding: 12px; } }

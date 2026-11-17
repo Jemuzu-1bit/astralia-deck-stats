@@ -4,7 +4,8 @@
 
 1. Crea un progetto Supabase. In **SQL Editor**, esegui
    `supabase/migrations/202611170001_decks.sql` e poi
-   `supabase/migrations/202611170002_public_profiles.sql`. La prima migrazione crea tabella,
+   `supabase/migrations/202611170002_public_profiles.sql` e
+   `supabase/migrations/202611170003_deck_discussions.sql`. La prima migrazione crea tabella,
    indici, trigger, regole RLS e bucket privato per gli sfondi.
 2. In **Authentication → Sign In / Providers**, abilita Discord. Crea un'app
    nel Discord Developer Portal, aggiungi il Callback URL mostrato da Supabase
@@ -77,9 +78,9 @@ JSONB, senza modificare i record esistenti.
 
 ### Profili pubblici e aggiornamento di un database esistente
 
-Se la prima migrazione è già stata eseguita, applica soltanto
-`supabase/migrations/202611170002_public_profiles.sql` nel SQL Editor prima di
-distribuire il nuovo frontend. Non rieseguire la prima migrazione.
+Applica nel SQL Editor soltanto le migrazioni mancanti, in ordine numerico,
+prima di distribuire il nuovo frontend. Se le prime due sono già applicate,
+esegui solo `supabase/migrations/202611170003_deck_discussions.sql`.
 
 La seconda migrazione crea `player_profiles`, popola gli utenti esistenti e
 mantiene i campi sincronizzati con un trigger su `auth.users`. Espone soltanto
@@ -87,8 +88,9 @@ nome, avatar, bio, cronaca preferita e sito: nessuna email o dato di sessione.
 Il browser può leggere ma non scrivere direttamente questa tabella; l'editor
 continua a salvare attraverso `auth.updateUser` e il trigger aggiorna la
 proiezione pubblica nella stessa transazione. La policy RLS consente la lettura
-del proprio profilo o di quello di un autore con almeno un mazzo pubblico.
-Ritirando l'ultimo mazzo, il profilo non è più consultabile dagli altri.
+del proprio profilo, di un autore con almeno un mazzo pubblico o di un giocatore
+che ha commentato un mazzo pubblico. Se non restano mazzi o commenti pubblici,
+il profilo non è più consultabile dagli altri.
 
 Il nome dell'autore in **Public decks** apre `/players/:playerId`, con profilo
 e soli mazzi pubblicati da quel giocatore. `/profile` resta la pagina personale
@@ -108,9 +110,32 @@ npm install --prefix $env:PUBLIC_DECKS_TEST_RUNTIME --no-save --ignore-scripts @
 node supabase/tests/publicDecks.test.mjs
 ```
 
-Il test esegue entrambe le migrazioni e verifica pubblicazione, visibilità dei
+Il test esegue le tre migrazioni e verifica pubblicazione, visibilità dei
 profili, sincronizzazione dei campi, accesso agli sfondi, proprietà dei mazzi,
-conflitti di revisione e conservazione delle copie dopo il ritiro.
+conflitti di revisione, commenti, risposte e conservazione delle copie dopo il ritiro.
+
+### Descrizioni e commenti
+
+`decks.description` contiene fino a 5000 caratteri di testo semplice. Si modifica
+nell'editor anche per mazzi privati o salvati nel browser, oppure nel dialogo di
+pubblicazione. Descrizione e pubblicazione vengono salvate insieme, con controllo
+della revisione. I backup e l'importazione dei mazzi pubblici mantengono la
+descrizione; i link nel formato del sito ufficiale continuano a trasferire le carte.
+
+`deck_comments` contiene autore, mazzo, testo (1–2000 caratteri), data generata dal
+server e riferimento opzionale al commento a cui si risponde. Tutti possono leggere
+le discussioni dei mazzi pubblici; solo gli utenti autenticati possono scrivere, con
+la propria identità. Le risposte devono riferirsi a un commento esistente dello
+stesso mazzo. Il browser non può modificare o cancellare commenti, alterarne le
+date o spostarli. Non viene interpretato HTML nei testi.
+
+I commenti mostrano nome e avatar aggiornati del giocatore e un collegamento al
+profilo. Il creatore del mazzo ha un'etichetta dedicata. Le discussioni vengono
+caricate in pagine da 50 commenti, con risposte raggruppate e pulsante **Refresh**.
+I tentativi ripetuti dello stesso invio riutilizzano l'ID per evitare duplicati in
+caso di risposta persa. Ritirare un mazzo nasconde la discussione e blocca nuovi
+commenti, mantenendola disponibile se il mazzo viene ripubblicato. Eliminare il
+mazzo elimina anche la sua discussione. Le copie importate non ereditano i commenti.
 
 Gli sfondi scelti dagli utenti vivono nel bucket privato `deck-backgrounds`,
 con percorso `userId/deckId/file`. Le policy permettono al proprietario di

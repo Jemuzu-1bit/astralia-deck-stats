@@ -7,6 +7,7 @@ type DeckRow = {
   id: string;
   owner_id: string;
   name: string;
+  description: string;
   faction: string;
   protagonist_id: string | null;
   content: { persona: string[]; deck: Deck["deck"] };
@@ -41,6 +42,7 @@ async function mapRow(row: DeckRow): Promise<Deck> {
   return {
     id: row.id,
     name: row.name,
+    description: row.description,
     faction: row.faction,
     protagonist: row.protagonist_id,
     persona: row.content.persona,
@@ -56,7 +58,7 @@ async function mapRow(row: DeckRow): Promise<Deck> {
 export async function listCloudDecks(): Promise<Deck[]> {
   const user = await currentUser();
   const { data, error } = await client().from("decks")
-    .select("id, owner_id, name, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at")
+    .select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at")
     .eq("owner_id", user.id)
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -87,11 +89,12 @@ export async function createCloudDeck(input: DeckInput, importKey?: string): Pro
     owner_id: user.id,
     import_key: importKey ?? null,
     name: input.name,
+    description: input.description ?? "",
     faction: input.faction,
     protagonist_id: input.protagonist ?? null,
     content: { persona: input.persona, deck: input.deck },
     background_image_path: path,
-  }).select("id, owner_id, name, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
+  }).select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
   if (error) {
     if (path) await client().storage.from(BUCKET).remove([path]);
     throw error;
@@ -132,12 +135,13 @@ export async function updateCloudDeck(deck: Deck): Promise<Deck> {
     : deck.backgroundImage ? oldPath : null;
   const { data, error } = await client().from("decks").update({
     name: deck.name,
+    description: deck.description ?? "",
     faction: deck.faction,
     protagonist_id: deck.protagonist ?? null,
     content: { persona: deck.persona, deck: deck.deck },
     background_image_path: newPath,
   }).eq("id", deck.id).eq("owner_id", user.id).eq("revision", deck.revision!)
-    .select("id, owner_id, name, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
+    .select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
   if (error) {
     if (newPath && newPath !== oldPath) await client().storage.from(BUCKET).remove([newPath]);
     if (error.code === "PGRST116") throw new Error("This deck changed on another device. Reload before saving again.");
@@ -156,12 +160,12 @@ export async function deleteCloudDeck(id: string): Promise<void> {
   if (path) await client().storage.from(BUCKET).remove([path]);
 }
 
-export async function setDeckVisibility(deck: Deck, visibility: "private" | "public"): Promise<Deck> {
+export async function setDeckVisibility(deck: Deck, visibility: "private" | "public", description?: string): Promise<Deck> {
   const user = await currentUser();
   if (!Number.isInteger(deck.revision)) throw new Error("Reload the deck before publishing it.");
-  const { data, error } = await client().from("decks").update({ visibility })
+  const { data, error } = await client().from("decks").update({ visibility, ...(description !== undefined ? { description: description.trim() } : {}) })
     .eq("id", deck.id).eq("owner_id", user.id).eq("revision", deck.revision!)
-    .select("id, owner_id, name, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
+    .select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
   if (error) {
     if (error.code === "PGRST116") throw new Error("This deck changed on another device. Reload before changing its visibility.");
     throw error;

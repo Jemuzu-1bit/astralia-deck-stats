@@ -30,6 +30,7 @@ export default function MyDecksPage() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
   const [publishingDeck, setPublishingDeck] = useState<Deck | null>(null);
+  const [publicationDescription, setPublicationDescription] = useState("");
   const [publicationBusy, setPublicationBusy] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationMessage, setPublicationMessage] = useState<string | null>(null);
@@ -246,7 +247,7 @@ export default function MyDecksPage() {
               setShowDelete(true);
             }}
             onShare={handleShare}
-            onPublish={user ? (deck) => { setPublicationError(null); setPublishingDeck(deck); } : undefined}
+            onPublish={user ? (deck) => { setPublicationError(null); setPublicationDescription(deck.description ?? ""); setPublishingDeck(deck); } : undefined}
           />
         ))}
         <button className={styles.createTile} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><span><ArchiveIcon name="plus" size={26} /></span><strong>Create a new deck</strong><small>Your next chapter awaits</small></button>
@@ -278,7 +279,7 @@ export default function MyDecksPage() {
           setPublicationError(null);
           try {
             const visibility = publishingDeck.visibility === "public" ? "private" : "public";
-            const saved = await setDeckVisibility(publishingDeck, visibility);
+            const saved = await setDeckVisibility(publishingDeck, visibility, visibility === "public" ? publicationDescription : undefined);
             setDecks(current => current.map(deck => deck.id === saved.id ? saved : deck));
             setPublicationMessage(visibility === "public" ? "Deck published. Other players can now view and import it." : "Deck is private again.");
             setPublishingDeck(null);
@@ -289,6 +290,7 @@ export default function MyDecksPage() {
         <p>{publishingDeck.visibility === "public"
           ? "This deck will disappear from the public collection. Copies already imported by other players will remain theirs."
           : "Everyone will be able to view and import this deck and see your player profile: name, avatar, bio, favorite chronicle and website. Saved edits to this deck will also be public."}</p>
+        {publishingDeck.visibility !== "public" && <label className={styles.publicationDescription}>Deck description (optional)<textarea rows={5} maxLength={5000} value={publicationDescription} disabled={publicationBusy} onChange={event => setPublicationDescription(event.target.value)} placeholder="Introduce your strategy to other players." /><span>{publicationDescription.length}/5000 · You can also edit this in the deck builder.</span></label>}
         {publicationError && <p role="alert" className={styles.error}>{publicationError}</p>}
       </ModalDialog>}
 

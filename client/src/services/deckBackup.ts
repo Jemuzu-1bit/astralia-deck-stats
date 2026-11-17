@@ -15,6 +15,7 @@ function parseDeck(value: unknown, index: number): Deck {
   const deck = value as Partial<Deck>;
   if (typeof deck.id !== "string" || !UUID.test(deck.id)
     || typeof deck.name !== "string" || deck.name.length < 1 || deck.name.length > 100
+    || !(deck.description === undefined || (typeof deck.description === "string" && deck.description.length <= 5000))
     || typeof deck.faction !== "string" || deck.faction.length < 1 || deck.faction.length > 32
     || !(deck.protagonist == null || isCardId(deck.protagonist))
     || !Array.isArray(deck.persona) || deck.persona.length > 5 || !deck.persona.every(isCardId)
@@ -30,6 +31,7 @@ function parseDeck(value: unknown, index: number): Deck {
   return {
     id: deck.id,
     name: deck.name,
+    ...(deck.description !== undefined ? { description: deck.description } : {}),
     faction: deck.faction,
     protagonist: deck.protagonist ?? null,
     persona: [...deck.persona],
