@@ -10,6 +10,7 @@ interface DeckCardProps {
   onEdit?: (deck: Deck) => void;
   onDelete?: (deck: Deck) => void;
   onShare?: (deck: Deck) => void;
+  saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>;
 }
 
 export default function DeckCard({
@@ -19,6 +20,7 @@ export default function DeckCard({
   onEdit,
   onDelete,
   onShare,
+  saveDeck,
 }: DeckCardProps) {
   const [showModal, setShowModal] = useState(false);
 
@@ -95,6 +97,7 @@ export default function DeckCard({
       {showModal && (
         <DeckCreationModal
           onClose={() => setShowModal(false)}
+          saveDeck={saveDeck}
           onSaved={(d) => {
             setShowModal(false);
             onAddSaved?.(d);

@@ -8,7 +8,9 @@ import { addToSelection, buildDeckPayload, COPIES_PER_CARD, moveSelectedCard, re
 import { useCardFilters } from "../hooks/useCardFilters";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 
-export function useDeckEditor({ initialDeck, onSaved, onClose }: { initialDeck?: Deck; onSaved?: (deck: Deck) => void; onClose: () => void }) {
+export function useDeckEditor({ initialDeck, onSaved, onClose, saveDeck }: { initialDeck?: Deck; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck> }) {
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedFaction, setSelectedFaction] = useState<string | null>(
     initialDeck?.faction ?? null
   );
@@ -146,7 +148,8 @@ export function useDeckEditor({ initialDeck, onSaved, onClose }: { initialDeck?:
     updateSelection((current) => moveSelectedCard(current, cardId, targetId));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
     if (!selectedFaction) {
       alert("Please select a faction first.");
       return;
@@ -160,19 +163,22 @@ export function useDeckEditor({ initialDeck, onSaved, onClose }: { initialDeck?:
       deck: deckSelectionMap,
       backgroundImage,
     });
-    let saved: Deck;
-    if (initialDeck) {
-      saved = updateDeck({
-        ...payload,
-        id: initialDeck.id,
-        updatedAt: Date.now(),
-      });
-    } else {
-      saved = createDeck(payload);
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const saved = saveDeck
+        ? await saveDeck(payload, initialDeck)
+        : initialDeck
+          ? updateDeck({ ...payload, id: initialDeck.id, updatedAt: Date.now() })
+          : createDeck(payload);
+      onSaved?.(saved);
+      onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save the deck.");
+    } finally {
+      setSaving(false);
     }
-    onSaved?.(saved);
-    onClose();
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError };
 }

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import styles from "./LobbyPage.module.scss";
 import { gameConnection, type LobbyState } from "../services/gameConnection";
 import { listDecks } from "../services/deckService";
 import type { Deck } from "../types/Deck";
+import { supabase } from "../services/supabaseClient";
+import { listCloudDecks } from "../services/cloudDeckService";
 
 export default function LobbyPage() {
   const navigate = useNavigate();
@@ -13,10 +15,29 @@ export default function LobbyPage() {
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [error, setError] = useState<string | null>(null);
   const [selectedDeck, setSelectedDeck] = useState("");
-  const decks = useMemo(() => listDecks(), []);
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [decksLoading, setDecksLoading] = useState(true);
   const myId = gameConnection.getSocketId();
   const me = !isSpectator && myId ? state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null : null;
   const isHost = me?.role === "host";
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const { data, error } = supabase ? await supabase.auth.getSession() : { data: { session: null }, error: null };
+        if (error) throw error;
+        const result = data.session?.user ? await listCloudDecks() : listDecks();
+        if (active) setDecks(result);
+      } catch (caught) {
+        if (active) setError(caught instanceof Error ? caught.message : "Could not load decks.");
+      } finally {
+        if (active) setDecksLoading(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const offState = gameConnection.onState(setState);
@@ -51,7 +72,7 @@ export default function LobbyPage() {
     <main className={styles.players}>
       {[state.host, state.guest].map((player, index) => <section className={styles.player} key={player?.socketId || index}>
         <h2>{player ? player.name : "Waiting for opponent"}</h2>
-        {player && <><p>{player.role === "host" ? "Host" : "Guest"}</p><strong>{player.deckName || "No deck selected"}</strong>{!isSpectator && myId && player.socketId === myId && <select value={selectedDeck || player.deckId || ""} onChange={(event) => chooseDeck(event.target.value)}><option value="">Choose your deck</option>{decks.map((deck: Deck) => <option key={deck.id} value={deck.id}>{deck.name} · {deck.faction}</option>)}</select>}</>}
+        {player && <><p>{player.role === "host" ? "Host" : "Guest"}</p><strong>{player.deckName || "No deck selected"}</strong>{!isSpectator && myId && player.socketId === myId && <select disabled={decksLoading} value={selectedDeck || player.deckId || ""} onChange={(event) => chooseDeck(event.target.value)}><option value="">{decksLoading ? "Loading decks..." : "Choose your deck"}</option>{decks.map((deck: Deck) => <option key={deck.id} value={deck.id}>{deck.name} · {deck.faction}</option>)}</select>}</>}
       </section>)}
     </main>
     <div className={styles.footer}>{isHost && <button className={styles.start} disabled={!state.host?.deckId || !state.guest?.deckId} onClick={() => gameConnection.startRequest()}>Start match</button>}<span>{state.guest ? "Both players are connected." : "Waiting for the second player…"}</span></div>

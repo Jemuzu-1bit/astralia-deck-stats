@@ -1,5 +1,8 @@
 # Deploy completo su Vercel
 
+Per account e mazzi persistenti, segui anche [DATABASE.md](DATABASE.md) e
+configura le due variabili `VITE_SUPABASE_*` nella build Vercel.
+
 Il frontend React/Vite e il server Socket.IO vengono pubblicati nello stesso
 progetto Vercel. Il backend richiede un Redis esterno condiviso: salva le stanze
 e distribuisce gli aggiornamenti tra le istanze. Componenti visivi e regole delle

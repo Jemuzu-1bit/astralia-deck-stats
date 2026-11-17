@@ -17,6 +17,29 @@
   }
 }
 
+.accountPanel {
+  max-width: 880px;
+  margin: 0 auto 1rem;
+  padding: .9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+
+  form { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+  input { min-width: 10rem; padding: .55rem .7rem; border-radius: 8px; border: 1px solid #777; background: #242424; color: #fff; }
+  button { padding: .55rem .8rem; border: 1px solid #aaa; border-radius: 8px; background: #343044; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: wait; }
+  p { width: 100%; text-align: center; margin: 0; }
+}
+
+.notice, .error { text-align: center; margin: .5rem auto 1rem; }
+.error { color: #ffb4b4; }
+
 .pageRoot {
   width: 100%;
   max-width: 1800px;

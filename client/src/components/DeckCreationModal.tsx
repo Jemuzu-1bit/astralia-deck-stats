@@ -12,10 +12,11 @@ interface DeckCreationModalProps {
   onClose: () => void;
   initialDeck?: Deck;
   onSaved?: (deck: Deck) => void;
+  saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>;
 }
 
-export default function DeckCreationModal({ onClose, initialDeck, onSaved }: DeckCreationModalProps) {
-  const { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave } = useDeckEditor({ initialDeck, onSaved, onClose });
+export default function DeckCreationModal({ onClose, initialDeck, onSaved, saveDeck }: DeckCreationModalProps) {
+  const { selectedFaction, setSelectedFaction, deckName, setDeckName, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError } = useDeckEditor({ initialDeck, onSaved, onClose, saveDeck });
 
   return (
     <div className={styles.modalBackdrop}>
@@ -100,11 +101,12 @@ export default function DeckCreationModal({ onClose, initialDeck, onSaved }: Dec
               </div>
 
               <div className={styles.headerActions}>
-                <button className={styles.editButton} onClick={handleSave}>
-                  Save Deck
+                <button className={styles.editButton} onClick={() => void handleSave()} disabled={saving}>
+                  {saving ? "Saving..." : "Save Deck"}
                 </button>
               </div>
             </div>
+            {saveError && <p role="alert" style={{ color: "#ffb4b4", padding: "0 1rem" }}>{saveError}</p>}
 
             <DeckBuilderSection
               section="protagonist"

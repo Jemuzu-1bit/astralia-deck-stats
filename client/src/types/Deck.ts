@@ -12,4 +12,5 @@ export interface Deck {
   deck: DeckEntry[];
   backgroundImage?: string | null;
   updatedAt: number;
+  revision?: number;
 }

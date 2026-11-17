@@ -2,14 +2,14 @@ import type { Card } from "../types/Card.ts";
 
 export type CardImageVariant = "thumb" | "full";
 
+// Use the same /cards tree on a Cloudflare custom domain when it is ready.
+const cardImageOrigin = import.meta.env.VITE_CARD_IMAGE_BASE_URL?.replace(/\/+$/, "") ?? "";
+
 export function getCardImagePath(
   card: Card,
   variant: CardImageVariant = "thumb"
 ): string {
-  const faction = card.faction.toLowerCase();
-  const imageId = card.imageId.toLowerCase();
-
-  return `/cards/${faction}/${imageId}-${variant}.webp`;
+  return getImagePath(card.faction, card.imageId, variant);
 }
 
 export function getImagePath(
@@ -18,5 +18,5 @@ export function getImagePath(
   variant: CardImageVariant = "thumb"
 ): string {
   const normalizedImageId = imageId.toLowerCase();
-  return `/cards/${faction.toLowerCase()}/${normalizedImageId}-${variant}.webp`;
+  return `${cardImageOrigin}/cards/${faction.toLowerCase()}/${normalizedImageId}-${variant}.webp`;
 }
