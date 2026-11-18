@@ -101,8 +101,8 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const turnReturned = waitForState(host, (next) => next.turnRole === "host" && next.turnNumber === 3);
     guest.emit("game:endTurn");
     state = await turnReturned;
-    assert.equal(earlySpectatorState.host.table.hand.length, 0);
-    assert.equal(earlySpectatorState.guest.table.hand.length, 0);
+    assert.deepEqual(earlySpectatorState.host.table.hand, state.host.table.hand);
+    assert.deepEqual(earlySpectatorState.guest.table.hand, opponentState.guest.table.hand);
     assert.equal(earlySpectatorState.host.table.deck.length, 0);
     assert.equal(earlySpectatorState.guest.table.deck.length, 0);
     assert.equal(earlySpectatorState.host.mainDeckCards, null);
@@ -113,19 +113,23 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     await once(lateSpectator, "connect");
     const lateSpectatorState = waitForState(lateSpectator, (next) => next.started && next.viewerRole === "spectator" && next.spectatorCount === 2);
     lateSpectator.emit("lobby:watch", { code });
-    assert.equal((await lateSpectatorState).host.table.hand.length, 0);
+    const lateState = await lateSpectatorState;
+    assert.deepEqual(lateState.host.table.hand, state.host.table.hand);
+    assert.deepEqual(lateState.guest.table.hand, opponentState.guest.table.hand);
 
     const deniedSpectatorAction = waitForState(lateSpectator, (next) => next.started && next.spectatorCount === 2);
     lateSpectator.emit("game:updateFragments", { action: "add" });
     lateSpectator.emit("lobby:watch", { code });
     assert.equal((await deniedSpectatorAction).host.table.fragments.length, 0);
 
-    const spectatorSeesReveal = waitForState(earlySpectator, (next) => next.host?.table?.hand?.length === 1);
+    const spectatorSeesReveal = waitForState(earlySpectator, (next) => next.host?.table?.hand?.[0]?.revealed === true);
     host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: true });
-    assert.equal((await spectatorSeesReveal).host.table.hand[0].id, state.host.table.hand[0].id);
-    const spectatorSeesHide = waitForState(earlySpectator, (next) => next.host?.table?.hand?.length === 0);
+    const shownState = await spectatorSeesReveal;
+    assert.equal(shownState.host.table.hand.length, 5);
+    assert.equal(shownState.host.table.hand[0].id, state.host.table.hand[0].id);
+    const spectatorSeesHide = waitForState(earlySpectator, (next) => next.host?.table?.hand?.[0]?.revealed === false);
     host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: false });
-    await spectatorSeesHide;
+    assert.deepEqual((await spectatorSeesHide).host.table.hand, state.host.table.hand);
 
     const spectatorLeft = waitForState(host, (next) => next.spectatorCount === 1);
     lateSpectator.emit("lobby:leave");

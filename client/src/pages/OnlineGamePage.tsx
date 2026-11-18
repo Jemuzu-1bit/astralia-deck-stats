@@ -46,7 +46,7 @@ export default function OnlineGamePage() {
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [openZone, setOpenZone] = useState<OpenZone | null>(null);
   const [ownHandExpanded, setOwnHandExpanded] = useState(true);
-  const [opponentHandExpanded, setOpponentHandExpanded] = useState(false);
+  const [opponentHandExpanded, setOpponentHandExpanded] = useState(isSpectator);
   const [openSlot, setOpenSlot] = useState<OpenSlot | null>(null);
   const [peekedUids, setPeekedUids] = useState<string[] | null>(null);
   const [deckSearchQuery, setDeckSearchQuery] = useState<string | null>(null);
@@ -172,9 +172,9 @@ export default function OnlineGamePage() {
     : deckSearchQuery !== null ? `Deck search · ${myTable.deck.length} cards`
       : openSlot ? `${slotLabel} · ${slotCards.length}`
       : openZone?.owner === "opponent" && openZone.name === "hand"
-      ? `${ownerLabel("opponent")} hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
+      ? isSpectator ? `${ownerLabel("opponent")} hand · ${openCards.length}` : `${ownerLabel("opponent")} hand · ${openCards.length} revealed / ${opponent?.handCount ?? 0}`
       : openZone ? `${ownerLabel(openZone.owner)} ${ZONE_NAMES[openZone.name]} · ${openCards.length}`
-        : isSpectator ? `${me?.name || "Host"} hand · ${myTable.hand.length} revealed / ${me?.handCount ?? 0}` : `Hand · ${myTable.hand.length}`;
+        : isSpectator ? `${me?.name || "Host"} hand · ${myTable.hand.length}` : `Hand · ${myTable.hand.length}`;
 
   const showHand = () => { setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); };
   const showSlot = (owner: OpenSlot["owner"], zone: OpenSlot["zone"], slot?: number) => {
@@ -352,7 +352,7 @@ export default function OnlineGamePage() {
     }}
   >
     <header className={styles.toolbar}>
-      <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
+      <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · both hands visible" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
         <button type="button" aria-expanded={activityLogOpen} aria-controls="match-activity-log" onClick={() => setActivityLogOpen((open) => !open)}>Log</button>
         <button type="button" onClick={() => setGameMenuOpen(true)}>Settings</button>
@@ -379,7 +379,7 @@ export default function OnlineGamePage() {
         <div className={styles.handDockHeader}>
           <button type="button" className={styles.handDockToggle} aria-expanded={opponentHandExpanded} aria-controls="opponent-hand-panel" onClick={() => setOpponentHandExpanded((expanded) => !expanded)}>
             <span className={styles.handDockChevron} aria-hidden="true">⌄</span>
-            <span>{ownerLabel("opponent")} hand · {opponent?.handCount ?? opponentTable.hand.length} ({opponentTable.hand.length} revealed)</span>
+            <span>{ownerLabel("opponent")} hand · {opponent?.handCount ?? opponentTable.hand.length}{!isSpectator && ` (${opponentTable.hand.length} revealed)`}</span>
             <span className={styles.handDockAction}>{opponentHandExpanded ? "Collapse" : "Expand"}</span>
           </button>
           <span className={styles.handDockSummary}>Fragment · {opponentTable.fragments.filter((spent) => !spent).length} ready · {opponentTable.fragments.filter(Boolean).length} spent</span>
@@ -387,7 +387,7 @@ export default function OnlineGamePage() {
         <div id="opponent-hand-panel" className={styles.handDockPanel} aria-hidden={!opponentHandExpanded} inert={!opponentHandExpanded}>
           <div className={styles.handDockPanelInner}>
             <div className={styles.handDockContent}>
-              <CardRail items={opponentTable.hand} label={`${ownerLabel("opponent")} revealed cards`} onInspect={inspectOpponentHandCard} />
+              <CardRail items={opponentTable.hand} label={`${ownerLabel("opponent")} ${isSpectator ? "hand" : "revealed cards"}`} onInspect={inspectOpponentHandCard} />
               <FragmentDock fragments={opponentTable.fragments} readOnly />
             </div>
           </div>
@@ -476,7 +476,7 @@ export default function OnlineGamePage() {
         onDragOver={dragOver}
         onDrop={drop}
       />
-      <section className={`${styles.handDock} ${ownHandExpanded ? "" : styles.handDockCollapsed}`} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : isSpectator ? `${me?.name || "Host"} revealed hand` : "Your hand"} onDragOver={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
+      <section className={`${styles.handDock} ${ownHandExpanded ? "" : styles.handDockCollapsed}`} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : isSpectator ? `${me?.name || "Host"} hand` : "Your hand"} onDragOver={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
         <div className={styles.handDockHeader}>
           <button type="button" className={styles.handDockToggle} aria-expanded={ownHandExpanded} aria-controls="own-hand-panel" onClick={() => setOwnHandExpanded((expanded) => !expanded)}>
             <span className={styles.handDockChevron} aria-hidden="true">⌄</span>
@@ -487,7 +487,7 @@ export default function OnlineGamePage() {
         <div id="own-hand-panel" className={styles.handDockPanel} aria-hidden={!ownHandExpanded} inert={!ownHandExpanded}>
           <div className={styles.handDockPanelInner}>
             <div className={styles.handDockContent}>
-        {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← {isSpectator ? "Visible hand" : "Hand"} · {myTable.hand.length}</button>}
+        {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← {isSpectator ? `${me?.name || "Host"} hand` : "Hand"} · {myTable.hand.length}</button>}
         {peekedUids !== null && <div className={styles.deckDropTargets} aria-label="Deck order controls">
           <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "top")}>Drop on top</div>
           <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "bottom")}>Drop on bottom</div>

@@ -63,10 +63,13 @@ async function exerciseCluster(t, backends) {
   const started = waitFor(host, "lobby:state", (state) => state.started);
   const publicStarted = waitFor(spectator, "lobby:state", (state) => state.started);
   host.emit("lobby:startRequest");
-  await started;
+  const hostState = await started;
   const publicState = await publicStarted;
-  assert.equal(publicState.host.table.hand.length, 0);
-  assert.equal(publicState.guest.table.hand.length, 0);
+  assert.deepEqual(publicState.host.table.hand, hostState.host.table.hand);
+  assert.equal(publicState.guest.table.hand.length, 5);
+  assert.ok(publicState.guest.table.hand.every((card) => card.id === "guest-secret"));
+  assert.deepEqual(publicState.host.table.deck, []);
+  assert.deepEqual(publicState.guest.table.deck, []);
   assert.equal(publicState.host.token, undefined);
   const drawn = waitFor(host, "lobby:state", (state) => state.host.table.hand.length === 6 && state.guest.handCount === 6);
   const command = { __commandId: "draw-once", data: { action: "draw", count: 1 } };

@@ -34,7 +34,7 @@ export default function HelpPage() {
 
       <section aria-labelledby="spectators-guide">
         <h2 id="spectators-guide">Watch a game</h2>
-        <p>Choose <strong>watch game</strong> on the home page and enter the lobby code. You can join before or during a match. You can see the table and revealed cards, but players' hands and decks stay private. Spectators cannot change the table.</p>
+        <p>Choose <strong>watch game</strong> on the home page and enter the lobby code. You can join before or during a match. You can see the table and both players' complete hands without waiting for cards to be revealed. Deck contents stay private. Spectators cannot change the table.</p>
       </section>
 
       <section aria-labelledby="table-guide">

@@ -52,9 +52,53 @@ test("concurrent writers retain both players' actions and publish only committed
     assert.equal(state.host.token, undefined);
     assert.equal(state.guest.token, undefined);
     assert.equal(state.commands, undefined);
-    if (state.viewerRole !== "host") assert.equal(state.host.table.hand.length, 0);
-    if (state.viewerRole !== "guest") assert.equal(state.guest.table.hand.length, 0);
+    if (state.viewerRole === "spectator") {
+      assert.equal(state.host.table.hand.length, state.host.handCount);
+      assert.equal(state.guest.table.hand.length, state.guest.handCount);
+      assert.deepEqual(state.host.table.deck, []);
+      assert.deepEqual(state.guest.table.deck, []);
+    } else {
+      if (state.viewerRole !== "host") assert.equal(state.host.table.hand.length, 0);
+      if (state.viewerRole !== "guest") assert.equal(state.guest.table.hand.length, 0);
+    }
   }
+});
+
+test("spectators see both complete hands as cards move but cannot change the match", async () => {
+  const f = await fixture();
+  const before = await f.read();
+  for (const event of ["game:moveCard", "game:revealCard"]) {
+    await f.command("viewer", event, { uid: before.host.table.hand[0].uid, to: "graveyard", revealed: true });
+  }
+  await f.command("viewer", "game:deckAction", { action: "draw", count: 1 });
+  const unchanged = await f.read();
+  assert.deepEqual(unchanged.host.table, before.host.table);
+  assert.deepEqual(unchanged.guest.table, before.guest.table);
+
+  await f.command("host", "game:moveCard", { uid: before.host.table.hand[0].uid, to: "battle", slot: 0 });
+  await f.command("host", "game:setFaceDown", { uid: before.host.table.hand[0].uid, faceDown: true });
+  await f.command("guest", "game:deckAction", { action: "draw", count: 2 });
+  const room = await f.read();
+  const spectator = publicState(room, f.actors.viewer.id);
+  for (const role of ["host", "guest"]) {
+    assert.deepEqual(spectator[role].table.hand, room[role].table.hand);
+    assert.deepEqual(spectator[role].table.deck, []);
+    assert.deepEqual(spectator[role].deckCards, []);
+    assert.equal(spectator[role].mainDeckCards, null);
+    assert.equal(spectator[role].token, undefined);
+  }
+  assert.equal(spectator.host.table.hand.length, 4);
+  assert.equal(spectator.guest.table.hand.length, 7);
+  assert.equal(spectator.host.table.battle[0][0].id, "");
+  assert.deepEqual(publicState(room, f.actors.host.id).guest.table.hand, []);
+  assert.deepEqual(publicState(room, f.actors.guest.id).host.table.hand, []);
+  const outsider = publicState(room, "unregistered-socket");
+  assert.deepEqual(outsider.host.table.hand, []);
+  assert.deepEqual(outsider.guest.table.hand, []);
+  await f.command("viewer", "lobby:leave");
+  const formerSpectator = publicState(await f.read(), f.actors.viewer.id);
+  assert.deepEqual(formerSpectator.host.table.hand, []);
+  assert.deepEqual(formerSpectator.guest.table.hand, []);
 });
 
 test("a saved command is not applied twice after resume on another instance", async () => {

@@ -1,4 +1,4 @@
-function publicPlayer(player, viewerId) {
+function publicPlayer(player, viewerId, isSpectator) {
   const { token: _token, ...safe } = player;
   const handCount = player.table?.hand.length ?? player.handCards.length;
   const deckCount = player.table?.deck.length ?? player.deckCards.length;
@@ -8,7 +8,7 @@ function publicPlayer(player, viewerId) {
     : card;
   const publicTable = player.table ? {
     ...player.table,
-    hand: player.table.hand.filter((card) => card.revealed).map(publicCard),
+    hand: (isSpectator ? player.table.hand : player.table.hand.filter((card) => card.revealed)).map(publicCard),
     deck: [],
     persona: player.table.persona.map(publicCard),
     graveyard: player.table.graveyard.map(publicCard),
@@ -33,17 +33,18 @@ function publicPlayer(player, viewerId) {
 }
 export function publicState(room, viewerId) {
   const viewer = [room.host, room.guest].find((player) => player?.socketId === viewerId);
+  const isSpectator = !viewer && room.spectators.has(viewerId);
   return {
     instanceId: room.instanceId,
     revision: room.revision,
-    host: room.host ? publicPlayer(room.host, viewerId) : null,
-    guest: room.guest ? publicPlayer(room.guest, viewerId) : null,
+    host: room.host ? publicPlayer(room.host, viewerId, isSpectator) : null,
+    guest: room.guest ? publicPlayer(room.guest, viewerId, isSpectator) : null,
     started: room.started,
     turnRole: room.turnRole ?? null,
     turnNumber: room.turnNumber ?? 0,
     startVotes: room.started && !room.turnRole ? room.startVotes : undefined,
     code: room.code,
-    viewerRole: viewer?.role ?? (room.spectators.has(viewerId) ? "spectator" : null),
+    viewerRole: viewer?.role ?? (isSpectator ? "spectator" : null),
     spectatorCount: room.spectators.size,
     activityLog: room.activityLog || [],
     deckRequest: viewer ? room.deckRequest || null : null,

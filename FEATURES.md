@@ -30,7 +30,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 
 - Host a room or join as the second player using a six-character code. The player's name is remembered in the browser.
 - Each player selects a locally saved deck; the host can start the match once both players have selected one.
-- Join as a spectator before or during a match, with a limit of 20 spectators. Spectators can see the table and public cards but cannot change them; hidden hand and deck contents are not sent to spectators.
+- Join as a spectator before or during a match, with a limit of 20 spectators. Spectators see the table and both players' complete hands, with both hand panels expanded by default. Deck contents remain private, and spectators cannot change the match.
 - Resume a player session after a disconnection or page reload using a token stored in the browser. Rooms are kept in server memory; rooms with no connected players expire after 30 minutes of inactivity, and a server restart closes them.
 - At match start, each main deck is shuffled, each player receives five cards, and the Protagonist and Persona cards are placed in their respective zones.
 - Track the active player and turn number, agree on who starts when needed, and use the **End turn** button when it is your turn. The table highlights the current turn.
@@ -43,7 +43,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Move your own cards by dragging or using a context menu, including to the top or bottom of the deck. Stack cards in Battle and Protagonist slots, swap a card with the main card, attach cards to other cards, give the opponent control of a card, and take back control.
 - Manage your own deck: shuffle, draw one or more cards, discard or send one or more cards to Oblivion, look at the top cards, and search the deck. While viewing cards, move a card to the top or bottom of the deck.
 - Request actions on the opponent's deck. The opponent can accept or decline, and the requester can cancel a pending request.
-- Flipped and face-down cards are synchronized between players. A card in hand can be revealed or hidden voluntarily; other users see only revealed cards and the total number of cards in hand.
+- Flipped and face-down cards are synchronized between players. A card in hand can be revealed or hidden voluntarily; the opponent sees only revealed cards and the total number of cards in hand, while spectators see both complete hands.
 - Inspect cards during a match. Cards on the table automatically show printed ATK and HP when available; these values can also be set, adjusted, or removed manually.
 - Use **Frazzle** markers, preset number counters, status markers, and custom counters with a name and optional emoji. Add, remove, spend, and recover up to ten Fragments individually or all at once.
 - Declare an attacker or blocker by choosing an opposing card; arrows on the table show the pairings. Temporary target arrows and a command to clear a target are also available.
