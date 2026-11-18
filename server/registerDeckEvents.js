@@ -5,7 +5,10 @@ export function registerDeckEvents(socket, { currentRoom, currentPlayer, emitSta
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
     const action = String(payload?.action || "");
-    if (!performDeckAction(player, action, Number(payload?.count))) return;
+    if (action === "look" || action === "search") {
+      if (!player.table.deck.length) return;
+      if (action === "look" && (!Number.isInteger(payload?.count) || payload.count < 1 || payload.count > player.table.deck.length)) return;
+    } else if (!performDeckAction(player, action, Number(payload?.count))) return;
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:requestDeckAction", (payload) => {

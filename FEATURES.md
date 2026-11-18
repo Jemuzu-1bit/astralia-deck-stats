@@ -34,6 +34,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Resume a player session after a disconnection or page reload using a token stored in the browser. Rooms are kept in server memory; rooms with no connected players expire after 30 minutes of inactivity, and a server restart closes them.
 - At match start, each main deck is shuffled, each player receives five cards, and the Protagonist and Persona cards are placed in their respective zones.
 - Track the active player and turn number, agree on who starts when needed, and use the **End turn** button when it is your turn. The table highlights the current turn.
+- A shared **Activity log**, opened or closed with **Log**, records turns, card movements, combat, counters, Fragments, and deck actions. Players and spectators see the same history, including after reconnecting or joining late. Hidden card identities stay private; the latest 1,000 actions are retained.
 
 ## Game table
 

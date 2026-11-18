@@ -45,6 +45,7 @@ export function publicState(room, viewerId) {
     code: room.code,
     viewerRole: viewer?.role ?? (room.spectators.has(viewerId) ? "spectator" : null),
     spectatorCount: room.spectators.size,
+    activityLog: room.activityLog || [],
     deckRequest: viewer ? room.deckRequest || null : null,
     deckRequestResult: room.deckRequestResult?.fromRole === viewer?.role ? room.deckRequestResult : null,
   };

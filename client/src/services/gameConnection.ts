@@ -67,6 +67,15 @@ export interface LobbyPlayerState {
   deckCount?: number;
   table?: GameTable;
 }
+export interface GameActivity {
+  id: number;
+  timestamp: number;
+  turn: number;
+  actorRole: "host" | "guest";
+  actorName: string;
+  text: string;
+}
+
 export interface LobbyState {
   instanceId?: string;
   revision?: number;
@@ -79,6 +88,7 @@ export interface LobbyState {
   code?: string;
   viewerRole?: "host" | "guest" | "spectator" | null;
   spectatorCount?: number;
+  activityLog?: GameActivity[];
   deckRequest?: DeckRequest | null;
   deckRequestResult?: DeckRequestResult | null;
 }
@@ -371,7 +381,7 @@ export class GameConnection {
   giveCardControl(uid: string) { this.sendAction("game:giveCardControl", { uid }); }
   attachCard(uid: string, targetUid: string) { this.sendAction("game:attachCard", { uid, targetUid }); }
   swapSlotCard(uid: string) { this.sendAction("game:swapSlotCard", { uid }); }
-  deckAction(action: DeckAction, count?: number) { this.sendAction("game:deckAction", { action, count }); }
+  deckAction(action: RequestedDeckAction, count?: number) { this.sendAction("game:deckAction", { action, count }); }
   requestDeckAction(action: RequestedDeckAction, count?: number) { this.sendAction("game:requestDeckAction", { action, count }); }
   respondDeckAction(id: string, accepted: boolean) { this.sendAction("game:respondDeckAction", { id, accepted }); }
   cancelDeckAction(id: string) { this.sendAction("game:cancelDeckAction", { id }); }

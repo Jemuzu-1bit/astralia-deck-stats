@@ -4,6 +4,7 @@ import { registerCardEvents } from "./registerCardEvents.js";
 import { registerDeckEvents } from "./registerDeckEvents.js";
 import { startingPlayer } from "./turnOrder.js";
 import { maintainRoom, renewPresence, memberIds } from "./roomLifecycle.js";
+import { activityContext, appendActivity } from "./activityLog.js";
 
 const MAX_SPECTATORS = 20;
 const TARGET_DURATION_MS = 5 * 1000;
@@ -45,7 +46,8 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
       mainDeckCards: Array.isArray(data.mainDeckCards) ? data.mainDeckCards.slice(0, 100) : null,
     };
   }
-  function emitState() { changed = true; }
+  let commandChanged = false;
+  function emitState() { changed = true; commandChanged = true; }
   function showTargetArrow(room, card, targetUid, kind) {
     card.targetUid = targetUid;
     card.targetKind = kind;
@@ -280,7 +282,12 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
       emitState();
     }
   }
-  if (event !== "maintenance" && event !== "heartbeat") handlers.get(event)?.(payload);
+  if (event !== "maintenance" && event !== "heartbeat") {
+    const before = activityContext(current, socket.id, event, payload);
+    commandChanged = false;
+    handlers.get(event)?.(payload);
+    if (commandChanged) appendActivity(current, before, socket.id, event, payload, now);
+  }
   if (current) {
     if (event !== "disconnect" && event !== "maintenance") renewPresence(current, socket.id, now);
     if (event === "disconnect" || event === "lobby:leave") delete current.presence?.[socket.id];

@@ -90,6 +90,9 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     let state = await started;
     const opponentState = await opponentStarted;
     const earlySpectatorState = await spectatorStarted;
+    assert.equal(state.activityLog.length, 1);
+    assert.deepEqual(opponentState.activityLog, state.activityLog);
+    assert.deepEqual(earlySpectatorState.activityLog, state.activityLog);
     assert.equal(state.turnRole, "host");
     assert.equal(state.turnNumber, 1);
     const turnPassed = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 2);

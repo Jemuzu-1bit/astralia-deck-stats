@@ -17,6 +17,7 @@ function printedStat(value) {
 
 const cardStats = new Map();
 const cardCosts = new Map();
+const cardNames = new Map();
 const cardDataPath = cardDataPaths.find(existsSync);
 if (cardDataPath) {
   const rows = Papa.parse(readFileSync(cardDataPath, "utf8"), {
@@ -28,11 +29,16 @@ if (cardDataPath) {
     const face = Number(row.face);
     if (face !== 1 && face !== 2) continue;
     const key = row.id.toLowerCase();
+    if (face === 1) cardNames.set(key, row.name);
     if (face === 1) cardCosts.set(key, { cost: printedStat(row.cost), section: row.mainDeck });
     const faces = cardStats.get(key) || {};
     faces[face] = { atk: printedStat(row.atk), hp: printedStat(row.hp) };
     cardStats.set(key, faces);
   }
+}
+
+export function getCardName(id) {
+  return cardNames.get(String(id || "").toLowerCase()) || String(id || "Card");
 }
 
 export function getPrintedCost(id, section) {

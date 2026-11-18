@@ -134,6 +134,7 @@ export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator
           case DECK_KEYS.oblivion: counted = "oblivion"; break;
           case DECK_KEYS.search:
             if (owner === "self") {
+              gameConnection.deckAction("search");
               setOwnHandExpanded(true); setDeckSearchQuery(""); setPeekedUids(null); setOpenZone(null); setOpenSlot(null);
             } else gameConnection.requestDeckAction("search");
             break;

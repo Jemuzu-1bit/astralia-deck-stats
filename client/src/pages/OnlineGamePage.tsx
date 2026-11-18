@@ -17,6 +17,7 @@ import { CardRail } from "./onlineGame/CardRail";
 import { FragmentDock } from "./onlineGame/CardIndicators";
 import { PlayerTable } from "./onlineGame/PlayerTable";
 import { ContextMenu, DeckContextMenu, Inspector } from "./onlineGame/GameMenus";
+import { ActivityLog } from "./onlineGame/ActivityLog";
 import styles from "./OnlineGamePage.module.scss";
 
 const TURN_COLORS: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function OnlineGamePage() {
   const [connectionStatus, setConnectionStatus] = useState(gameConnection.getStatus());
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
+  const [activityLogOpen, setActivityLogOpen] = useState(() => window.matchMedia("(min-width: 1101px)").matches);
   const [interfaceSize, setInterfaceSize] = useState(savedInterfaceSize);
   const [turnButtonPosition, setTurnButtonPosition] = useState(savedTurnButtonPosition);
   const [turnGlow, setTurnGlow] = useState(savedTurnGlowPreferences);
@@ -284,12 +286,14 @@ export default function OnlineGamePage() {
     setDeckMenu(null);
   };
   const drawOne = () => { if (!isSpectator && myTable.deck.length > 0) deckAction("draw", 1); };
-  const lookAtTop = (count: number) => {
+  const lookAtTop = (count: number, logAction = true) => {
+    if (logAction) gameConnection.deckAction("look", count);
     setOwnHandExpanded(true);
     setPeekedUids(myTable.deck.slice(0, count).map((card) => card.uid));
     setOpenZone(null); setOpenSlot(null); setDeckSearchQuery(null); setInspectedCard(null); setDeckMenu(null);
   };
-  const searchDeck = () => {
+  const searchDeck = (logAction = true) => {
+    if (logAction) gameConnection.deckAction("search");
     setOwnHandExpanded(true);
     setDeckSearchQuery("");
     setPeekedUids(null); setOpenZone(null); setOpenSlot(null); setInspectedCard(null); setDeckMenu(null);
@@ -302,8 +306,8 @@ export default function OnlineGamePage() {
     && (incomingDeckRequest.count === null || incomingDeckRequest.count <= myTable.deck.length));
   const respondToDeckRequest = (accepted: boolean) => {
     if (!incomingDeckRequest) return;
-    if (accepted && incomingDeckRequest.action === "look") lookAtTop(incomingDeckRequest.count ?? 0);
-    if (accepted && incomingDeckRequest.action === "search") searchDeck();
+    if (accepted && incomingDeckRequest.action === "look") lookAtTop(incomingDeckRequest.count ?? 0, false);
+    if (accepted && incomingDeckRequest.action === "search") searchDeck(false);
     if (accepted && !["look", "search"].includes(incomingDeckRequest.action)) showHand();
     gameConnection.respondDeckAction(incomingDeckRequest.id, accepted);
   };
@@ -350,6 +354,7 @@ export default function OnlineGamePage() {
     <header className={styles.toolbar}>
       <div><strong>Match {state.code || "—"}</strong><span>{isSpectator ? "Spectating · public cards only" : "Manual table"} · Spectators: {state.spectatorCount ?? 0}</span></div>
       <nav aria-label="Match navigation">
+        <button type="button" aria-expanded={activityLogOpen} aria-controls="match-activity-log" onClick={() => setActivityLogOpen((open) => !open)}>Log</button>
         <button type="button" onClick={() => setGameMenuOpen(true)}>Settings</button>
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
@@ -537,7 +542,10 @@ export default function OnlineGamePage() {
       <button type="button" onClick={() => setCombatSelection(null)}>Cancel</button>
     </div>}
     <TargetArrows links={targetLinks} containerRef={rootRef} />
-    <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
+    <div className={styles.gameSidebar}>
+      <Inspector card={inspectedCard} onClose={() => setInspectedCard(null)} />
+      {activityLogOpen && <ActivityLog entries={state.activityLog ?? []} onClose={() => setActivityLogOpen(false)} />}
+    </div>
     {gameMenuOpen && <SettingsMenu onClose={() => setGameMenuOpen(false)} onShortcuts={() => { setGameMenuOpen(false); setShortcutSettingsOpen(true); }}>
         <FeedbackLink onOpen={() => setGameMenuOpen(false)} />
     </SettingsMenu>}
