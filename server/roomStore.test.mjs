@@ -28,6 +28,46 @@ async function fixture(backend = new MemoryBackend(), now = Date.now) {
   return { store, backend, actors, code, command, read: async () => decodeRoom(await backend.get(code)) };
 }
 
+test("turns advance after both players act and every pass adds and readies both players' fragments", async () => {
+  const f = await fixture();
+  const turnState = (room) => ({
+    turnRole: room.turnRole, turnNumber: room.turnNumber,
+    hostTable: room.host.table, guestTable: room.guest.table, activityLog: room.activityLog,
+  });
+  for (const role of ["host", "guest"]) {
+    await f.command(role, "game:updateFragments", { action: "add" });
+    await f.command(role, "game:updateFragments", { action: "spendAll" });
+  }
+  const before = await f.read();
+  for (const role of ["guest", "viewer"]) await f.command(role, "game:endTurn");
+  assert.deepEqual(turnState(await f.read()), turnState(before), "only the active player can pass");
+
+  for (const [index, role] of ["host", "guest", "host", "guest"].entries()) {
+    const id = `pass-${index}`;
+    await f.command(role, "game:endTurn", undefined, id);
+    const room = await f.read();
+    assert.equal(room.turnRole, role === "host" ? "guest" : "host");
+    assert.equal(room.turnNumber, Math.floor((index + 1) / 2) + 1);
+    for (const participant of ["host", "guest"]) {
+      assert.deepEqual(room[participant].table.fragments, Array(index + 2).fill(false));
+    }
+    await f.command(role, "game:endTurn", undefined, id);
+    assert.deepEqual(turnState(await f.read()), turnState(room), "retrying a pass cannot add fragments twice");
+    for (const participant of ["host", "guest"]) {
+      await f.command(participant, "game:updateFragments", { action: "spendAll" });
+    }
+  }
+
+  for (let index = 0; index < 5; index += 1) {
+    await f.command("host", "game:updateFragments", { action: "add" });
+  }
+  await f.command("host", "game:updateFragments", { action: "spendAll" });
+  await f.command("host", "game:endTurn");
+  const capped = await f.read();
+  assert.deepEqual(capped.host.table.fragments, Array(10).fill(false), "capped fragments still untap");
+  assert.deepEqual(capped.guest.table.fragments, Array(6).fill(false));
+});
+
 test("concurrent writers retain both players' actions and publish only committed private projections", async () => {
   const f = await fixture();
   const otherStore = new RoomStore(f.backend);

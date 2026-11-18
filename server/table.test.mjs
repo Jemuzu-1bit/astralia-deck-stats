@@ -95,10 +95,14 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.deepEqual(earlySpectatorState.activityLog, state.activityLog);
     assert.equal(state.turnRole, "host");
     assert.equal(state.turnNumber, 1);
-    const turnPassed = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 2);
+    assert.deepEqual(state.host.table.fragments, []);
+    assert.deepEqual(state.guest.table.fragments, []);
+    const turnPassed = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 1);
     host.emit("game:endTurn");
-    await turnPassed;
-    const turnReturned = waitForState(host, (next) => next.turnRole === "host" && next.turnNumber === 3);
+    const passedState = await turnPassed;
+    assert.deepEqual(passedState.host.table.fragments, [false]);
+    assert.deepEqual(passedState.guest.table.fragments, [false]);
+    const turnReturned = waitForState(host, (next) => next.turnRole === "host" && next.turnNumber === 2);
     guest.emit("game:endTurn");
     state = await turnReturned;
     assert.deepEqual(earlySpectatorState.host.table.hand, state.host.table.hand);
@@ -120,7 +124,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const deniedSpectatorAction = waitForState(lateSpectator, (next) => next.started && next.spectatorCount === 2);
     lateSpectator.emit("game:updateFragments", { action: "add" });
     lateSpectator.emit("lobby:watch", { code });
-    assert.equal((await deniedSpectatorAction).host.table.fragments.length, 0);
+    assert.equal((await deniedSpectatorAction).host.table.fragments.length, 2);
 
     const spectatorSeesReveal = waitForState(earlySpectator, (next) => next.host?.table?.hand?.[0]?.revealed === true);
     host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: true });
@@ -145,7 +149,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.protagonist[0].isProtagonist, true);
     assert.equal(state.host.table.protagonist[0].atk, 0);
     assert.equal(state.host.table.protagonist[0].hp, 20);
-    assert.deepEqual(state.host.table.fragments, []);
+    assert.deepEqual(state.host.table.fragments, [false, false]);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
@@ -761,6 +765,16 @@ test("a disconnected player can resume the same game without changing the table 
     assert.deepEqual(afterResume.host.table.deck.map((card) => card.uid), deckOrderBeforeDisconnect);
     assert.equal(afterResume.host.table.battle[2][0].uid, movedUid);
     assert.equal(afterResume.host.table.battle[2][0].frazzle, 2);
+    const guestPass = waitForState(resumedHost, (next) => next.turnRole === "host" && next.turnNumber === 1);
+    guest.emit("game:endTurn");
+    const afterGuestPass = await guestPass;
+    assert.deepEqual(afterGuestPass.host.table.fragments, [false, false]);
+    assert.deepEqual(afterGuestPass.guest.table.fragments, [false]);
+    const hostPass = waitForState(resumedHost, (next) => next.turnRole === "guest" && next.turnNumber === 2);
+    resumedHost.emit("game:endTurn");
+    const afterHostPass = await hostPass;
+    assert.deepEqual(afterHostPass.host.table.fragments, [false, false, false]);
+    assert.deepEqual(afterHostPass.guest.table.fragments, [false, false]);
   } finally {
     sockets.forEach((socket) => socket.disconnect());
     server.kill();

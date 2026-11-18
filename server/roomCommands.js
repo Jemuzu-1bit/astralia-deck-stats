@@ -220,6 +220,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     try { room.turnRole = startingPlayer(room.host, room.guest); }
     catch (error) { return fail(socket, error.message); }
     room.startVotes = { host: null, guest: null };
+    room.startingRole = room.turnRole;
     room.turnNumber = room.turnRole ? 1 : 0;
     dealOpeningHand(room.host);
     dealOpeningHand(room.guest);
@@ -232,6 +233,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     room.startVotes[player.role] = role;
     if (room.startVotes.host && room.startVotes.host === room.startVotes.guest) {
       room.turnRole = role;
+      room.startingRole = role;
       room.turnNumber = 1;
     }
     room.lastActivity = now; emitState(room);
@@ -239,8 +241,15 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
   socket.on("game:endTurn", () => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!room?.started || !player || room.turnRole !== player.role) return;
+    room.startingRole ??= room.turnRole;
     room.turnRole = player.role === "host" ? "guest" : "host";
-    room.turnNumber += 1;
+    if (room.turnRole === room.startingRole) room.turnNumber += 1;
+    for (const participant of [room.host, room.guest]) {
+      if (!participant?.table) continue;
+      const fragments = participant.table.fragments;
+      if (fragments.length < 10) fragments.push(false);
+      fragments.fill(false);
+    }
     room.lastActivity = now; emitState(room);
   });
   socket.on("lobby:leave", () => {
