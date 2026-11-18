@@ -88,11 +88,15 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     socket.data.sessionToken = player.token;
   }
 
-  function createRoom(socket, name) {
+  function createRoom(socket, options) {
     if (socket.data.roomCode) return fail(socket, "Leave the current room first.");
     const code = roomCode;
     if (current) throw new Error("Room code collision");
-    const room = { code, instanceId: makeId(), host: newPlayer(socket, name, "host"), guest: null, spectators: new Set(), started: false, lastActivity: now };
+    // Older clients send only a player name: their rooms remain private.
+    const name = typeof options === "string" ? options : options?.name;
+    const visibility = options?.visibility === "public" ? "public" : "private";
+    const roomName = String(typeof options === "object" ? options?.roomName || "" : "").trim().replace(/\s+/g, " ").slice(0, 60) || `${playerName(name, "Host")}'s room`;
+    const room = { code, instanceId: makeId(), visibility, roomName, createdAt: now, host: newPlayer(socket, name, "host"), guest: null, spectators: new Set(), started: false, lastActivity: now };
     rooms.set(code, room);
     attachPlayer(socket, room, room.host);
     socket.emit("lobby:joined", { code, role: "host", token: room.host.token });
@@ -211,6 +215,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     const room = currentRoom(socket);
     if (!room || room.host?.socketId !== socket.id) return fail(socket, "Only the host can start the match.");
     if (room.started) return;
+    if (!room.host.connected || !room.guest?.connected) return fail(socket, "Both players must be connected to start.");
     if (!room.guest || !room.host.deckId || !room.guest.deckId) return fail(socket, "Both players must select a deck first.");
     try { room.turnRole = startingPlayer(room.host, room.guest); }
     catch (error) { return fail(socket, error.message); }

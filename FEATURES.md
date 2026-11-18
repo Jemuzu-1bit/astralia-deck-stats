@@ -28,6 +28,9 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 
 ## Lobby and online matches
 
+- **Multiplayer** in the sidebar opens a searchable public room list with host and room names, occupancy, spectators, and filters for open seats and ongoing matches; it refreshes every five seconds.
+- Create public rooms discoverable by all visitors, or private rooms accessible only through their six-character code. Existing rooms remain private. Public rooms provide separate player and spectator actions; full or started rooms cannot accept a new player.
+- Only the host starts a match, after both players are connected and have selected a saved local or account deck. Matches do not start automatically when a guest joins.
 - Host a room or join as the second player using a six-character code. The player's name is remembered in the browser.
 - Each player selects a locally saved deck; the host can start the match once both players have selected one.
 - Join as a spectator before or during a match, with a limit of 20 spectators. Spectators see the table and both players' complete hands, with both hand panels expanded by default. Deck contents remain private, and spectators cannot change the match.

@@ -24,11 +24,17 @@ Apri il browser su `http://localhost:5173`.
 
 ## Partite online
 
-Il progetto include una lobby Socket.IO a due giocatori derivata dal flusso
-della repo originale: l'host crea una stanza, condivide il codice mostrato
-nella lobby e il secondo giocatore lo usa per entrare. I mazzi vengono scelti
-tra quelli già salvati nel deck builder locale; il deck builder non viene
-modificato.
+La sezione **Multiplayer** nel menu laterale permette di creare stanze pubbliche
+o private. Le stanze pubbliche mostrano nome della stanza, host, posti occupati
+e spettatori; chiunque può unirsi come giocatore (se c'è un posto libero) o
+spettatore. L'elenco si aggiorna ogni cinque secondi e permette di cercare per
+stanza o host e filtrare per posti liberi o partite in corso.
+
+Le stanze private, incluse quelle create prima di questa funzione, non compaiono
+nell'elenco: giocatori e spettatori accedono con un codice di sei caratteri.
+Entrambi i giocatori scelgono un mazzo salvato, locale o del proprio account.
+Solo l'host può avviare la partita, dopo che entrambi sono connessi e hanno
+selezionato il mazzo. Le partite già avviate accettano soltanto nuovi spettatori.
 
 Avvio locale:
 
@@ -43,8 +49,8 @@ npm install
 npm run dev
 ```
 
-Apri `http://localhost:5173`, scegli `host game` oppure `join game` e inserisci
-il codice della lobby. Per un hosting pubblico è sufficiente pubblicare il
+Apri `http://localhost:5173/multiplayer`, scegli **Create room**, una stanza
+pubblica oppure **Join with code**. Per un hosting pubblico è sufficiente pubblicare il
 server `server/` su un servizio Node/WebSocket e impostare nel client:
 
 ```bash

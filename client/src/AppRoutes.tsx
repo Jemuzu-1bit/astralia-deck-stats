@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import App from "./App";
 import MyDecksPage from "./pages/MyDecksPage.tsx";
 import LobbyPage from "./pages/LobbyPage.tsx";
+import MultiplayerPage from "./pages/MultiplayerPage.tsx";
 import OnlineGamePage from "./pages/OnlineGamePage.tsx";
 import HelpPage from "./pages/HelpPage.tsx";
 import ArchiveLayout from "./components/ArchiveLayout";
@@ -22,9 +23,10 @@ export default function AppRoutes() {
         <Route path="/help" element={<HelpPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/edit" element={<ProfilePage editing />} />
+        <Route path="/multiplayer" element={<MultiplayerPage />} />
+        <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/lobby/:code" element={<LobbyPage />} />
       </Route>
-      <Route path="/lobby" element={<LobbyPage />} />
-      <Route path="/lobby/:code" element={<LobbyPage />} />
       <Route path="/game" element={<OnlineGamePage />} />
       <Route path="/game/:code" element={<OnlineGamePage />} />
     </Routes>

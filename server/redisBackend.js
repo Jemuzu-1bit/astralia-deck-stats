@@ -47,6 +47,20 @@ export class RedisBackend {
   }
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   async ping() { await this.ready; return this.client.ping(); }
+  async list() {
+    await this.ready;
+    let cursor = "0";
+    const rooms = new Map();
+    do {
+      const [next, keys] = await this.client.scan(cursor, "MATCH", `${this.prefix}:room:*`, "COUNT", 100);
+      cursor = next;
+      if (keys.length) {
+        const values = await this.client.mget(...keys);
+        keys.forEach((key, index) => { if (values[index]) rooms.set(key, values[index]); });
+      }
+    } while (cursor !== "0");
+    return [...rooms.values()];
+  }
   async count() {
     await this.ready;
     let cursor = "0";

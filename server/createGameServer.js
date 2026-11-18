@@ -133,6 +133,14 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
     socket.data.syncState = syncState;
     socket.onAny((event, packet, acknowledge) => {
       if (!/^(lobby|game):[a-zA-Z]+$/.test(event)) return;
+      if (event === "lobby:list") {
+        enqueue(() => store.listPublicRooms()).then((rooms) => {
+          if (typeof acknowledge === "function") acknowledge({ ok: true, rooms });
+        }).catch(() => {
+          if (typeof acknowledge === "function") acknowledge({ ok: false });
+        });
+        return;
+      }
       const commandId = typeof packet?.__commandId === "string" && packet.__commandId.length <= 80 ? packet.__commandId : undefined;
       const payload = commandId ? packet.data : packet;
       enqueue(() => event === "lobby:sync" ? syncState() : execute(event, payload, commandId)).then(() => {

@@ -51,6 +51,36 @@ async function connectedHost(t, backend = new MemoryBackend()) {
   return { app, host, code, backend };
 }
 
+test("the multiplayer client discovers public rooms, joins a seat and watches without exposing private rooms", async (t) => {
+  const { app, host: privateHost, code: privateCode } = await connectedHost(t);
+  const url = `http://127.0.0.1:${app.server.address().port}`;
+  const host = new GameConnection({ url });
+  const guest = new GameConnection({ url });
+  const viewer = new GameConnection({ url });
+  t.after(() => { host.leave(); guest.leave(); viewer.leave(); });
+  const joined = waitForState(host, (state) => state.visibility === "public");
+  host.connect();
+  host.runWhenConnected(() => host.host("Alice", { visibility: "public", roomName: "Practice table" }));
+  const { code } = await joined;
+  assert.equal(privateHost.getCurrentState().visibility, "private");
+  assert.deepEqual((await host.listPublicRooms()).map((room) => room.code), [code]);
+  assert.ok(!(await host.listPublicRooms()).some((room) => room.code === privateCode));
+  // The guest represents a different browser, without the host's stored token.
+  localStorage.removeItem(`astralia.gameSession.${code}`);
+  const guestJoined = waitForState(guest, (state) => state.viewerRole === "guest");
+  guest.connect();
+  guest.runWhenConnected(() => guest.join("Bob", code));
+  await guestJoined;
+  const viewerJoined = waitForState(viewer, (state) => state.viewerRole === "spectator");
+  viewer.watch(code);
+  await viewerJoined;
+  const rooms = await viewer.listPublicRooms();
+  assert.equal(rooms[0].playerCount, 2);
+  assert.equal(rooms[0].spectatorCount, 1);
+  assert.equal(rooms[0].started, false);
+  assert.equal(rooms[0].hostName, "Alice");
+});
+
 test("a temporary resume failure retries and releases queued commands on the same open socket", async (t) => {
   const { app, host, code } = await connectedHost(t);
   const originalSocket = host.getSocketId();

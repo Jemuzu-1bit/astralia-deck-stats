@@ -20,6 +20,22 @@ export class RoomStore {
     this.now = now;
   }
 
+  async listPublicRooms() {
+    const now = this.now();
+    return (await this.backend.list()).map(decodeRoom).filter((room) =>
+      room?.visibility === "public" && room.host?.connected && room.host.socketId
+      && room.presence?.[room.host.socketId] > now && roomExpiresAt(room) > now
+    ).map((room) => ({
+      code: room.code,
+      roomName: room.roomName,
+      hostName: room.host.name,
+      playerCount: Number(Boolean(room.host)) + Number(Boolean(room.guest)),
+      spectatorCount: [...room.spectators].filter((id) => room.presence?.[id] > now).length,
+      started: room.started,
+      createdAt: room.createdAt || room.lastActivity,
+    })).sort((a, b) => Number(a.started) - Number(b.started) || b.createdAt - a.createdAt);
+  }
+
   async execute(code, actor, event, payload, commandId) {
     for (let attempt = 0; attempt < 80; attempt++) {
       const raw = await this.backend.get(code);
@@ -71,6 +87,14 @@ export class MemoryBackend {
   }
   subscribe(listener) { this.events.on("effects", listener); return () => this.events.off("effects", listener); }
   async ping() { return "PONG"; }
+  async list() {
+    const rooms = [];
+    for (const code of this.rooms.keys()) {
+      const raw = await this.get(code);
+      if (raw) rooms.push(raw);
+    }
+    return rooms;
+  }
   async count() {
     for (const [code, entry] of this.rooms) if (entry.expiresAt <= this.now()) this.rooms.delete(code);
     return this.rooms.size;

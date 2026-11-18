@@ -44,6 +44,8 @@ export function publicState(room, viewerId) {
     turnNumber: room.turnNumber ?? 0,
     startVotes: room.started && !room.turnRole ? room.startVotes : undefined,
     code: room.code,
+    visibility: room.visibility === "public" ? "public" : "private",
+    roomName: room.roomName || "Private room",
     viewerRole: viewer?.role ?? (isSpectator ? "spectator" : null),
     spectatorCount: room.spectators.size,
     activityLog: room.activityLog || [],

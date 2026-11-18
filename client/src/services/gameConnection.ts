@@ -77,6 +77,8 @@ export interface GameActivity {
 }
 
 export interface LobbyState {
+  visibility?: "public" | "private";
+  roomName?: string;
   instanceId?: string;
   revision?: number;
   host: LobbyPlayerState | null;
@@ -91,6 +93,15 @@ export interface LobbyState {
   activityLog?: GameActivity[];
   deckRequest?: DeckRequest | null;
   deckRequestResult?: DeckRequestResult | null;
+}
+export interface PublicRoom {
+  code: string;
+  roomName: string;
+  hostName: string;
+  playerCount: number;
+  spectatorCount: number;
+  started: boolean;
+  createdAt: number;
 }
 type StateListener = (state: LobbyState) => void;
 type ErrorListener = (message: string) => void;
@@ -328,7 +339,19 @@ export class GameConnection {
     const unsubscribe = this.onConnect(() => { unsubscribe(); callback(); });
     return unsubscribe;
   }
-  host(name: string) { this.resumeCode = null; this.watchCode = null; this.socket?.emit("lobby:host", name); }
+  host(name: string, options?: { visibility: "public" | "private"; roomName: string }) {
+    this.resumeCode = null; this.watchCode = null;
+    this.socket?.emit("lobby:host", options ? { name, ...options } : name);
+  }
+  listPublicRooms(): Promise<PublicRoom[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket?.connected) { reject(new Error("Connecting to the game server. Please try again.")); return; }
+      this.socket.timeout(8000).emit("lobby:list", undefined, (error: Error | null, response?: { ok: boolean; rooms?: PublicRoom[] }) => {
+        if (error || !response?.ok || !response.rooms) reject(new Error("Could not load public rooms. Please try again."));
+        else resolve(response.rooms);
+      });
+    });
+  }
   join(name: string, code: string) {
     this.watchCode = null;
     const normalizedCode = normalizeCode(code);

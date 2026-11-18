@@ -6,6 +6,7 @@ import { listDecks } from "../services/deckService";
 import type { Deck } from "../types/Deck";
 import { supabase } from "../services/supabaseClient";
 import { listCloudDecks } from "../services/cloudDeckService";
+import ArchiveIcon from "../components/ArchiveIcon";
 
 export default function LobbyPage() {
   const navigate = useNavigate();
@@ -62,19 +63,21 @@ export default function LobbyPage() {
     if (!deck) return;
     gameConnection.setDeck(deck.id, deck.name, deck.faction, deck.protagonist ?? null, deck.persona, deck.deck);
   }
-  function leave() { gameConnection.leave(); navigate("/"); }
+  function leave() { gameConnection.leave(); navigate("/multiplayer"); }
+  const ready = Boolean(state.host?.connected && state.guest?.connected && state.host.deckId && state.guest.deckId);
+  const bothConnected = state.host?.connected && state.guest?.connected;
 
   return <div className={styles.root}>
-    <header className={styles.header}><div><h1>Online lobby</h1><p>{isSpectator ? "Watching this match. You can see the table, both players' hands, and actions." : "Share this code with your opponent or spectators."}</p></div><nav className={styles.headerActions}><Link to="/help" target="_blank" rel="noopener noreferrer">Guide</Link><button onClick={leave}>Leave</button></nav></header>
-    {error && <div className={styles.error}>{error}</div>}
-    <div className={styles.code}>{state.code || "------"}</div>
-    <p>Spectators: {state.spectatorCount ?? 0}</p>
+    <header className={styles.header}><div><span className={styles.eyebrow}>{state.visibility === "public" ? "PUBLIC ROOM" : "PRIVATE ROOM"}</span><h1>{state.roomName || "Match lobby"}</h1><p>{isSpectator ? "You are watching. The host will start the match when both players are ready." : "Choose your deck and get ready for your next match."}</p></div><nav className={styles.headerActions}><Link to="/help" target="_blank" rel="noopener noreferrer">Play guide</Link><button onClick={leave}>Leave room</button></nav></header>
+    {error && <div className={styles.error} role="alert">{error}</div>}
+    <div className={styles.roomDetails}><div><span>ROOM CODE</span><strong className={styles.code}>{state.code || "------"}</strong></div><p><ArchiveIcon name={state.visibility === "public" ? "multiplayer" : "lock"} size={18} />{state.visibility === "public" ? "Visible in public rooms" : "Invite players and spectators with this code"}</p><span className={styles.spectators}><ArchiveIcon name="eye" size={18} />{state.spectatorCount ?? 0} watching</span></div>
     <main className={styles.players}>
       {[state.host, state.guest].map((player, index) => <section className={styles.player} key={player?.socketId || index}>
-        <h2>{player ? player.name : "Waiting for opponent"}</h2>
-        {player && <><p>{player.role === "host" ? "Host" : "Guest"}</p><strong>{player.deckName || "No deck selected"}</strong>{!isSpectator && myId && player.socketId === myId && <select disabled={decksLoading} value={selectedDeck || player.deckId || ""} onChange={(event) => chooseDeck(event.target.value)}><option value="">{decksLoading ? "Loading decks..." : "Choose your deck"}</option>{decks.map((deck: Deck) => <option key={deck.id} value={deck.id}>{deck.name} · {deck.faction}</option>)}</select>}</>}
+        <div className={styles.playerHeading}><span className={styles.avatar}><ArchiveIcon name={player ? "user" : "multiplayer"} size={25} /></span><div><span className={styles.role}>{index === 0 ? "HOST" : "OPPONENT"}{player?.socketId === myId ? " · YOU" : ""}</span><h2>{player ? player.name : "An open seat"}</h2></div>{player && <span className={styles.status}>{!player.connected ? "Disconnected" : player.deckId ? "Ready" : "Choosing deck"}</span>}</div>
+        {player ? <><div className={styles.deck}><ArchiveIcon name="decks" size={22} /><div><span>SELECTED DECK</span><strong>{player.deckName || "No deck selected"}</strong></div></div>{!isSpectator && myId && player.socketId === myId && <><label className={styles.deckLabel} htmlFor="lobby-deck">Your saved decks</label><select id="lobby-deck" disabled={decksLoading} value={selectedDeck || player.deckId || ""} onChange={(event) => chooseDeck(event.target.value)}><option value="" disabled>{decksLoading ? "Loading decks..." : "Choose your deck"}</option>{decks.map((deck: Deck) => <option key={deck.id} value={deck.id}>{deck.name} · {deck.faction}</option>)}</select>{!decksLoading && !decks.length && <p>No saved decks yet. <Link to="/my-decks?new=1">Build your first deck</Link>, then return to this room.</p>}</>}</> : <div className={styles.waiting}><p>{state.visibility === "public" ? "Your room is listed. An opponent can join from Multiplayer." : "Share the room code to invite your opponent."}</p></div>}
       </section>)}
     </main>
-    <div className={styles.footer}>{isHost && <button className={styles.start} disabled={!state.host?.deckId || !state.guest?.deckId} onClick={() => gameConnection.startRequest()}>Start match</button>}<span>{state.guest ? "Both players are connected." : "Waiting for the second player…"}</span></div>
+    <div className={styles.footer}><div><strong>{ready ? "The table is ready." : bothConnected ? "Choose your decks." : "Waiting for your opponent."}</strong><p>{ready ? isHost ? "Both players are ready. Start when you are." : "The host will start the match." : "Both players must be connected and select a deck before the host can start."}</p></div>{isHost && <button className={styles.start} disabled={!ready} onClick={() => gameConnection.startRequest()}><ArchiveIcon name="play" size={16} /> Start match</button>}</div>
+    {!state.code && <p className={styles.returnLink}><Link to="/multiplayer?join=1">Join with a room code</Link> or <Link to="/multiplayer">return to Multiplayer</Link>.</p>}
   </div>;
 }

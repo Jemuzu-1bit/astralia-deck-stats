@@ -46,8 +46,12 @@ async function exerciseCluster(t, backends) {
   const guest = await connect(1);
   const spectator = await connect(1);
   const hostJoined = waitFor(host, "lobby:joined");
-  host.emit("lobby:host", "Host");
+  host.emit("lobby:host", { name: "Host", visibility: "public", roomName: "Cross-server room" });
   const { code, token } = await hostJoined;
+  const discovered = await new Promise((resolve) => spectator.emit("lobby:list", undefined, resolve));
+  assert.equal(discovered.ok, true);
+  assert.deepEqual(discovered.rooms.map((room) => ({ code: room.code, name: room.roomName, host: room.hostName })),
+    [{ code, name: "Cross-server room", host: "Host" }], "public discovery works from a separate server instance");
   const guestJoined = waitFor(guest, "lobby:joined");
   guest.emit("lobby:join", { code, name: "Guest" });
   await guestJoined;
