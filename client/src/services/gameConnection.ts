@@ -85,6 +85,7 @@ export interface LobbyState {
 type StateListener = (state: LobbyState) => void;
 type ErrorListener = (message: string) => void;
 type SessionListener = (code: string) => void;
+export type GameConnectionStatus = "idle" | "recovering" | "ready";
 
 interface StoredSession {
   code: string;
@@ -127,11 +128,56 @@ export class GameConnection {
   private errorListeners = new Set<ErrorListener>();
   private connectionListeners = new Set<() => void>();
   private sessionListeners = new Set<SessionListener>();
+  private statusListeners = new Set<(status: GameConnectionStatus) => void>();
+  private status: GameConnectionStatus = "idle";
   private resumeCode: string | null = null;
   private watchCode: string | null = null;
   private sessionReady = false;
   private pendingActions: Array<{ id: string; event: string; data: unknown; code: string }> = [];
   private flushing = false;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
+  private syncing = false;
+  private activeSession: StoredSession | null = null;
+
+  private setStatus(status: GameConnectionStatus) {
+    if (this.status === status) return;
+    this.status = status;
+    this.statusListeners.forEach((listener) => listener(status));
+  }
+  private stopRecovery() {
+    if (this.recoveryTimer !== null) clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = null;
+  }
+  private sessionJoined() {
+    this.stopRecovery();
+    this.sessionReady = true;
+    this.setStatus("ready");
+    if (this.syncTimer === null) this.syncTimer = setInterval(() => this.syncSession(), 15000);
+  }
+  private stopSession() {
+    this.stopRecovery();
+    if (this.syncTimer !== null) clearInterval(this.syncTimer);
+    this.syncTimer = null;
+    this.sessionReady = false;
+    this.activeSession = null;
+    this.setStatus("idle");
+  }
+  private syncSession() {
+    const socket = this.socket;
+    if (!socket?.connected || !this.sessionReady || this.syncing || (!this.resumeCode && !this.watchCode)) return;
+    this.syncing = true;
+    socket.timeout(5000).emit("lobby:sync", undefined, (error: Error | null, response?: { ok: boolean }) => {
+      if (this.socket !== socket) return;
+      this.syncing = false;
+      if (error && (this.resumeCode || this.watchCode)) {
+        // An open WebSocket alone does not prove the game server is responding.
+        socket.disconnect();
+        socket.connect();
+      } else if (!response?.ok) this.setStatus("recovering");
+      else if (this.sessionReady) this.setStatus("ready");
+    });
+  }
 
   connect(code?: string) {
     if (code) { this.resumeCode = normalizeCode(code); this.watchCode = null; }
@@ -150,12 +196,16 @@ export class GameConnection {
       else this.sessionReady = true;
       this.connectionListeners.forEach((listener) => listener());
     });
-    this.socket.on("disconnect", () => { this.sessionReady = false; });
+    this.socket.on("disconnect", () => {
+      this.stopRecovery();
+      this.sessionReady = false;
+      if (this.resumeCode || this.watchCode) this.setStatus("recovering");
+    });
     this.socket.on("lobby:joined", (payload: StoredSession | { code: string; role: "spectator" }) => {
       if (payload.role === "spectator") {
         this.watchCode = normalizeCode(payload.code);
         this.resumeCode = null;
-        this.sessionReady = true;
+        this.sessionJoined();
         this.sessionListeners.forEach((listener) => listener(this.watchCode!));
         return;
       }
@@ -163,7 +213,8 @@ export class GameConnection {
       this.watchCode = null;
       this.resumeCode = session.code;
       saveSession(session);
-      this.sessionReady = true;
+      this.activeSession = session;
+      this.sessionJoined();
       this.flushActions();
       this.sessionListeners.forEach((listener) => listener(session.code));
     });
@@ -180,14 +231,14 @@ export class GameConnection {
       if (this.resumeCode) removeSession(this.resumeCode);
       this.resumeCode = null;
       this.pendingActions = [];
-      this.sessionReady = false;
+      this.stopSession();
       this.errorListeners.forEach((listener) => listener(message));
     });
     this.socket.on("lobby:closed", (message: string) => {
       this.resumeCode = null;
       this.watchCode = null;
       this.pendingActions = [];
-      this.sessionReady = false;
+      this.stopSession();
       this.state = { host: null, guest: null, started: false };
       this.listeners.forEach((listener) => listener(this.state));
       this.errorListeners.forEach((listener) => listener(message));
@@ -196,7 +247,7 @@ export class GameConnection {
       // Keep localStorage: the replacement tab uses the same valid session token.
       this.resumeCode = null;
       this.watchCode = null;
-      this.sessionReady = false;
+      this.stopSession();
       this.pendingActions = [];
     });
     this.socket.connect();
@@ -222,25 +273,42 @@ export class GameConnection {
         if (this.socket !== socket) return;
         this.flushing = false;
         if (!error && response?.ok) {
+          if (this.sessionReady) this.setStatus("ready");
           if (this.pendingActions[0]?.id === action.id) this.pendingActions.shift();
           this.flushActions();
         } else if (socket.connected && this.sessionReady) {
-          window.setTimeout(() => this.flushActions(), 2000);
+          this.setStatus("recovering");
+          if (error) this.emitResume();
+          else setTimeout(() => this.flushActions(), 2000);
         }
       });
   }
   private emitResume() {
-    if (!this.resumeCode) return;
-    const session = loadSession(this.resumeCode);
-    if (session) this.socket?.emit("lobby:resume", { code: session.code, token: session.token });
+    if (!this.resumeCode || !this.socket?.connected) return;
+    const session = this.activeSession?.code === this.resumeCode ? this.activeSession : loadSession(this.resumeCode);
+    if (!session) return;
+    this.beginRecovery(() => this.emitResume());
+    this.socket.emit("lobby:resume", { code: session.code, token: session.token });
   }
   private emitWatch() {
-    if (this.watchCode) this.socket?.emit("lobby:watch", { code: this.watchCode });
+    if (!this.watchCode || !this.socket?.connected) return;
+    this.sessionReady = false;
+    this.setStatus("recovering");
+    this.socket.emit("lobby:watch", { code: this.watchCode });
+  }
+  private beginRecovery(retry: () => void) {
+    this.stopRecovery();
+    this.sessionReady = false;
+    this.setStatus("recovering");
+    // A failed resume or a lost joined notification must not freeze the queue.
+    this.recoveryTimer = setTimeout(retry, 3000);
   }
   onState(listener: StateListener) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
   onError(listener: ErrorListener) { this.errorListeners.add(listener); return () => { this.errorListeners.delete(listener); }; }
   onConnect(listener: () => void) { this.connectionListeners.add(listener); return () => { this.connectionListeners.delete(listener); }; }
   onSession(listener: SessionListener) { this.sessionListeners.add(listener); return () => { this.sessionListeners.delete(listener); }; }
+  onStatus(listener: (status: GameConnectionStatus) => void) { this.statusListeners.add(listener); return () => { this.statusListeners.delete(listener); }; }
+  getStatus() { return this.status; }
   getCurrentState() { return this.state; }
   getSession(code: string) { return loadSession(code); }
   getSocketId() { return this.socket?.id ?? null; }
@@ -325,6 +393,8 @@ export class GameConnection {
       else socket.disconnect();
     }
     this.socket = null;
+    this.stopSession();
+    this.syncing = false;
     if (code && !wasSpectator) removeSession(code);
     this.resumeCode = null;
     this.watchCode = null;

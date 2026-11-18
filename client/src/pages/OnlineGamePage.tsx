@@ -35,6 +35,7 @@ export default function OnlineGamePage() {
   const isSpectator = searchParams.get("watch") === "1";
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState(gameConnection.getStatus());
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [interfaceSize, setInterfaceSize] = useState(savedInterfaceSize);
@@ -116,12 +117,16 @@ export default function OnlineGamePage() {
   useEffect(() => {
     const offState = gameConnection.onState(setState);
     const offError = gameConnection.onError(setError);
+    const offStatus = gameConnection.onStatus((status) => {
+      setConnectionStatus(status);
+      if (status === "ready") setError(null);
+    });
     if (routeCode) {
       if (isSpectator) gameConnection.watch(routeCode);
       else gameConnection.resume(routeCode);
     }
     else gameConnection.connect();
-    return () => { offState(); offError(); };
+    return () => { offState(); offError(); offStatus(); };
   }, [routeCode, isSpectator]);
   useEffect(() => {
     if (state.code && routeCode !== state.code) navigate(`/game/${state.code}${isSpectator ? "?watch=1" : ""}`, { replace: true });
@@ -349,6 +354,7 @@ export default function OnlineGamePage() {
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
+    {connectionStatus === "recovering" && <div className={styles.deckRequestNotice} role="status">Reconnecting to game… Your actions will resume automatically.</div>}
     {error && <div className={styles.deckRequestNotice} role="alert">{error}</div>}
     {incomingDeckRequest && <div className={styles.deckRequestNotice} role="dialog" aria-label="Opponent deck request">
       <span><strong>{incomingDeckRequest.fromName}</strong> asks you to {describeDeckRequest(incomingDeckRequest, "your")}.</span>

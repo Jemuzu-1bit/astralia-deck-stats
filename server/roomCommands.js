@@ -269,6 +269,17 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     emitState(room);
   });
 
+  // Presence can expire during a store outage even while the WebSocket stays
+  // open. A still-authenticated socket may reclaim its vacant seat, but never
+  // replace a seat now occupied by another tab.
+  if (current && actor.data.sessionToken
+    && !["disconnect", "maintenance", "lobby:leave", "lobby:host", "lobby:join", "lobby:watch", "lobby:resume"].includes(event)) {
+    const player = [current.host, current.guest].find((entry) => entry?.token === actor.data.sessionToken);
+    if (player && !player.socketId) {
+      attachPlayer(socket, current, player);
+      emitState();
+    }
+  }
   if (event !== "maintenance" && event !== "heartbeat") handlers.get(event)?.(payload);
   if (current) {
     if (event !== "disconnect" && event !== "maintenance") renewPresence(current, socket.id, now);

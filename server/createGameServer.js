@@ -107,11 +107,35 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
         socket.data.sessionToken = result.data.sessionToken;
       }
     };
+    const syncState = async () => {
+      const code = socket.data.roomCode;
+      if (!code) return;
+      let room = decodeRoom(await backend.get(code));
+      const player = room && [room.host, room.guest].find((entry) => entry?.token === socket.data.sessionToken);
+      if (player && !player.socketId) {
+        await execute("heartbeat");
+        room = decodeRoom(await backend.get(code));
+      }
+      if (!room) {
+        socket.data.roomCode = undefined;
+        socket.emit("lobby:closed", "This game session has expired.");
+        return;
+      }
+      const state = publicState(room, socket.id);
+      if (!state.viewerRole) {
+        socket.data.roomCode = undefined;
+        socket.data.sessionToken = undefined;
+        socket.emit("lobby:replaced");
+        return;
+      }
+      deliver(socket, "lobby:state", state);
+    };
+    socket.data.syncState = syncState;
     socket.onAny((event, packet, acknowledge) => {
       if (!/^(lobby|game):[a-zA-Z]+$/.test(event)) return;
       const commandId = typeof packet?.__commandId === "string" && packet.__commandId.length <= 80 ? packet.__commandId : undefined;
       const payload = commandId ? packet.data : packet;
-      enqueue(() => execute(event, payload, commandId)).then(() => {
+      enqueue(() => event === "lobby:sync" ? syncState() : execute(event, payload, commandId)).then(() => {
         if (typeof acknowledge === "function") acknowledge({ ok: true });
       }).catch(() => {
         socket.emit("lobby:error", "The game server is temporarily unavailable. Please try again.");
@@ -136,24 +160,7 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
       // after an interruption by rereading the authoritative snapshot.
       if (++tick % 5 === 0) {
         for (const socket of io.sockets.sockets.values()) {
-          await socket.data.enqueue(async () => {
-            const code = socket.data.roomCode;
-            if (!code) return;
-            const room = decodeRoom(await backend.get(code));
-            if (!room) {
-              socket.data.roomCode = undefined;
-              socket.emit("lobby:closed", "This game session has expired.");
-              return;
-            }
-            const state = publicState(room, socket.id);
-            if (!state.viewerRole) {
-              socket.data.roomCode = undefined;
-              socket.data.sessionToken = undefined;
-              socket.emit("lobby:replaced");
-              return;
-            }
-            deliver(socket, "lobby:state", state);
-          });
+          if (socket.data.roomCode) await socket.data.enqueue(() => socket.data.syncState());
         }
       }
     } catch { /* The next tick retries recovery; health checks report store outages. */ }

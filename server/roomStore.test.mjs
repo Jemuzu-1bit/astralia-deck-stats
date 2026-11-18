@@ -105,6 +105,34 @@ test("heartbeats preserve an idle connected game and explicit host leave deletes
   assert.equal(await f.read(), null);
 });
 
+test("a live authenticated socket recovers expired presence before applying its command", async () => {
+  let time = Date.now();
+  const now = () => time;
+  const f = await fixture(new MemoryBackend({ now }), now);
+  const before = await f.read();
+  time += PRESENCE_TTL_MS + 1;
+  await f.store.execute(f.code, { id: "", data: {} }, "maintenance");
+  assert.equal((await f.read()).host.socketId, null);
+  await f.command("host", "game:deckAction", { action: "draw", count: 1 }, "after-expiry");
+  const after = await f.read();
+  assert.equal(after.host.socketId, f.actors.host.id);
+  assert.equal(after.host.connected, true);
+  assert.equal(after.host.table.hand.length, before.host.table.hand.length + 1);
+  assert.deepEqual(after.guest.table, before.guest.table);
+});
+
+test("presence recovery never lets a replaced socket reclaim another tab's seat", async () => {
+  const f = await fixture();
+  const room = await f.read();
+  const replacement = { id: "replacement", data: {} };
+  await f.store.execute(f.code, replacement, "lobby:resume", { code: f.code, token: room.host.token });
+  await f.command("host", "heartbeat");
+  await f.command("host", "game:deckAction", { action: "draw", count: 1 });
+  const after = await f.read();
+  assert.equal(after.host.socketId, replacement.id);
+  assert.deepEqual(after.host.table, room.host.table);
+});
+
 test("only one simultaneous guest claims a room and invalid tokens cannot resume", async () => {
   const backend = new MemoryBackend();
   const store = new RoomStore(backend);

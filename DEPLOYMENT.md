@@ -71,9 +71,16 @@ delle stanze va migrato esplicitamente se cambia in future versioni.
   non conserva azioni che non sono ancora state salvate sul server.
 - Redis Pub/Sub distribuisce gli aggiornamenti. Le istanze con utenti connessi
   rileggono periodicamente lo stato per recuperare eventuali notifiche perse.
+- Il client verifica la risposta applicativa ogni 15 secondi e ricrea il
+  collegamento se il controllo resta senza conferma per 5 secondi. Il recupero
+  della sessione viene ritentato ogni 3 secondi fino alla conferma; i comandi
+  senza conferma conservano il proprio identificativo durante il recupero.
 - I heartbeat rinnovano la presenza. Dopo una terminazione improvvisa, una
   presenza non rinnovata scade entro 90 secondi. Le stanze senza giocatori
   scadono dopo 30 minuti; gli spettatori da soli non le mantengono vive.
+  Se il WebSocket e' ancora aperto, un giocatore autenticato recupera
+  automaticamente il proprio posto scaduto, purche' non sia occupato da
+  un'altra scheda. La pagina segnala quando il recupero e' in corso.
 - Le frecce temporanee usano scadenze assolute. Un controllo periodico pulisce
   lo stato; la scadenza viene verificata anche alla successiva azione o riconnessione.
 - Un riavvio della Function non elimina le partite. Redis deve invece restare
