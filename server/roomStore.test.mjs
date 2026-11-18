@@ -28,7 +28,7 @@ async function fixture(backend = new MemoryBackend(), now = Date.now) {
   return { store, backend, actors, code, command, read: async () => decodeRoom(await backend.get(code)) };
 }
 
-test("turns advance after both players act and every pass adds and readies both players' fragments", async () => {
+test("only returning to the starting player adds and readies both players' fragments", async () => {
   const f = await fixture();
   const turnState = (room) => ({
     turnRole: room.turnRole, turnNumber: room.turnNumber,
@@ -49,7 +49,8 @@ test("turns advance after both players act and every pass adds and readies both 
     assert.equal(room.turnRole, role === "host" ? "guest" : "host");
     assert.equal(room.turnNumber, Math.floor((index + 1) / 2) + 1);
     for (const participant of ["host", "guest"]) {
-      assert.deepEqual(room[participant].table.fragments, Array(index + 2).fill(false));
+      const count = Math.floor((index + 1) / 2) + 1;
+      assert.deepEqual(room[participant].table.fragments, Array(count).fill(role === "host"));
     }
     await f.command(role, "game:endTurn", undefined, id);
     assert.deepEqual(turnState(await f.read()), turnState(room), "retrying a pass cannot add fragments twice");
@@ -58,14 +59,18 @@ test("turns advance after both players act and every pass adds and readies both 
     }
   }
 
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     await f.command("host", "game:updateFragments", { action: "add" });
   }
   await f.command("host", "game:updateFragments", { action: "spendAll" });
   await f.command("host", "game:endTurn");
+  const beforeRefresh = await f.read();
+  assert.deepEqual(beforeRefresh.host.table.fragments, Array(10).fill(true));
+  assert.deepEqual(beforeRefresh.guest.table.fragments, Array(3).fill(true));
+  await f.command("guest", "game:endTurn");
   const capped = await f.read();
   assert.deepEqual(capped.host.table.fragments, Array(10).fill(false), "capped fragments still untap");
-  assert.deepEqual(capped.guest.table.fragments, Array(6).fill(false));
+  assert.deepEqual(capped.guest.table.fragments, Array(4).fill(false));
 });
 
 test("concurrent writers retain both players' actions and publish only committed private projections", async () => {

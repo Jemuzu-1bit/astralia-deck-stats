@@ -243,12 +243,14 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     if (!room?.started || !player || room.turnRole !== player.role) return;
     room.startingRole ??= room.turnRole;
     room.turnRole = player.role === "host" ? "guest" : "host";
-    if (room.turnRole === room.startingRole) room.turnNumber += 1;
-    for (const participant of [room.host, room.guest]) {
-      if (!participant?.table) continue;
-      const fragments = participant.table.fragments;
-      if (fragments.length < 10) fragments.push(false);
-      fragments.fill(false);
+    if (room.turnRole === room.startingRole) {
+      room.turnNumber += 1;
+      for (const participant of [room.host, room.guest]) {
+        if (!participant?.table) continue;
+        const fragments = participant.table.fragments;
+        if (fragments.length < 10) fragments.push(false);
+        fragments.fill(false);
+      }
     }
     room.lastActivity = now; emitState(room);
   });
