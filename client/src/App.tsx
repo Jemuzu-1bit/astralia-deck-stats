@@ -6,12 +6,25 @@ import { listDecks } from "./services/deckService";
 import { FACTIONS } from "./domain/deckBuilder";
 import { CHRONICLES } from "./data/chronicles";
 
+const HERO_FACTIONS = ["purple", ...FACTIONS.filter(faction => faction !== "purple")];
+
 function App() {
   const [recentDecks] = useState(() => listDecks().sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3));
+  const [heroIndex, setHeroIndex] = useState(0);
 
   return <div className={styles.page}>
     <section className={styles.hero}>
-      <div className={styles.heroArt} aria-hidden="true" />
+      <div className={styles.heroArt} aria-hidden="true">
+        {HERO_FACTIONS.map((faction, index) => <img
+          key={faction}
+          data-chronicle={faction}
+          className={`${styles.heroCharacter} ${index === heroIndex ? styles.heroCharacterActive : ""}`}
+          src={CHRONICLES[faction].image}
+          alt=""
+          draggable={false}
+          onAnimationEnd={() => setHeroIndex(current => (current + 1) % HERO_FACTIONS.length)}
+        />)}
+      </div>
       <div className={styles.heroContent}>
         <span className={styles.eyebrow}><span /> THE ASTRALIA DECK ARCHIVE</span>
         <h1>Every great game<br />starts with <em>a deck.</em></h1>

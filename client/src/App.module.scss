@@ -1,6 +1,17 @@
 .page { padding: 32px 38px; max-width: 1600px; margin: auto; }
 .hero { position: relative; min-height: 370px; display: flex; align-items: center; overflow: hidden; border: 1px solid #3a352c; border-radius: 10px; background: #181b1c; }
-.heroArt { position: absolute; inset: 0; background: linear-gradient(90deg, #151719 8%, #151719ed 30%, #15171955 66%, #15171910), linear-gradient(0deg, #141516a6, transparent 65%), url('./assets/decks/purple_banner.png') right 32% / 64% auto no-repeat; opacity: .85; }
+.heroArt { position: absolute; inset: 0 0 0 46%; overflow: hidden; pointer-events: none; }
+.heroCharacter { position: absolute; inset: 0; width: 100%; height: 175%; object-fit: contain; object-position: center top; opacity: 0; }
+.heroCharacter[data-chronicle="purple"] { top: -12px; height: 165%; padding: 0 12px 24px; box-sizing: border-box; }
+.heroCharacterActive { animation: heroCharacterPass 7s cubic-bezier(.22, .61, .36, 1) both; }
+@keyframes heroCharacterPass {
+  0% { transform: translateX(-100%); opacity: 0; }
+  12%, 88% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroCharacterActive { animation: none; transform: none; opacity: 1; }
+}
 .heroContent { position: relative; padding: 42px; z-index: 1; h1 { font-size: clamp(32px, 3.3vw, 52px); font-weight: 550; letter-spacing: -1.8px; line-height: 1.12; margin: 22px 0 18px; em { color: var(--archive-gold); font-style: normal; } } p { color: #b2b2b9; font-size: 14px; line-height: 1.8; } }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--archive-gold); font-size: 9px; letter-spacing: 2px; font-weight: 650; > span { width: 5px; height: 5px; background: var(--archive-gold); transform: rotate(45deg); } }
 .heroActions { display: flex; gap: 12px; margin-top: 28px; }
@@ -23,5 +34,5 @@
 .modal { position: relative; padding: 32px; border: 1px solid #444; border-radius: 10px; background: #1b1c20; width: min(420px, 100%); h2 { font-weight: 550; } p { color: #aaa; } label { display: block; margin-top: 20px; font-size: 12px; } input { width: 100%; padding: 14px; letter-spacing: 4px; background: #101113; border: 1px solid #45464e; border-radius: 4px; margin: 8px 0 18px; color: #fff; } .primary { width: 100%; } }
 .modalClose { position: absolute; top: 14px; right: 14px; border: 0; background: none; }
 @media (max-width: 1100px) { .page { padding: 24px; } .heroContent { padding: 30px; } .chronicle { min-height: 165px; padding: 12px; > svg { display: none; } } }
-@media (max-width: 850px) { .bottomGrid { grid-template-columns: 1fr; gap: 0; } .chronicles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .heroArt { background-size: auto, auto, cover; opacity: .6; } }
-@media (max-width: 500px) { .page { padding: 18px 16px; } .heroContent { padding: 26px 20px; } .hero { min-height: 350px; } .heroContent h1 { font-size: 35px; } .heroCaption { display: none; } .heroActions { gap: 8px; } .primary, .secondary { padding: 10px 12px; } .chronicles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .chronicle:last-child { grid-column: 1 / -1; min-height: 115px; background-position: center 28%; } .sectionHeading h2 { font-size: 20px; } .sectionHeading > a { font-size: 10px; } }
+@media (max-width: 850px) { .bottomGrid { grid-template-columns: 1fr; gap: 0; } .chronicles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .hero { display: block; } .heroContent { padding-bottom: 320px; } .heroArt { inset: auto 0 42px; height: 260px; } }
+@media (max-width: 500px) { .page { padding: 18px 16px; } .heroContent { padding: 26px 20px 282px; } .heroArt { bottom: 16px; height: 250px; } .heroContent h1 { font-size: 35px; } .heroCaption { display: none; } .heroActions { gap: 8px; } .primary, .secondary { padding: 10px 12px; } .chronicles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .chronicle:last-child { grid-column: 1 / -1; min-height: 115px; background-position: center 28%; } .sectionHeading h2 { font-size: 20px; } .sectionHeading > a { font-size: 10px; } }
