@@ -1,8 +1,8 @@
 .backdrop { position: fixed; inset: 0; z-index: 9999; background: #101113; color: #ededf1; --font-primary: 'Segoe UI', system-ui, sans-serif; font-family: var(--font-primary); }
 .workspace { width: 100%; height: 100dvh; display: flex; flex-direction: column; outline: none; button, input { font: inherit; } button { cursor: pointer; } button:disabled { cursor: not-allowed; opacity: .4; } *, *::before, *::after { box-sizing: border-box; } button:focus-visible, input:focus-visible { outline: 2px solid #ddbd7d; outline-offset: 3px; } }
 .header { height: 76px; flex-shrink: 0; border-bottom: 1px solid #32333a; padding: 0 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: #18191d; }
-.heading { display: flex; align-items: center; gap: 16px; > svg { color: #ddbd7d; } span { font-size: 8px; color: #9699a5; letter-spacing: 2px; } h2 { margin: 3px 0 0; font-size: 19px; font-weight: 550; letter-spacing: -.3px; } }
-.headerActions { display: flex; align-items: center; gap: 22px; }
+.heading { display: flex; align-items: center; gap: 16px; min-width: 0; > svg { color: #ddbd7d; flex-shrink: 0; } > div { min-width: 0; } span { font-size: 8px; color: #9699a5; letter-spacing: 2px; } h2 { margin: 3px 0 0; font-size: 19px; font-weight: 550; letter-spacing: -.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+.headerActions { display: flex; align-items: center; gap: 22px; flex-shrink: 0; }
 .draftLabel { color: #a1a4ad; font-size: 11px; }
 .save { display: flex; align-items: center; gap: 7px; color: #252013; background: #ddbd7d; border: 1px solid #e9cc94; border-radius: 5px; padding: 10px 18px; font-size: 12px !important; font-weight: 600 !important; }
 .close { display: grid; place-items: center; width: 32px; height: 32px; background: none; border: 0; color: #a4a6af; }
@@ -19,7 +19,7 @@
 .deckPanel { min-width: 0; background: #18191d; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
 .deckHero { background-size: cover; background-position: center 28%; padding: 25px 24px 20px; flex-shrink: 0; min-height: 175px; }
 .eyebrow { font-size: 9px; letter-spacing: 2px; color: #ddbd7d; }
-.nameLabel { display: block; font-size: 0; input { display: block; width: 100%; min-width: 0; border: 1px solid transparent; border-bottom-color: #ffffff1a; border-radius: 3px; background: #15161a40; padding: 5px 0; color: #fff; font-size: 23px; font-weight: 600; margin-top: 8px; &:focus { border-bottom-color: #ddbd7d; outline: none; } } }
+.nameLabel { display: block; font-size: .875rem; input { display: block; width: 100%; min-width: 0; border: 1px solid transparent; border-bottom-color: #ffffff1a; border-radius: 3px; background: #15161a40; padding: 5px 0; color: #fff; font-size: 23px; font-weight: 600; margin-top: 8px; &:focus { border-bottom-color: #ddbd7d; outline: none; } } }
 .chronicleLabel { display: block; font-size: 11px; margin-top: 7px; }
 .coverActions { display: flex; gap: 12px; margin-top: 14px; button { background: #101113a0; color: #bdbcc4; font-size: 9px; padding: 4px 7px; border: 1px solid #ffffff20; border-radius: 3px; } }
 .progressBlock { padding: 18px 24px; border-bottom: 1px solid #303139; > div { display: flex; align-items: center; justify-content: space-between; strong { font-size: 23px; font-weight: 500; span { color: #868a96; font-size: 14px; } } > span { color: #b0b0ba; font-size: 10px; } } progress { display: block; width: 100%; height: 4px; appearance: none; border: 0; border-radius: 3px; margin-top: 12px; background: #30313a; &::-webkit-progress-bar { background: #30313a; border-radius: 3px; } &::-webkit-progress-value { background: #ddbd7d; border-radius: 3px; } &::-moz-progress-bar { background: #ddbd7d; } } p { color: #898c98; font-size: 10px; margin: 10px 0 0; } }
