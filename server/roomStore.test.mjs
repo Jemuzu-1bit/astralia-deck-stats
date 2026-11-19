@@ -68,7 +68,6 @@ test("only returning to the starting player adds and readies both players' fragm
     hostTable: room.host.table, guestTable: room.guest.table, activityLog: room.activityLog,
   });
   for (const role of ["host", "guest"]) {
-    await f.command(role, "game:updateFragments", { action: "add" });
     await f.command(role, "game:updateFragments", { action: "spendAll" });
   }
   const before = await f.read();
@@ -310,7 +309,7 @@ test("activity records combat, counters, fragments, requests, and turns, ignorin
     ["host", "game:setFrazzle", { uid, delta: -1 }, /Frazzle/],
     ["host", "game:block", { uid, targetUid }, /blocked/],
     ["host", "game:adjustCounter", { uid, kind: "name", label: "Power", delta: 1 }, /Power/],
-    ["host", "game:updateFragments", { action: "add" }, /1 ready, 0 spent/],
+    ["host", "game:updateFragments", { action: "add" }, /2 ready, 0 spent/],
     ["host", "game:requestDeckAction", { action: "look", count: 2 }, /requested.*top 2 cards/],
   ];
   for (const [role, event, payload, expected] of commands) {

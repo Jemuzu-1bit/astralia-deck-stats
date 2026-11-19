@@ -91,7 +91,7 @@ async function exerciseCluster(t, backends) {
   assert.equal(after.host.socketId, resumedHost.id);
   const acknowledgement = await new Promise((resolve) => resumedHost.emit("game:deckAction", command, resolve));
   assert.equal(acknowledgement.ok, true);
-  const revision = waitFor(resumedHost, "lobby:state", (state) => state.host.table.fragments.length === 1);
+  const revision = waitFor(resumedHost, "lobby:state", (state) => state.host.table.fragments.length === 2);
   resumedHost.emit("game:updateFragments", { action: "add" });
   assert.equal((await revision).host.table.hand.length, 6, "an acknowledgement lost before reconnect must not duplicate a draw");
 

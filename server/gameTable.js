@@ -78,7 +78,7 @@ export function dealOpeningHand(player) {
     action: [],
     battle: Array.from({ length: 5 }, () => []),
     protagonist: player.protagonistId ? [protagonistInstance(player.protagonistId)] : [],
-    fragments: [],
+    fragments: [false],
   };
   player.table.protagonist.forEach(setPrintedStats);
   syncCardLists(player);

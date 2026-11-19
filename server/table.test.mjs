@@ -95,13 +95,13 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.deepEqual(earlySpectatorState.activityLog, state.activityLog);
     assert.equal(state.turnRole, "host");
     assert.equal(state.turnNumber, 1);
-    assert.deepEqual(state.host.table.fragments, []);
-    assert.deepEqual(state.guest.table.fragments, []);
+    assert.deepEqual(state.host.table.fragments, [false]);
+    assert.deepEqual(state.guest.table.fragments, [false]);
     const turnPassed = waitForState(host, (next) => next.turnRole === "guest" && next.turnNumber === 1);
     host.emit("game:endTurn");
     const passedState = await turnPassed;
-    assert.deepEqual(passedState.host.table.fragments, []);
-    assert.deepEqual(passedState.guest.table.fragments, []);
+    assert.deepEqual(passedState.host.table.fragments, [false]);
+    assert.deepEqual(passedState.guest.table.fragments, [false]);
     const turnReturned = waitForState(host, (next) => next.turnRole === "host" && next.turnNumber === 2);
     guest.emit("game:endTurn");
     state = await turnReturned;
@@ -124,7 +124,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     const deniedSpectatorAction = waitForState(lateSpectator, (next) => next.started && next.spectatorCount === 2);
     lateSpectator.emit("game:updateFragments", { action: "add" });
     lateSpectator.emit("lobby:watch", { code });
-    assert.equal((await deniedSpectatorAction).host.table.fragments.length, 1);
+    assert.equal((await deniedSpectatorAction).host.table.fragments.length, 2);
 
     const spectatorSeesReveal = waitForState(earlySpectator, (next) => next.host?.table?.hand?.[0]?.revealed === true);
     host.emit("game:revealCard", { uid: state.host.table.hand[0].uid, revealed: true });
@@ -149,7 +149,7 @@ test("slot stacks, counters, and swaps remain synchronized and cannot modify the
     assert.equal(state.host.table.protagonist[0].isProtagonist, true);
     assert.equal(state.host.table.protagonist[0].atk, 0);
     assert.equal(state.host.table.protagonist[0].hp, 20);
-    assert.deepEqual(state.host.table.fragments, [false]);
+    assert.deepEqual(state.host.table.fragments, [false, false]);
     assert.equal(opponentState.host.table.hand.length, 0);
     assert.equal(opponentState.host.table.deck.length, 0);
     assert.equal(opponentState.host.handCount, 5);
@@ -725,6 +725,8 @@ test("a disconnected player can resume the same game without changing the table 
     let state = await started;
     assert.equal(state.turnRole, null);
     assert.equal(state.turnNumber, 0);
+    assert.deepEqual(state.host.table.fragments, [false]);
+    assert.deepEqual(state.guest.table.fragments, [false]);
     const firstVote = waitForState(host, (next) => next.startVotes?.host === "guest" && next.turnRole === null);
     host.emit("game:chooseStarter", "guest");
     await firstVote;
@@ -738,7 +740,7 @@ test("a disconnected player can resume the same game without changing the table 
     const marked = waitForState(host, (next) => next.host?.table?.battle?.[2]?.[0]?.frazzle === 2);
     host.emit("game:setFrazzle", { target: "card", uid: movedUid, value: 2 });
     state = await marked;
-    const fragmentAdded = waitForState(host, (next) => next.host?.table?.fragments?.length === 1);
+    const fragmentAdded = waitForState(host, (next) => next.host?.table?.fragments?.length === 2);
     host.emit("game:updateFragments", { action: "add" });
     state = await fragmentAdded;
 
@@ -768,13 +770,13 @@ test("a disconnected player can resume the same game without changing the table 
     const guestPass = waitForState(resumedHost, (next) => next.turnRole === "host" && next.turnNumber === 1);
     guest.emit("game:endTurn");
     const afterGuestPass = await guestPass;
-    assert.deepEqual(afterGuestPass.host.table.fragments, [false]);
-    assert.deepEqual(afterGuestPass.guest.table.fragments, []);
+    assert.deepEqual(afterGuestPass.host.table.fragments, [false, false]);
+    assert.deepEqual(afterGuestPass.guest.table.fragments, [false]);
     const hostPass = waitForState(resumedHost, (next) => next.turnRole === "guest" && next.turnNumber === 2);
     resumedHost.emit("game:endTurn");
     const afterHostPass = await hostPass;
-    assert.deepEqual(afterHostPass.host.table.fragments, [false, false]);
-    assert.deepEqual(afterHostPass.guest.table.fragments, [false]);
+    assert.deepEqual(afterHostPass.host.table.fragments, [false, false, false]);
+    assert.deepEqual(afterHostPass.guest.table.fragments, [false, false]);
   } finally {
     sockets.forEach((socket) => socket.disconnect());
     server.kill();
