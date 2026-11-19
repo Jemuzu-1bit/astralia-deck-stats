@@ -20,6 +20,7 @@ const paths = {
   settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2",
   check: "m5 12 4 4L19 6",
   chart: "M4 20V10 M10 20V4 M16 20v-7 M22 20H2",
+  grip: "M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01",
 } as const;
 
 export default function ArchiveIcon({ name, size = 20, style }: { name: keyof typeof paths; size?: number; style?: CSSProperties }) {

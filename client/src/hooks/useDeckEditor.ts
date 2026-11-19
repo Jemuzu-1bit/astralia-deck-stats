@@ -8,7 +8,7 @@ import { addToSelection, buildDeckPayload, COPIES_PER_CARD, moveSelectedCard, re
 import { useCardFilters } from "../hooks/useCardFilters";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 
-export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck> }) {
+export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
   const [loadingDeck, setLoadingDeck] = useState(Boolean(initialDeck));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !suppressEscape) {
         if (detailCard) closeCardDetails();
         else onClose();
       }
@@ -52,7 +52,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose, detailCard]);
+  }, [onClose, detailCard, suppressEscape]);
 
   useEffect(() => {
     let active = true;

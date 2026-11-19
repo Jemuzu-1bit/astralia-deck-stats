@@ -11,8 +11,8 @@
 .resizing, .resizing * { cursor: col-resize !important; user-select: none !important; }
 .resizing .panelDivider { background: #36332a; &::after { background: #ddbd7d; } }
 .catalog { min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px 30px 40px; }
-.catalogHeader { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 24px; h3 { font-size: 20px; margin: 0 0 3px; font-weight: 550; } span { font-size: 11px; } }
-.viewTabs { display: flex; background: #1c1d22; border: 1px solid #30323a; border-radius: 5px; padding: 3px; button { display: grid; place-items: center; width: 34px; height: 30px; background: none; color: #8d919d; border: 0; border-radius: 3px; &[aria-pressed=true] { background: #36332a; color: #ddbd7d; } } }
+.catalogHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 24px; h3 { font-size: 20px; margin: 0 0 3px; font-weight: 550; } span { font-size: 11px; } }
+.viewTabs { display: flex; flex-shrink: 0; margin-left: auto; background: #1c1d22; border: 1px solid #30323a; border-radius: 5px; padding: 3px; button { display: grid; place-items: center; width: 34px; height: 30px; background: none; color: #8d919d; border: 0; border-radius: 3px; &[aria-pressed=true] { background: #36332a; color: #ddbd7d; } &:hover { color: #ddbd7d; } } }
 .sectionTabs { display: flex; gap: 22px; margin-bottom: 20px; border-bottom: 1px solid #2c2e35; button { display: flex; align-items: center; gap: 9px; background: none; border: none; border-bottom: 2px solid transparent; padding: 0 0 12px; color: #a5a7b1; font-size: 12px; span { background: #24262e; color: #8d919d; padding: 1px 6px; border-radius: 4px; font-size: 9px; } &[aria-pressed=true] { color: #ddbd7d; border-bottom-color: #ddbd7d; span { color: #ddbd7d; background: #ddbd7d15; } } } }
 .collectionToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; .sectionTabs { margin-bottom: 0; } }
 .deckToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 18px 4px; > span { color: #dddde4; font-size: .875rem; } }
@@ -24,18 +24,6 @@
 .coverActions { display: flex; gap: 12px; margin-top: 14px; button { background: #101113a0; color: #bdbcc4; font-size: 9px; padding: 4px 7px; border: 1px solid #ffffff20; border-radius: 3px; } }
 .progressBlock { padding: 18px 24px; border-bottom: 1px solid #303139; > div { display: flex; align-items: center; justify-content: space-between; strong { font-size: 23px; font-weight: 500; span { color: #868a96; font-size: 14px; } } > span { color: #b0b0ba; font-size: 10px; } } progress { display: block; width: 100%; height: 4px; appearance: none; border: 0; border-radius: 3px; margin-top: 12px; background: #30313a; &::-webkit-progress-bar { background: #30313a; border-radius: 3px; } &::-webkit-progress-value { background: #ddbd7d; border-radius: 3px; } &::-moz-progress-bar { background: #ddbd7d; } } p { color: #898c98; font-size: 10px; margin: 10px 0 0; } }
 .deckSections { padding: 4px 18px 16px; }
-.deckSection { padding: 16px 0; border-bottom: 1px solid #2c2d34; }
-.sectionHeading { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 0; background: none; padding: 0 0 12px; > span:first-child { color: #dddde4; font-size: 12px; font-weight: 600; } > span:last-child { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #878c98; } > span.full { color: #9bc1a4; } }
-.addEmpty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 8px; width: 100%; background: #1d1e23; border: 1px dashed #3a3c45; border-radius: 4px; color: #9195a1; font-size: 10px !important; &:hover { border-color: #ddbd7d; color: #ddbd7d; } }
-.deckRows { display: grid; gap: 5px; }
-.deckGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); align-items: start; gap: 12px; }
-.deckArt { width: 100%; > div { width: 100%; } img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 7; object-fit: contain; border-radius: 4px; } }
-.deckRow { position: relative; overflow: hidden; display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 4px 6px; background: #25262c; border: 1px solid #36373e; border-radius: 4px; isolation: isolate; > img { position: absolute; right: 10%; top: -90px; width: 65%; z-index: -1; opacity: .16; pointer-events: none; } &[draggable=true] { cursor: grab; } &:hover { border-color: #837252; } }
-.cost { display: grid; place-items: center; width: 23px; height: 25px; flex-shrink: 0; border: 1px solid #ffffff22; background: #101113b3; color: #dfcfad; font-size: 10px; border-radius: 3px; }
-.rowName { min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; border: none; padding: 0; color: #eeeef1; font-size: 10px !important; }
-.rowControls { display: flex; align-items: center; gap: 3px; background: #131417c4; border-radius: 3px; button { width: 22px; height: 26px; background: none; border: 0; color: #ddbd7d; font-size: 15px; } span { min-width: 10px; text-align: center; font-size: 10px; } }
-.reorder { font-size: 12px !important; border: 0; background: #131417a3; color: #b8bac3; padding: 3px; }
-.deckCard { min-width: 0; flex-wrap: wrap; padding: 6px; gap: 7px; .cost { position: absolute; top: 10px; left: 10px; pointer-events: none; } .rowName { flex: 0 0 100%; white-space: normal; font-size: .875rem !important; } .rowControls { flex: 1; justify-content: space-between; min-height: 30px; } .reorder { align-self: stretch; min-width: 24px; } }
 .deckFooter { margin-top: auto; padding: 16px 24px 24px; text-align: center; > span { color: #858996; font-size: 9px; } }
 .analysisLink { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; color: #c4ac7f; border: 1px solid #474031; background: #ddbd7d08; border-radius: 4px; padding: 10px; font-size: 10px !important; margin-top: 12px; }
 .error { color: #f0a4a4; padding: 10px 20px; font-size: 12px; }
@@ -55,3 +43,6 @@
   .factionPicker { padding: 30px 16px; h1 { font-size: 29px; } } .factionGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 24px; button { height: 230px; &:last-child { grid-column: 1 / -1; height: 160px; background-position: center 30%; } } } .rules { line-height: 2; span { padding-inline: 4px; } }
 }
 .descriptionField { padding: 16px 20px; border-bottom: 1px solid #34363e; label { display: block; color: #dbdde5; font-size: 12px; margin-bottom: 8px; } textarea { display: block; width: 100%; padding: 10px; border: 1px solid #3b3d46; border-radius: 5px; background: #141519; color: #dbdde5; font: inherit; font-size: 12px; line-height: 1.5; resize: vertical; } span { display: block; margin-top: 8px; color: #a5a9b7; font-size: 10px; line-height: 1.5; } }
+
+.overviewHint { margin: -6px 0 8px; color: #a5a9b7; font-size: .875rem; line-height: 1.6; }
+.overviewSections { padding: 0; }

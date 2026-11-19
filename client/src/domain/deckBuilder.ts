@@ -1,4 +1,4 @@
-import { getCardIdentity } from "../data/cardDataReader";
+import { getCardIdentity } from "../data/cardDataReader.ts";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { Deck } from "../types/Deck";
