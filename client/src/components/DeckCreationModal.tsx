@@ -30,6 +30,21 @@ const sections: { id: DeckSection; label: string }[] = [
   { id: "deck", label: "Main deck" },
 ];
 
+const COLLECTION_ZOOM_KEY = "astralia.deckBuilderCollectionZoom.v1";
+const MIN_COLLECTION_ZOOM = 100;
+const MAX_COLLECTION_ZOOM = 200;
+const COLLECTION_ZOOM_STEP = 10;
+
+function getSavedCollectionZoom() {
+  try {
+    const zoom = Number(localStorage.getItem(COLLECTION_ZOOM_KEY));
+    if (zoom >= MIN_COLLECTION_ZOOM && zoom <= MAX_COLLECTION_ZOOM && zoom % COLLECTION_ZOOM_STEP === 0) {
+      return zoom;
+    }
+  } catch { /* Storage is optional. */ }
+  return MIN_COLLECTION_ZOOM;
+}
+
 export default function DeckCreationModal({ onClose, initialDeck, initialFaction, onSaved, saveDeck }: DeckCreationModalProps) {
   const [sorting, setSorting] = useState(false);
   const editor = useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape: sorting });
@@ -38,6 +53,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const [view, setView] = useState<"overview" | "cards" | "stats" | "hand">("overview");
   const [mobileView, setMobileView] = useState<"browse" | "deck">("browse");
   const [collectionView, setCollectionView] = useState<CardViewMode>("grid");
+  const [collectionZoom, setCollectionZoom] = useState(getSavedCollectionZoom);
   const [deckView, setDeckView] = useState<CardViewMode>("list");
   const deckTitle = deckName.trim() || "Untitled Deck";
   const { bodyRef, panelRef, deckWidth, resizing, separatorProps } = useDeckPanelResize(Boolean(selectedFaction));
@@ -53,6 +69,10 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     ? !protagonistSelection || getCardIdentity(protagonistSelection.card) !== getCardIdentity(card)
     : totals[target] < SECTION_LIMITS[target] && countCardIdentity(selections[target], card) < (target === "persona" ? 1 : COPIES_PER_CARD);
   const browseSection = (target: DeckSection) => { setSection(target); setView("cards"); setMobileView("browse"); };
+  const updateCollectionZoom = (zoom: number) => {
+    setCollectionZoom(zoom);
+    try { localStorage.setItem(COLLECTION_ZOOM_KEY, String(zoom)); } catch { /* Keep the in-memory preference. */ }
+  };
   const renderDeckSections = (overview = false) => <div className={`${styles.deckSections} ${overview ? styles.overviewSections : ""}`}>
     {sections.map(item => {
       const target = item.id;
@@ -95,7 +115,43 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
             {view === "overview" ? <>
               <p className={styles.overviewHint}>Drag cards to change their order. On touch screens, hold a card before moving it.</p>
               {loadingDeck || cardOptions.loading ? <p role="status">Loading deck...</p> : loadError || cardOptions.error ? <p className={styles.error} role="alert">{loadError || cardOptions.error}</p> : renderDeckSections(true)}
-            </> : view === "cards" ? <><div className={styles.collectionToolbar}><div className={styles.sectionTabs} aria-label="Card section">{sections.map(item => <button key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)}>{item.label}<span>{cardOptions[item.id].length}</span></button>)}</div><CardViewToggle label="Card collection view" value={collectionView} onChange={setCollectionView} /></div><CardBrowser key={section} viewMode={collectionView} options={cardOptions[section]} filters={filters} onOpenCard={openCardDetails} loading={cardOptions.loading || loadingDeck} error={cardOptions.error || loadError} quantity={card => selections[section][card.id]?.qty ?? 0} canAdd={card => !loadingDeck && canAdd(section, card)} onAdd={card => addCard(section, card)} onRemove={card => removeCard(section, card)} /></> : view === "stats" ? <DeckStats entries={Object.values(deckSelectionMap)} limit={SECTION_LIMITS.deck} /> : <OpeningHandSimulator deckSelectionMap={deckSelectionMap} onOpenCard={openCardDetails} />}
+            </> : view === "cards" ? <>
+              <div className={styles.collectionToolbar}>
+                <div className={styles.sectionTabs} aria-label="Card section">
+                  {sections.map(item => <button key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)}>{item.label}<span>{cardOptions[item.id].length}</span></button>)}
+                </div>
+                <div className={styles.collectionViewControls}>
+                  {collectionView === "grid" && <label className={styles.collectionZoom}>
+                    Card zoom
+                    <input
+                      type="range"
+                      min={MIN_COLLECTION_ZOOM}
+                      max={MAX_COLLECTION_ZOOM}
+                      step={COLLECTION_ZOOM_STEP}
+                      value={collectionZoom}
+                      aria-valuetext={`${collectionZoom}%`}
+                      onChange={event => updateCollectionZoom(event.currentTarget.valueAsNumber)}
+                    />
+                    <span aria-hidden="true">{collectionZoom}%</span>
+                  </label>}
+                  <CardViewToggle label="Card collection view" value={collectionView} onChange={setCollectionView} />
+                </div>
+              </div>
+              <CardBrowser
+                key={section}
+                viewMode={collectionView}
+                gridZoom={collectionZoom}
+                options={cardOptions[section]}
+                filters={filters}
+                onOpenCard={openCardDetails}
+                loading={cardOptions.loading || loadingDeck}
+                error={cardOptions.error || loadError}
+                quantity={card => selections[section][card.id]?.qty ?? 0}
+                canAdd={card => !loadingDeck && canAdd(section, card)}
+                onAdd={card => addCard(section, card)}
+                onRemove={card => removeCard(section, card)}
+              />
+            </> : view === "stats" ? <DeckStats entries={Object.values(deckSelectionMap)} limit={SECTION_LIMITS.deck} /> : <OpeningHandSimulator deckSelectionMap={deckSelectionMap} onOpenCard={openCardDetails} />}
           </section>
           <div className={styles.panelDivider} {...separatorProps} />
           <aside ref={panelRef} id="builder-deck-panel" className={`${styles.deckPanel} ${mobileView === "browse" ? styles.mobileHidden : ""}`}>

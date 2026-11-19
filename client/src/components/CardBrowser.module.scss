@@ -41,3 +41,13 @@
   .list .card { grid-template-columns: 38px minmax(0, 1fr) 84px; column-gap: 8px; }
 }
 @media (max-width: 500px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } .filters { label span { display: none; } select { max-width: 115px; } } .filterToggle { padding-inline: 10px; font-size: 11px; } }
+
+.zoomGrid {
+  --card-grid-base-width: 145px;
+  grid-template-columns: repeat(auto-fill, min(100%, calc(var(--card-grid-base-width) * var(--card-grid-scale))));
+
+  @media (max-width: 500px) {
+    --card-grid-base-width: min(145px, (100% - 12px) / 2);
+    justify-content: center;
+  }
+}

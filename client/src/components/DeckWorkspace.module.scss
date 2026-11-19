@@ -15,6 +15,36 @@
 .viewTabs { display: flex; flex-shrink: 0; margin-left: auto; background: #1c1d22; border: 1px solid #30323a; border-radius: 5px; padding: 3px; button { display: grid; place-items: center; width: 34px; height: 30px; background: none; color: #8d919d; border: 0; border-radius: 3px; &[aria-pressed=true] { background: #36332a; color: #ddbd7d; } &:hover { color: #ddbd7d; } } }
 .sectionTabs { display: flex; gap: 22px; margin-bottom: 20px; border-bottom: 1px solid #2c2e35; button { display: flex; align-items: center; gap: 9px; background: none; border: none; border-bottom: 2px solid transparent; padding: 0 0 12px; color: #a5a7b1; font-size: 12px; span { background: #24262e; color: #8d919d; padding: 1px 6px; border-radius: 4px; font-size: 9px; } &[aria-pressed=true] { color: #ddbd7d; border-bottom-color: #ddbd7d; span { color: #ddbd7d; background: #ddbd7d15; } } } }
 .collectionToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; .sectionTabs { margin-bottom: 0; } }
+
+.collectionViewControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.collectionZoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a5a7b1;
+  font-size: .75rem;
+  white-space: nowrap;
+
+  input {
+    width: 90px;
+    height: 28px;
+    margin: 0;
+    accent-color: #ddbd7d;
+    cursor: pointer;
+  }
+
+  span {
+    min-width: 4ch;
+    color: #ddbd7d;
+    font-variant-numeric: tabular-nums;
+  }
+}
 .deckToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 18px 4px; > span { color: #dddde4; font-size: .875rem; } }
 .deckPanel { min-width: 0; background: #18191d; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
 .deckHero { background-size: cover; background-position: center 28%; padding: 25px 24px 20px; flex-shrink: 0; min-height: 175px; }

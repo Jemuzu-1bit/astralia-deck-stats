@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { CardFiltersState } from "../hooks/useCardFilters";
@@ -20,12 +20,17 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   viewMode?: CardViewMode;
+  gridZoom?: number;
 }
 
-export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRemove, quantity, canAdd, loading, error, viewMode = "grid" }: Props) {
+export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRemove, quantity, canAdd, loading, error, viewMode = "grid", gridZoom }: Props) {
   const [sort, setSort] = useState("cost");
   const [pageSize, setPageSize] = useState(60);
   const [advanced, setAdvanced] = useState(false);
+  const gridStyle = viewMode === "grid" && gridZoom !== undefined
+    ? { "--card-grid-scale": gridZoom / 100 } as CSSProperties
+    : undefined;
+  const resultsLayout = viewMode === "list" ? styles.list : styles.grid;
   const values = getCardFilterValues(options);
   const filtered = filterCards(options, filters).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : (Number(a.cost) || 0) - (Number(b.cost) || 0) || a.name.localeCompare(b.name));
   const filterGroups = [
@@ -42,7 +47,7 @@ export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRem
     <div className={styles.filters}>{filterGroups.slice(0, 2).map(group => <label key={group.label}><span>{group.label}</span><select aria-label={`Filter by ${group.label.toLowerCase()}`} value={group.selected[0] ?? ""} onChange={event => { group.set(event.target.value ? [event.target.value] : []); setPageSize(60); }}><option value="">All {group.label.toLowerCase()}s</option>{group.values.map(value => <option key={value}>{value}</option>)}</select></label>)}<button className={styles.reset} onClick={() => { filters.clearFilters(); setPageSize(60); }}>Reset filters</button></div>
     {advanced && <div className={styles.advanced}>{filterGroups.slice(2).map(group => <div key={group.label}><span>{group.label}</span><div>{group.values.length === 0 ? <small>No options</small> : group.values.map(value => <button key={value} aria-pressed={group.selected.includes(value)} className={group.selected.includes(value) ? styles.activeChip : ""} onClick={() => group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value])}>{value}</button>)}</div></div>)}</div>}
     <div className={styles.results}><span aria-live="polite">{loading ? "Loading cards…" : `${filtered.length} cards`}</span><label>Sort by <select aria-label="Sort cards" value={sort} onChange={event => setSort(event.target.value)}><option value="cost">Cost, then name</option><option value="name">Name</option></select></label></div>
-    {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3><p>Try a different search or reset your filters.</p><button onClick={filters.clearFilters}>Reset filters</button></div> : <div className={viewMode === "list" ? styles.list : styles.grid}>{filtered.slice(0, pageSize).map(card => {
+    {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3><p>Try a different search or reset your filters.</p><button onClick={filters.clearFilters}>Reset filters</button></div> : <div className={gridStyle ? `${resultsLayout} ${styles.zoomGrid}` : resultsLayout} style={gridStyle}>{filtered.slice(0, pageSize).map(card => {
       const qty = quantity?.(card) ?? 0;
       return <article className={`${styles.card} ${qty > 0 ? styles.selected : ""}`} key={card.id}>
         <div className={styles.art}><CardDisplay card={card} onClick={onOpenCard} enableFlip={viewMode === "grid"} />{qty > 0 && viewMode === "grid" && <span className={styles.badge}>{qty} in deck</span>}</div>
