@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -6,6 +6,8 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
+  useDndContext,
+  useDroppable,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -17,13 +19,14 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { CSS, type Coordinates } from "@dnd-kit/utilities";
 import { countSelectedCards, SECTION_LIMITS, type CardSelection, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
 import type { Card } from "../types/Card";
 import { getCardImagePath } from "../services/cardImageService";
 import type { CardViewMode } from "./CardViewToggle";
 import ArchiveIcon from "./ArchiveIcon";
 import CardDisplay from "./CardDisplay";
+import { getCollectionCardDrag, getCollectionDropIndex, getDeckSlotIndex, type CollectionDropTarget } from "./deckCollectionDrag";
 import styles from "./SortableDeckSection.module.scss";
 
 interface Props {
@@ -33,6 +36,7 @@ interface Props {
   viewMode: CardViewMode;
   overview?: boolean;
   disabled?: boolean;
+  acceptsCollectionDrop?: boolean;
   onBrowse: () => void;
   onOpenCard: (card: Card) => void;
   onAddCard: (card: Card) => void;
@@ -47,11 +51,14 @@ type TileProps = Pick<Props, "title" | "viewMode" | "onOpenCard" | "onAddCard" |
   sortable: boolean;
 };
 
+const sortingTransition = { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
+const insertionAnimationId = "deck-card-insertion";
+
 function SortableCard({ item, sortable, ...props }: TileProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: item.card.id,
     disabled: !sortable,
-    transition: { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+    transition: sortingTransition,
   });
 
   return <article
@@ -84,8 +91,8 @@ function SortableCard({ item, sortable, ...props }: TileProps) {
   </article>;
 }
 
-function DraggedCard({ item, viewMode }: { item: SelectedCard; viewMode: CardViewMode }) {
-  return <div className={`${styles.tile} ${viewMode === "grid" ? styles.card : styles.row} ${styles.overlay}`} aria-hidden="true">
+function DraggedCard({ item, viewMode, insertion }: { item: SelectedCard; viewMode: CardViewMode; insertion?: boolean }) {
+  return <div className={`${styles.tile} ${viewMode === "grid" ? styles.card : styles.row} ${insertion ? styles.placeholder : styles.overlay}`} aria-hidden="true">
     <div className={styles.content}>
       {viewMode === "grid"
         ? <div className={styles.art}><CardDisplay card={item.card} enableFlip={false} /></div>
@@ -94,13 +101,73 @@ function DraggedCard({ item, viewMode }: { item: SelectedCard; viewMode: CardVie
       <span className={styles.name}>{item.card.name}</span>
       <div className={styles.actions}><span className={styles.previewQuantity}>× {item.qty}</span><ArchiveIcon name="grip" size={16} /></div>
     </div>
+    {insertion && <span className={styles.dropLabel}>Drop here</span>}
   </div>;
 }
 
-export default function SortableDeckSection({ section, title, selection, viewMode, overview, disabled, onBrowse, onMoveCard, onSortingChange, ...tileProps }: Props) {
+export default function SortableDeckSection({ section, title, selection, viewMode, overview, disabled, acceptsCollectionDrop, onBrowse, onMoveCard, onSortingChange, ...tileProps }: Props) {
   const [active, setActive] = useState<SelectedCard | null>(null);
   const grid = useRef<HTMLDivElement>(null);
+  const previousSlots = useRef<Map<string, Coordinates> | null>(null);
   const entries = Object.values(selection);
+  const targetId = `${overview ? "overview" : "deck-panel"}:${section}`;
+  const collectionTarget: CollectionDropTarget = { section, insertionIndex: pointer => getDeckSlotIndex(grid.current, pointer) };
+  const { node: sectionNode, setNodeRef } = useDroppable({
+    id: targetId,
+    disabled: !acceptsCollectionDrop || disabled,
+    data: { collectionTarget },
+  });
+  const collection = useDndContext();
+  const dragged = getCollectionCardDrag(collection.active);
+  const dropCard = acceptsCollectionDrop && !disabled && dragged?.section === section ? dragged.card : undefined;
+  const dropIndex = dropCard ? getCollectionDropIndex(collection.collisions, targetId) : undefined;
+  const hasSlot = section === "protagonist" ? entries.length > 0 : Boolean(dropCard && selection[dropCard.id]);
+  const previewCard = dropCard && (dropIndex !== undefined || !hasSlot) ? dropCard : undefined;
+  const displayEntries = previewCard ? entries.filter(item => item.card.id !== previewCard.id && section !== "protagonist") : entries;
+  if (previewCard) {
+    displayEntries.splice(dropIndex ?? displayEntries.length, 0, { card: previewCard, qty: (selection[previewCard.id]?.qty ?? 0) + 1 });
+  }
+
+  useLayoutEffect(() => {
+    if (dropCard) sectionNode.current?.scrollIntoView({ block: "nearest" });
+  }, [dropCard, sectionNode]);
+
+  useLayoutEffect(() => {
+    const before = previousSlots.current;
+    if (!dropCard && !before) return;
+    const after = new Map<string, Coordinates>();
+    const shifts: { tile: HTMLElement; animation?: Animation; x: number; y: number }[] = [];
+    const animate = before && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // The wrappers stay in their layout slots while the card faces slide between them.
+    for (const slot of grid.current?.querySelectorAll<HTMLElement>(":scope > [data-deck-card-id]") ?? []) {
+      const id = slot.dataset.deckCardId!;
+      const position = { x: slot.offsetLeft, y: slot.offsetTop };
+      after.set(id, position);
+      const previous = before?.get(id);
+      if (!animate || !previous || id === previewCard?.id) continue;
+      let x = previous.x - position.x;
+      let y = previous.y - position.y;
+      if (x === 0 && y === 0) continue;
+
+      const tile = slot.firstElementChild as HTMLElement;
+      const animation = tile.getAnimations().find(item => item.id === insertionAnimationId);
+      if (animation) {
+        const currentRect = tile.getBoundingClientRect();
+        const slotRect = slot.getBoundingClientRect();
+        x += currentRect.left - slotRect.left;
+        y += currentRect.top - slotRect.top;
+      }
+      shifts.push({ tile, animation, x, y });
+    }
+
+    for (const { tile, animation, x, y } of shifts) {
+      animation?.cancel();
+      tile.animate([{ translate: `${x}px ${y}px` }, { translate: "0px 0px" }], { ...sortingTransition, id: insertionAnimationId });
+    }
+    previousSlots.current = dropCard ? after : null;
+  }, [dropCard, dropIndex, previewCard, selection, viewMode]);
+
   const total = countSelectedCards(selection);
   const sortable = Boolean(onMoveCard && entries.length > 1 && !disabled);
   const sensors = useSensors(
@@ -119,12 +186,12 @@ export default function SortableDeckSection({ section, title, selection, viewMod
   const finishDrag = () => { setActive(null); onSortingChange(false); };
   const cardName = (id: string | number) => selection[id]?.card.name ?? "Card";
 
-  return <section className={`${styles.section} ${overview ? styles.overview : ""}`} aria-label={title}>
+  return <section ref={acceptsCollectionDrop ? setNodeRef : undefined} className={`${styles.section} ${overview ? styles.overview : ""}`} aria-label={title} data-collection-target={dropCard ? true : undefined} data-collection-over={dropIndex !== undefined || undefined}>
     <div className={styles.heading}>
       <h4>{title}<span>{total} / {SECTION_LIMITS[section]}</span></h4>
       <button type="button" onClick={onBrowse} aria-label={`Browse ${title.toLowerCase()} cards`}><ArchiveIcon name="plus" size={15} /> Add cards</button>
     </div>
-    {entries.length === 0
+    {displayEntries.length === 0
       ? <button type="button" className={styles.empty} onClick={onBrowse}><ArchiveIcon name="plus" size={17} />{section === "protagonist" ? "Choose your protagonist" : `Add ${title.toLowerCase()} cards`}</button>
       : <DndContext sensors={sensors} collisionDetection={collisionDetection}
         onDragStart={({ active }) => { setActive(selection[active.id] ?? null); onSortingChange(true); }}
@@ -145,11 +212,15 @@ export default function SortableDeckSection({ section, title, selection, viewMod
       >
         <SortableContext items={entries.map(item => item.card.id)} strategy={viewMode === "grid" ? rectSortingStrategy : verticalListSortingStrategy}>
           <div ref={grid} className={viewMode === "grid" ? styles.grid : styles.list}>
-            {entries.map(item => <SortableCard key={item.card.id} item={item} title={title} viewMode={viewMode} sortable={sortable} {...tileProps} />)}
+            {displayEntries.map(item => <div key={item.card.id} data-deck-card-id={item.card.id} data-insertion-preview={previewCard?.id === item.card.id || undefined}>
+              {previewCard?.id === item.card.id
+                ? <DraggedCard item={item} viewMode={viewMode} insertion />
+                : <SortableCard item={item} title={title} viewMode={viewMode} sortable={sortable} {...tileProps} />}
+            </div>)}
           </div>
         </SortableContext>
         <DragOverlay zIndex={10050} adjustScale={false} style={{ pointerEvents: "none" }}
-          dropAnimation={window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
+          dropAnimation={window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : sortingTransition}>
           {active ? <DraggedCard item={active} viewMode={viewMode} /> : null}
         </DragOverlay>
       </DndContext>}

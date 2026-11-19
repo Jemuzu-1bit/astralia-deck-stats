@@ -120,7 +120,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
   const personaFilters = useCardFilters();
   const deckFilters = useCardFilters();
 
-  const addCard = (section: DeckSection, card: Card) => {
+  const addCard = (section: DeckSection, card: Card, insertionIndex?: number) => {
     if (section === "protagonist") {
       setProtagonistSelection({ card, qty: 1 });
       return;
@@ -131,7 +131,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
       : setDeckSelectionMap;
     const identityLimit = section === "persona" ? 1 : COPIES_PER_CARD;
     updateSelection((current) =>
-      addToSelection(current, card, SECTION_LIMITS[section], identityLimit)
+      addToSelection(current, card, SECTION_LIMITS[section], identityLimit, insertionIndex)
     );
   };
 

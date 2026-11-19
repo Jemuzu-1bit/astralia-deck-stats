@@ -77,6 +77,12 @@
   }
 }
 .deckToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 18px 4px; > span { color: #dddde4; font-size: .875rem; } }
+.collectionDragImage {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 16px 44px #000b, 0 0 0 2px #ddbd7d;
+}
 .deckPanel { min-width: 0; background: #18191d; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
 .deckHero { background-size: cover; background-position: center 28%; padding: 25px 24px 20px; flex-shrink: 0; min-height: 175px; }
 .eyebrow { font-size: 9px; letter-spacing: 2px; color: #ddbd7d; }
@@ -107,3 +113,20 @@
 
 .overviewHint { margin: -6px 0 8px; color: #a5a9b7; font-size: .875rem; line-height: 1.6; }
 .overviewSections { padding: 0; }
+
+@media (max-width: 760px) {
+  .collectionDragging {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+
+    .deckPanel {
+      display: block;
+      border-top: 1px solid #ddbd7d;
+
+      > :not(.deckSections) { display: none; }
+    }
+
+    .deckSections > :not([data-collection-target]) { display: none; }
+  }
+}

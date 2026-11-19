@@ -53,7 +53,8 @@ export function addToSelection(
   selection: CardSelection,
   card: Card,
   totalLimit: number,
-  identityLimit: number
+  identityLimit: number,
+  insertionIndex?: number
 ): CardSelection {
   if (
     countSelectedCards(selection) >= totalLimit ||
@@ -62,11 +63,12 @@ export function addToSelection(
     return selection;
   }
 
-  const existing = selection[card.id];
-  return {
-    ...selection,
-    [card.id]: { card, qty: (existing?.qty ?? 0) + 1 },
-  };
+  const entry = { card, qty: (selection[card.id]?.qty ?? 0) + 1 };
+  if (insertionIndex === undefined) return { ...selection, [card.id]: entry };
+
+  const entries = Object.entries(selection).filter(([id]) => id !== card.id);
+  entries.splice(insertionIndex, 0, [card.id, entry]);
+  return Object.fromEntries(entries);
 }
 
 export function removeFromSelection(

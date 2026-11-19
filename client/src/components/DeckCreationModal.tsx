@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import type { Deck } from "../types/Deck";
 import type { Card } from "../types/Card";
 import { COPIES_PER_CARD, FACTIONS, SECTION_LIMITS, countCardIdentity, countSelectedCards, type DeckSection, type CardSelection } from "../domain/deckBuilder";
 import { getCardIdentity } from "../data/cardDataReader";
 import { CHRONICLES } from "../data/chronicles";
+import { getCardImagePath } from "../services/cardImageService";
 import { useDeckEditor } from "../hooks/useDeckEditor";
 import { useDeckPanelResize } from "../hooks/useDeckPanelResize";
 import { useModalFocus } from "../hooks/useModalFocus";
@@ -14,6 +16,7 @@ import CardViewToggle, { type CardViewMode } from "./CardViewToggle";
 import DeckStats from "./DeckStats";
 import OpeningHandSimulator from "./OpeningHandSimulator";
 import ArchiveIcon from "./ArchiveIcon";
+import { collectionCollisionDetection, getCollectionCardDrag, getCollectionDropIndex, type CollectionCardDrag } from "./deckCollectionDrag";
 import viewControlStyles from "./CardViewToggle.module.scss";
 import styles from "./DeckWorkspace.module.scss";
 
@@ -48,7 +51,9 @@ function getSavedCollectionZoom() {
 
 export default function DeckCreationModal({ onClose, initialDeck, initialFaction, onSaved, saveDeck }: DeckCreationModalProps) {
   const [sorting, setSorting] = useState(false);
-  const editor = useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape: sorting });
+  const [collectionDrag, setCollectionDrag] = useState<CollectionCardDrag | null>(null);
+  const dragging = sorting || collectionDrag !== null;
+  const editor = useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape: dragging });
   const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
   const [section, setSection] = useState<DeckSection>(initialDeck ? "deck" : "protagonist");
   const [view, setView] = useState<"overview" | "cards" | "stats" | "hand">("overview");
@@ -61,7 +66,11 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const { bodyRef, panelRef, deckWidth, resizing, separatorProps } = useDeckPanelResize(Boolean(selectedFaction));
   const modal = useRef<HTMLDivElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
-  useModalFocus(modal, Boolean(detailCard) || sorting);
+  useModalFocus(modal, Boolean(detailCard) || dragging);
+  const collectionSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
   const totals = { protagonist: protagonistSelection ? 1 : 0, persona: countSelectedCards(personaSelectionMap), deck: countSelectedCards(deckSelectionMap) };
   const selections: Record<DeckSection, CardSelection> = { protagonist: protagonistSelection ? { [protagonistSelection.card.id]: protagonistSelection } : {}, persona: personaSelectionMap, deck: deckSelectionMap };
   const filters = { protagonist: protagonistFilters, persona: personaFilters, deck: deckFilters }[section];
@@ -70,6 +79,15 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const canAdd = (target: DeckSection, card: Card) => target === "protagonist"
     ? !protagonistSelection || getCardIdentity(protagonistSelection.card) !== getCardIdentity(card)
     : totals[target] < SECTION_LIMITS[target] && countCardIdentity(selections[target], card) < (target === "persona" ? 1 : COPIES_PER_CARD);
+  const canDragFromCollection = !saving && !loadingDeck && !loadError;
+  const finishCollectionDrag = ({ active, collisions }: DragEndEvent) => {
+    const cardDrag = getCollectionCardDrag(active);
+    const index = getCollectionDropIndex(collisions);
+    if (cardDrag && index !== undefined && canDragFromCollection && canAdd(cardDrag.section, cardDrag.card)) {
+      addCard(cardDrag.section, cardDrag.card, index);
+    }
+    setCollectionDrag(null);
+  };
   const browseSection = (target: DeckSection) => { setSection(target); setView("cards"); setMobileView("browse"); };
   const updateCollectionZoom = (zoom: number) => {
     const nextZoom = Math.min(MAX_COLLECTION_ZOOM, Math.max(MIN_COLLECTION_ZOOM, zoom));
@@ -82,6 +100,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
       const target = item.id;
       return <SortableDeckSection key={target} section={target} title={item.label}
         selection={selections[target]} viewMode={overview ? "grid" : deckView} overview={overview}
+        acceptsCollectionDrop={!overview && view === "cards" && target === section}
         disabled={loadingDeck || saving || Boolean(loadError)} onBrowse={() => browseSection(target)}
         onOpenCard={openCardDetails} onAddCard={card => addCard(target, card)}
         onRemoveCard={card => removeCard(target, card)} canAdd={card => !loadingDeck && canAdd(target, card)}
@@ -93,7 +112,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     const onSaveKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (selectedFaction && !sorting && !loadingDeck && !cardOptions.loading && !loadError && !cardOptions.error) void handleSave();
+        if (selectedFaction && !dragging && !loadingDeck && !cardOptions.loading && !loadError && !cardOptions.error) void handleSave();
       }
     };
     document.addEventListener("keydown", onSaveKey);
@@ -102,10 +121,18 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
 
   return <div className={styles.backdrop}>
     <div ref={modal} className={styles.workspace} role="dialog" aria-modal="true" aria-labelledby="builder-title" tabIndex={-1}>
-      <header className={styles.header}><div className={styles.heading}><ArchiveIcon name="decks" /><div><span>ASTRALIA / YOUR WORKSPACE</span><h2 id="builder-title" title={selectedFaction ? deckTitle : undefined}>{selectedFaction ? deckTitle : "Deck builder"}</h2></div></div><div className={styles.headerActions}>{selectedFaction && <><span className={styles.draftLabel}>{complete ? "Deck complete" : "Draft deck"}</span><button className={styles.save} onClick={() => void handleSave()} disabled={sorting || saving || loadingDeck || cardOptions.loading || Boolean(loadError || cardOptions.error)}><ArchiveIcon name="check" size={16} />{saving ? "Saving…" : "Save deck"}</button></>}<button className={styles.close} onClick={onClose} aria-label="Close deck builder"><ArchiveIcon name="close" /></button></div></header>
+      <header className={styles.header}><div className={styles.heading}><ArchiveIcon name="decks" /><div><span>ASTRALIA / YOUR WORKSPACE</span><h2 id="builder-title" title={selectedFaction ? deckTitle : undefined}>{selectedFaction ? deckTitle : "Deck builder"}</h2></div></div><div className={styles.headerActions}>{selectedFaction && <><span className={styles.draftLabel}>{complete ? "Deck complete" : "Draft deck"}</span><button className={styles.save} onClick={() => void handleSave()} disabled={dragging || saving || loadingDeck || cardOptions.loading || Boolean(loadError || cardOptions.error)}><ArchiveIcon name="check" size={16} />{saving ? "Saving…" : "Save deck"}</button></>}<button className={styles.close} onClick={onClose} aria-label="Close deck builder"><ArchiveIcon name="close" /></button></div></header>
       {!selectedFaction ? <section className={styles.factionPicker}><span className={styles.eyebrow}>A NEW CHAPTER</span><h1>Choose your chronicle.</h1><p>Every strategy starts somewhere. Which story will you tell?</p><div className={styles.factionGrid}>{FACTIONS.map((faction, index) => <button key={faction} aria-label={`Select Chronicle of ${CHRONICLES[faction].name}`} onClick={() => setSelectedFaction(faction)} style={{ backgroundImage: `linear-gradient(0deg, #111215 2%, #11121500 90%), url(${CHRONICLES[faction].image})` }}><span className={styles.factionNumber}>0{index + 1}</span><div><span style={{ color: CHRONICLES[faction].color }}>CHRONICLE OF</span><h3>{CHRONICLES[faction].name}</h3><ArchiveIcon name="arrow" /></div></button>)}</div><p className={styles.rules}>1 protagonist <span>·</span> 5 persona cards <span>·</span> 45 main deck cards</p></section> : <>
         <div className={styles.mobileTabs}><button aria-pressed={mobileView === "browse"} onClick={() => setMobileView("browse")}>Browse cards</button><button aria-pressed={mobileView === "deck"} onClick={() => setMobileView("deck")}>Your deck · {totals.deck}/{SECTION_LIMITS.deck}</button></div>
-        <div ref={bodyRef} className={`${styles.body} ${resizing ? styles.resizing : ""}`} style={deckWidth === null ? undefined : { "--deck-panel-width": `${deckWidth}px` } as CSSProperties}>
+        <DndContext
+          sensors={collectionSensors}
+          collisionDetection={collectionCollisionDetection}
+          autoScroll={{ layoutShiftCompensation: false }}
+          onDragStart={({ active }) => setCollectionDrag(getCollectionCardDrag(active) ?? null)}
+          onDragEnd={finishCollectionDrag}
+          onDragCancel={() => setCollectionDrag(null)}
+        >
+        <div ref={bodyRef} className={`${styles.body} ${resizing ? styles.resizing : ""} ${collectionDrag ? styles.collectionDragging : ""}`} style={deckWidth === null ? undefined : { "--deck-panel-width": `${deckWidth}px` } as CSSProperties}>
           <section className={`${styles.catalog} ${mobileView === "deck" ? styles.mobileHidden : ""}`}>
             <div className={styles.catalogHeader}>
               <div><h3>{view === "overview" ? "Deck Overview" : view === "cards" ? "Card collection" : view === "stats" ? "Deck analysis" : "Test your opening hand"}</h3><span style={{ color: chronicle?.color }}>Chronicle of {chronicle?.name}</span></div>
@@ -178,6 +205,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
                 key={section}
                 viewMode={collectionView}
                 gridZoom={collectionZoom}
+                dragSection={canDragFromCollection ? section : undefined}
                 options={cardOptions[section]}
                 filters={filters}
                 onOpenCard={openCardDetails}
@@ -201,6 +229,10 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
             <div className={styles.deckFooter}><span>Up to {COPIES_PER_CARD} copies per main deck card</span><button className={styles.analysisLink} onClick={() => { setView("stats"); setMobileView("browse"); }}><ArchiveIcon name="chart" size={15} /> View deck statistics <ArchiveIcon name="arrow" size={14} /></button></div>
           </aside>
         </div>
+        <DragOverlay zIndex={10050} adjustScale={false} dropAnimation={null} style={{ pointerEvents: "none" }}>
+          {collectionDrag && <img className={styles.collectionDragImage} src={getCardImagePath(collectionDrag.card, "thumb")} alt="" draggable={false} />}
+        </DragOverlay>
+        </DndContext>
       </>}
       {detailCard && <CardDetailsModal card={detailCard} onClose={closeCardDetails} />}
     </div>

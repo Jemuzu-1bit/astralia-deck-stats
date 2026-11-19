@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildDeckPayload, moveSelectedCard } from "../src/domain/deckBuilder.ts";
+import { addToSelection, buildDeckPayload, moveSelectedCard } from "../src/domain/deckBuilder.ts";
 import { createDeck, getDeck, updateDeck } from "../src/services/deckService.ts";
 
 const selection = (...ids) => Object.fromEntries(ids.map((id, index) => [id, {
@@ -22,6 +22,28 @@ test("invalid targets and cards from another section leave the selection unchang
   assert.equal(moveSelectedCard(original, "first", "persona-card"), original);
   assert.equal(moveSelectedCard(original, "persona-card", "first"), original);
   assert.equal(moveSelectedCard(original, "second", "second"), original);
+});
+
+test("dropping a new card inserts it at the chosen slot", () => {
+  const original = selection("first", "second", "third");
+  const card = { id: "new", name: "New card" };
+  const inserted = addToSelection(original, card, 45, 4, 1);
+  assert.deepEqual(Object.keys(inserted), ["first", "new", "second", "third"]);
+  assert.equal(inserted.new.qty, 1);
+  assert.deepEqual(Object.keys(addToSelection(original, card, 45, 4, 0)), ["new", "first", "second", "third"]);
+  assert.deepEqual(Object.keys(addToSelection(original, card, 45, 4, 3)), ["first", "second", "third", "new"]);
+  assert.deepEqual(Object.keys(original), ["first", "second", "third"]);
+});
+
+test("dropping another copy moves the existing group and respects deck limits", () => {
+  const original = selection("first", "second", "third");
+  const card = original.second.card;
+  const inserted = addToSelection(original, card, 45, 4, 2);
+  assert.deepEqual(Object.keys(inserted), ["first", "third", "second"]);
+  assert.equal(inserted.second.qty, 3);
+  assert.equal(addToSelection(original, card, 6, 4, 2), original);
+  assert.equal(addToSelection(original, card, 45, 2, 2), original);
+  assert.deepEqual(Object.keys(addToSelection(original, card, 45, 4)), Object.keys(original));
 });
 
 test("the overview and sidebar order survives saving, editing and reopening a deck", t => {

@@ -1,12 +1,14 @@
 import { useState, type CSSProperties } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { CardFiltersState } from "../hooks/useCardFilters";
-import { filterCards } from "../domain/deckBuilder";
+import { filterCards, type DeckSection } from "../domain/deckBuilder";
 import { getCardFilterValues } from "./cardFilterValues";
 import CardDisplay from "./CardDisplay";
 import type { CardViewMode } from "./CardViewToggle";
 import ArchiveIcon from "./ArchiveIcon";
+import type { CollectionCardDrag } from "./deckCollectionDrag";
 import styles from "./CardBrowser.module.scss";
 
 interface Props {
@@ -21,9 +23,36 @@ interface Props {
   error?: string | null;
   viewMode?: CardViewMode;
   gridZoom?: number;
+  dragSection?: DeckSection;
 }
 
-export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRemove, quantity, canAdd, loading, error, viewMode = "grid", gridZoom }: Props) {
+function CollectionCardArt({ card, section, quantity, viewMode, onOpenCard }: {
+  card: Card;
+  section?: DeckSection;
+  quantity: number;
+  viewMode: CardViewMode;
+  onOpenCard: Props["onOpenCard"];
+}) {
+  const collectionCard: CollectionCardDrag | undefined = section && { card, section };
+  const { setNodeRef, listeners, isDragging } = useDraggable({
+    id: `collection:${card.id}`,
+    data: { collectionCard },
+    disabled: !section,
+  });
+
+  return <div
+    ref={section ? setNodeRef : undefined}
+    className={styles.art}
+    data-draggable={section ? true : undefined}
+    data-dragging={isDragging || undefined}
+    {...listeners}
+  >
+    <CardDisplay card={card} onClick={onOpenCard} enableFlip={viewMode === "grid"} />
+    {quantity > 0 && viewMode === "grid" && <span className={styles.badge}>{quantity} in deck</span>}
+  </div>;
+}
+
+export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRemove, quantity, canAdd, loading, error, viewMode = "grid", gridZoom, dragSection }: Props) {
   const [sort, setSort] = useState("cost");
   const [pageSize, setPageSize] = useState(60);
   const [advanced, setAdvanced] = useState(false);
@@ -49,11 +78,16 @@ export default function CardBrowser({ options, filters, onOpenCard, onAdd, onRem
     <div className={styles.results}><span aria-live="polite">{loading ? "Loading cards…" : `${filtered.length} cards`}</span><label>Sort by <select aria-label="Sort cards" value={sort} onChange={event => setSort(event.target.value)}><option value="cost">Cost, then name</option><option value="name">Name</option></select></label></div>
     {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3><p>Try a different search or reset your filters.</p><button onClick={filters.clearFilters}>Reset filters</button></div> : <div className={gridStyle ? `${resultsLayout} ${styles.zoomGrid}` : resultsLayout} style={gridStyle}>{filtered.slice(0, pageSize).map(card => {
       const qty = quantity?.(card) ?? 0;
-      return <article className={`${styles.card} ${qty > 0 ? styles.selected : ""}`} key={card.id}>
-        <div className={styles.art}><CardDisplay card={card} onClick={onOpenCard} enableFlip={viewMode === "grid"} />{qty > 0 && viewMode === "grid" && <span className={styles.badge}>{qty} in deck</span>}</div>
+      const canAddCard = canAdd?.(card) ?? true;
+      return <article
+        className={`${styles.card} ${qty > 0 ? styles.selected : ""}`}
+        key={card.id}
+        onDragStartCapture={onAdd ? event => event.preventDefault() : undefined}
+      >
+        <CollectionCardArt card={card} section={canAddCard ? dragSection : undefined} quantity={qty} viewMode={viewMode} onOpenCard={onOpenCard} />
         <button className={styles.cardName} onClick={() => onOpenCard(card)} title={card.name}>{card.name}</button>
         <div className={styles.cardMeta}><span>{card.type}</span><span>{card.cost || "—"} cost</span></div>
-        {onAdd && <div className={styles.quantity}><button aria-label={`Remove ${card.name}`} disabled={qty === 0} onClick={() => onRemove?.(card)}>−</button><span aria-label={`${qty} copies`}>{qty}</span><button aria-label={`Add ${card.name}`} disabled={canAdd ? !canAdd(card) : false} onClick={() => onAdd(card)}>+</button></div>}
+        {onAdd && <div className={styles.quantity}><button aria-label={`Remove ${card.name}`} disabled={qty === 0} onClick={() => onRemove?.(card)}>−</button><span aria-label={`${qty} copies`}>{qty}</span><button aria-label={`Add ${card.name}`} disabled={!canAddCard} onClick={() => onAdd(card)}>+</button></div>}
       </article>;
     })}</div>}
     {filtered.length > pageSize && <button className={styles.loadMore} onClick={() => setPageSize(size => size + 60)}>Show more cards ({filtered.length - pageSize} remaining)</button>}
