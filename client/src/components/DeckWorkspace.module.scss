@@ -24,25 +24,56 @@
 }
 
 .collectionZoom {
+  align-items: center;
+
+  button {
+    width: 34px;
+
+    &:hover:not(:disabled) {
+      background: #36332a;
+      color: #ddbd7d;
+    }
+  }
+}
+
+.collectionZoomEntry {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #a5a7b1;
-  font-size: .75rem;
-  white-space: nowrap;
+  justify-content: center;
+  min-width: 3rem;
+  min-height: 30px;
+  padding-inline: 4px;
+  border: 1px solid #353740;
+  border-radius: 3px;
+  background: #141519;
+  color: #ddbd7d;
+  font-size: .875rem;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
 
-  input {
-    width: 90px;
-    height: 28px;
-    margin: 0;
-    accent-color: #ddbd7d;
-    cursor: pointer;
+  &:focus-within {
+    border-color: #ddbd7d;
   }
 
-  span {
-    min-width: 4ch;
-    color: #ddbd7d;
-    font-variant-numeric: tabular-nums;
+  input {
+    appearance: textfield;
+    width: 3.2ch;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: right;
+
+    &:focus-visible {
+      outline: none;
+    }
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      appearance: none;
+      margin: 0;
+    }
   }
 }
 .deckToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 16px 18px 4px; > span { color: #dddde4; font-size: .875rem; } }

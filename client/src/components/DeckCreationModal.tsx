@@ -14,6 +14,7 @@ import CardViewToggle, { type CardViewMode } from "./CardViewToggle";
 import DeckStats from "./DeckStats";
 import OpeningHandSimulator from "./OpeningHandSimulator";
 import ArchiveIcon from "./ArchiveIcon";
+import viewControlStyles from "./CardViewToggle.module.scss";
 import styles from "./DeckWorkspace.module.scss";
 
 interface DeckCreationModalProps {
@@ -38,7 +39,7 @@ const COLLECTION_ZOOM_STEP = 10;
 function getSavedCollectionZoom() {
   try {
     const zoom = Number(localStorage.getItem(COLLECTION_ZOOM_KEY));
-    if (zoom >= MIN_COLLECTION_ZOOM && zoom <= MAX_COLLECTION_ZOOM && zoom % COLLECTION_ZOOM_STEP === 0) {
+    if (Number.isInteger(zoom) && zoom >= MIN_COLLECTION_ZOOM && zoom <= MAX_COLLECTION_ZOOM) {
       return zoom;
     }
   } catch { /* Storage is optional. */ }
@@ -54,6 +55,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const [mobileView, setMobileView] = useState<"browse" | "deck">("browse");
   const [collectionView, setCollectionView] = useState<CardViewMode>("grid");
   const [collectionZoom, setCollectionZoom] = useState(getSavedCollectionZoom);
+  const [collectionZoomDraft, setCollectionZoomDraft] = useState<string | null>(null);
   const [deckView, setDeckView] = useState<CardViewMode>("list");
   const deckTitle = deckName.trim() || "Untitled Deck";
   const { bodyRef, panelRef, deckWidth, resizing, separatorProps } = useDeckPanelResize(Boolean(selectedFaction));
@@ -70,8 +72,10 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     : totals[target] < SECTION_LIMITS[target] && countCardIdentity(selections[target], card) < (target === "persona" ? 1 : COPIES_PER_CARD);
   const browseSection = (target: DeckSection) => { setSection(target); setView("cards"); setMobileView("browse"); };
   const updateCollectionZoom = (zoom: number) => {
-    setCollectionZoom(zoom);
-    try { localStorage.setItem(COLLECTION_ZOOM_KEY, String(zoom)); } catch { /* Keep the in-memory preference. */ }
+    const nextZoom = Math.min(MAX_COLLECTION_ZOOM, Math.max(MIN_COLLECTION_ZOOM, zoom));
+    if (nextZoom === collectionZoom) return;
+    setCollectionZoom(nextZoom);
+    try { localStorage.setItem(COLLECTION_ZOOM_KEY, String(nextZoom)); } catch { /* Keep the in-memory preference. */ }
   };
   const renderDeckSections = (overview = false) => <div className={`${styles.deckSections} ${overview ? styles.overviewSections : ""}`}>
     {sections.map(item => {
@@ -121,20 +125,53 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
                   {sections.map(item => <button key={item.id} aria-pressed={section === item.id} onClick={() => setSection(item.id)}>{item.label}<span>{cardOptions[item.id].length}</span></button>)}
                 </div>
                 <div className={styles.collectionViewControls}>
-                  {collectionView === "grid" && <label className={styles.collectionZoom}>
-                    Card zoom
-                    <input
-                      type="range"
-                      min={MIN_COLLECTION_ZOOM}
-                      max={MAX_COLLECTION_ZOOM}
-                      step={COLLECTION_ZOOM_STEP}
-                      value={collectionZoom}
-                      aria-valuetext={`${collectionZoom}%`}
-                      onChange={event => updateCollectionZoom(event.currentTarget.valueAsNumber)}
-                    />
-                    <span aria-hidden="true">{collectionZoom}%</span>
-                  </label>}
                   <CardViewToggle label="Card collection view" value={collectionView} onChange={setCollectionView} />
+                  {collectionView === "grid" && <div className={`${viewControlStyles.toggle} ${styles.collectionZoom}`} role="group" aria-label="Card zoom">
+                    <button
+                      type="button"
+                      aria-label="Zoom out"
+                      title="Zoom out"
+                      disabled={collectionZoom === MIN_COLLECTION_ZOOM}
+                      onClick={() => updateCollectionZoom(collectionZoom - COLLECTION_ZOOM_STEP)}
+                    >
+                      <ArchiveIcon name="minus" size={16} />
+                    </button>
+                    <label className={styles.collectionZoomEntry}>
+                      <input
+                        type="number"
+                        min={MIN_COLLECTION_ZOOM}
+                        max={MAX_COLLECTION_ZOOM}
+                        step={1}
+                        inputMode="numeric"
+                        enterKeyHint="done"
+                        aria-label="Card zoom percentage"
+                        value={collectionZoomDraft ?? String(collectionZoom)}
+                        onFocus={event => event.currentTarget.select()}
+                        onChange={event => setCollectionZoomDraft(event.currentTarget.value)}
+                        onBlur={event => {
+                          const zoom = event.currentTarget.valueAsNumber;
+                          setCollectionZoomDraft(null);
+                          if (Number.isInteger(zoom)) updateCollectionZoom(zoom);
+                        }}
+                        onKeyDown={event => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            event.currentTarget.blur();
+                          }
+                        }}
+                      />
+                      <span aria-hidden="true">%</span>
+                    </label>
+                    <button
+                      type="button"
+                      aria-label="Zoom in"
+                      title="Zoom in"
+                      disabled={collectionZoom === MAX_COLLECTION_ZOOM}
+                      onClick={() => updateCollectionZoom(collectionZoom + COLLECTION_ZOOM_STEP)}
+                    >
+                      <ArchiveIcon name="plus" size={16} />
+                    </button>
+                  </div>}
                 </div>
               </div>
               <CardBrowser
