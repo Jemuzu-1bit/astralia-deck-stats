@@ -1,0 +1,35 @@
+.toggle {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #353740;
+  border-radius: 5px;
+  background: #1c1d22;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: #a5a7b1;
+    font: inherit;
+    font-size: .875rem;
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+      background: #36332a;
+      color: #ddbd7d;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #ddbd7d;
+      outline-offset: 2px;
+    }
+  }
+}
