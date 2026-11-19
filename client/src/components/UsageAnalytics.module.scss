@@ -1,0 +1,4 @@
+.notice { position: fixed; z-index: 100; bottom: 18px; right: 18px; width: min(460px, calc(100vw - 36px)); box-sizing: border-box; padding: 20px; border: 1px solid #62553c; border-radius: 10px; background: #18191d; color: #e5e5ed; box-shadow: 0 8px 40px #0008; font: 14px/1.6 'Segoe UI', system-ui, sans-serif;
+  p { margin: 0 0 16px; } strong { font-size: 16px; } div { display: flex; justify-content: flex-end; gap: 12px; }
+  button { padding: 10px 14px; border: 1px solid #53545e; border-radius: 6px; background: #25262c; color: #eee; font: inherit; cursor: pointer; &:last-child { background: #ddbd7d; color: #211d16; border-color: #ddbd7d; } &:focus-visible { outline: 2px solid #ddbd7d; outline-offset: 3px; } }
+}

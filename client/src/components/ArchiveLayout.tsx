@@ -6,14 +6,16 @@ import ShortcutSettings from "./ShortcutSettings";
 import FeedbackLink from "./FeedbackLink";
 import DiscordProfile from "./DiscordProfile";
 import useAuthSession from "../hooks/useAuthSession";
+import useAdminAccess from "../hooks/useAdminAccess";
 import styles from "./ArchiveLayout.module.scss";
 
 export default function ArchiveLayout() {
   const location = useLocation();
   const authSession = useAuthSession();
+  const adminAccess = useAdminAccess(authSession.user?.id);
   const [settings, setSettings] = useState(false);
   const [shortcuts, setShortcuts] = useState(false);
-  const title = location.pathname === "/multiplayer" ? "Multiplayer" : location.pathname.startsWith("/lobby") ? "Match lobby" : location.pathname === "/public-decks" ? "Public decks" : location.pathname.startsWith("/players/") ? "Player profile" : location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
+  const title = location.pathname === "/admin" ? "Admin dashboard" : location.pathname === "/multiplayer" ? "Multiplayer" : location.pathname.startsWith("/lobby") ? "Match lobby" : location.pathname === "/public-decks" ? "Public decks" : location.pathname.startsWith("/players/") ? "Player profile" : location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "How to play" : "Overview";
   return <div className={styles.layout}>
     <aside className={styles.sidebar}>
       <Link to="/" className={styles.brand}><span className={styles.brandMark}>A<span>✦</span></span><span>ASTRALIA<small>DECK ARCHIVE</small></span></Link>
@@ -27,7 +29,7 @@ export default function ArchiveLayout() {
         <NavLink to="/multiplayer" className={({ isActive }) => isActive || location.pathname.startsWith("/lobby") ? styles.active : undefined}><ArchiveIcon name="multiplayer" /><span>Multiplayer</span></NavLink>
         <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="book" /><span>How to play</span></NavLink>
       </nav>
-      <DiscordProfile {...authSession} onSettings={() => setSettings(true)} />
+      <DiscordProfile {...authSession} isAdmin={adminAccess.isAdmin} onSettings={() => setSettings(true)} />
       <div className={styles.sidebarBottom}>
         {!authSession.user && <button onClick={() => setSettings(true)}><ArchiveIcon name="settings" /> Settings</button>}
         <FeedbackLink>Send feedback ↗</FeedbackLink>
@@ -36,7 +38,7 @@ export default function ArchiveLayout() {
     </aside>
     <div className={styles.workspace}>
       <header className={styles.topbar}><span>Astralia <span className={styles.slash}>/</span> <strong>{title}</strong></span><Link to="/cards" className={styles.search}><ArchiveIcon name="search" size={16} /><span>Find a card…</span></Link></header>
-      <main className={styles.content}><Outlet context={authSession} /></main>
+      <main className={styles.content}><Outlet context={{ ...authSession, ...adminAccess }} /></main>
       <footer className={styles.footer}><span>ASTRALIA <span>DECK ARCHIVE</span></span><Link to="/help">Build. Refine. Play.</Link></footer>
     </div>
     {settings && <SettingsMenu onClose={() => setSettings(false)} onShortcuts={() => { setSettings(false); setShortcuts(true); }} />}

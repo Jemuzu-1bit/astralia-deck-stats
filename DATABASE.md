@@ -143,6 +143,152 @@ caricarli e cancellarli; lo sfondo di un mazzo pubblicato può essere letto
 anche dai visitatori. L'app crea URL temporanei per mostrarli. Il bucket non
 contiene immagini delle carte.
 
+## Amministratori e dashboard di monitoring
+
+La migrazione `supabase/migrations/202611190001_admin_monitoring.sql` aggiunge
+ruoli admin, registro delle modifiche ai ruoli e statistiche. Applica anche
+`supabase/migrations/202611190002_backend_admin_roles.sql`, che consente di
+assegnare il ruolo solo dal backend. Se hai già applicato la prima versione,
+esegui solo la seconda: rimuove l'attivazione con codice e conserva gli admin
+esistenti. Applica le migrazioni dopo le tre precedenti, prima del frontend.
+Non richiede nuove chiavi segrete nel frontend o modifiche al provider Discord.
+
+### Assegnare il proprio account dal backend
+
+1. Applica le migrazioni mancanti in ordine numerico nel SQL Editor di Supabase.
+2. In **Authentication → Users**, individua il tuo account Discord e copia il
+   suo **User UID** (UUID Supabase, non l'ID numerico Discord).
+3. Nel SQL Editor, sostituisci il segnaposto con quel valore ed esegui:
+
+   ```sql
+   select public.set_site_admin('IL_TUO_USER_UID_SUPABASE'::uuid, true);
+   ```
+
+4. Ricarica il sito mentre sei connesso al tuo account. Il collegamento
+   **Admin dashboard** compare direttamente sopra la sezione del profilo Discord,
+   anche su mobile. Gli altri utenti non lo vedono e non possono accedere a `/admin`.
+
+Non esistono codici di attivazione, moduli o comandi per promuovere un utente dal
+frontend. Anche un account admin può solo leggere la directory utenti e il
+monitoring: `set_site_admin` non è eseguibile con un token del browser, compresi
+quelli degli admin. I privilegi dipendono da `public.site_admins`, non dai metadati
+modificabili del profilo. L'assegnazione tramite la funzione registra un evento
+**Backend** nell'audit. Puoi verificarla nel SQL Editor:
+
+```sql
+select user_id, granted_at from public.site_admins;
+```
+
+Per una futura revoca usa la stessa funzione dal backend con `false`; non è
+possibile rimuovere l'ultimo admin con questa funzione. Non viene scelto un admin
+automaticamente in base all'ordine di registrazione o al nome del profilo.
+
+### Statistiche disponibili
+
+- Presenze negli ultimi 5 minuti, con distinzione degli utenti autenticati.
+- Visitatori unici, account unici, visite e pagine viste in un intervallo
+  personalizzato fino a 366 giorni; scorciatoie 7/30/90 giorni.
+- Confronto con il periodo precedente della stessa durata, grafico giornaliero,
+  tabella accessibile ed esportazione CSV dei dati giornalieri.
+- Tempo di coinvolgimento medio per visita e percentuale di visite coinvolte.
+- Pagine più viste, provenienze per hostname e dispositivi indicativi.
+- Account registrati, nuove iscrizioni, utenti attivi giornalieri/settimanali/
+  mensili, mazzi cloud totali/pubblici/privati, nuovi mazzi e nuovi commenti.
+- Distribuzione dei mazzi per cronaca, ricerca paginata degli utenti in sola lettura e ultime
+  20 modifiche ai privilegi amministrativi.
+
+Le date dei report e i raggruppamenti giornalieri sono **UTC**. Il giorno finale
+scelto nell'interfaccia è incluso; l'API riceve il limite finale esclusivo.
+Le presenze, DAU/WAU/MAU e i totali complessivi sono indicati esplicitamente come
+indipendenti dall'intervallo selezionato. DAU indica oggi, WAU oggi e i 6 giorni
+precedenti, MAU oggi e i 29 giorni precedenti.
+
+### Raccolta e interpretazione
+
+La raccolta del traffico inizia soltanto dopo **Allow statistics**. È possibile
+modificare la scelta da **Settings → Usage statistics**; con Do Not Track o Global
+Privacy Control la raccolta resta disabilitata. Il codice conserva un ID casuale
+del browser in localStorage e una sessione in sessionStorage. Nessun IP, user
+agent completo, email, testo, parametro URL, ID di mazzo o codice di stanza viene
+inviato. I percorsi dinamici sono normalizzati (`/players/:id`, `/lobby`, `/game`);
+le pagine admin e profilo sono escluse. Le visite autenticate sono collegate
+all'ID account, derivato dal token sul database, mai dichiarato dal client.
+
+I browser anonimi non equivalgono a persone: dispositivi/browser differenti,
+cancellazione dei dati o accesso all'account dopo una visita anonima possono
+produrre più visitatori per la stessa persona. Gli account unici sono invece
+deduplicati per ID Supabase nell'intero intervallo. Non sommare gli unici
+giornalieri per ottenere gli unici del periodo.
+
+Una visita riparte dopo 30 minuti senza rilevazioni o al cambio di account.
+Il browser invia una rilevazione ogni 30 secondi solo se la pagina è visibile,
+ha il focus e ha ricevuto un'interazione negli ultimi 5 minuti. Il database
+impone orari propri e limita il tempo dichiarato all'intervallo trascorso.
+Una visita è considerata coinvolta se registra almeno 10 secondi o 2 pagine
+nell'intervallo. Il tempo è una stima campionata: le visite brevi possono registrare
+zero secondi. Gli eventi di navigazione sono dati dichiarati dal browser e non
+una misura certificata o un audit delle azioni degli utenti.
+
+Le statistiche di traffico coprono soltanto chi acconsente e non possono essere
+ricostruite retroattivamente. Le iscrizioni e i conteggi dei contenuti interrogano
+invece i dati esistenti senza dipendere dal consenso alla telemetria. Mazzi e
+commenti cancellati non figurano nei conteggi correnti o storici dei contenuti;
+i mazzi locali al browser non figurano nei totali cloud.
+
+Solo RPC protette leggono aggregati e liste utenti. Le tabelle dei ruoli,
+della telemetria e dell'audit non sono direttamente accessibili,
+neppure agli admin tramite Data API. Le funzioni `security definer` hanno
+`search_path` fisso e verificano il ruolo nel database a ogni operazione.
+Modificare `user_metadata` o nascondere/mostrare un collegamento non dà permessi.
+Un admin può consultare il monitoring; i ruoli si modificano solo dal backend. Questa migrazione non
+gli assegna la modifica dei mazzi privati o dei profili degli altri giocatori.
+
+Per limitare la conservazione a 395 giorni, pianifica giornalmente la funzione
+`public.prune_site_analytics()` tramite il scheduler del database. Con l'estensione
+**pg_cron** abilitata, esegui una volta nel SQL Editor:
+
+```sql
+select cron.schedule(
+  'prune-site-analytics', '20 3 * * *',
+  'select public.prune_site_analytics();'
+);
+```
+
+Il codice applicativo non esegue la pulizia nelle richieste pubbliche; senza
+scheduler la conservazione non è limitata automaticamente. La funzione elimina
+solo telemetria scaduta, mai account, mazzi o audit dei ruoli.
+
+Fonti usate per scegliere le metriche (le definizioni specifiche di questa
+implementazione sono quelle sopra):
+[Plausible, metriche](https://plausible.io/docs/metrics-definitions) e
+[Google Analytics, coinvolgimento](https://support.google.com/analytics/answer/11109416).
+
+Verifica isolata di assegnazione dal backend, accesso, revoca immediata dei privilegi API,
+protezione dell'ultimo admin, privacy e aggregazioni (runtime già installato):
+
+```powershell
+$env:PUBLIC_DECKS_TEST_RUNTIME = Join-Path $env:TEMP 'astralia-public-decks-tests'
+node --test supabase/tests/adminMonitoring.test.mjs supabase/tests/publicDecks.test.mjs
+```
+
+La verifica browser è in `client/tests/adminDashboard.test.mjs`. Usa API simulate
+e non scrive nel database remoto. Con `playwright-core` in un runtime temporaneo,
+Edge installato e l'anteprima locale avviata:
+
+```powershell
+$env:ADMIN_UI_TEST_RUNTIME = Join-Path $env:TEMP 'astralia-admin-ui-tests'
+npm install --prefix $env:ADMIN_UI_TEST_RUNTIME --no-save --ignore-scripts playwright-core
+# In un altro terminale: npm --prefix client run preview -- --host 127.0.0.1 --port 4173
+$env:ADMIN_UI_BASE_URL = 'http://127.0.0.1:4173'
+node --env-file=client/.env.local client/tests/adminDashboard.test.mjs
+```
+
+`ADMIN_UI_BROWSER` permette di indicare un eseguibile Chromium alternativo.
+I test verificano accesso, assenza dei moduli di attivazione e dei comandi di ruolo,
+posizione del collegamento dashboard, filtri, CSV, layout mobile e consenso.
+Le schermate di verifica nel runtime temporaneo contengono esclusivamente dati
+simulati; l'applicazione usa solo gli aggregati restituiti da Supabase.
+
 ## Immagini delle carte su Cloudflare
 
 La funzione che costruisce gli URL è in `client/src/services/cardImageService.ts`.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import AppearanceSettings from "./AppearanceSettings";
+import { AnalyticsPreference } from "./UsageAnalytics";
 import styles from "./SettingsMenu.module.scss";
 
 type SettingsMenuProps = {
@@ -58,6 +59,7 @@ export default function SettingsMenu({ onClose, onShortcuts, children }: Setting
       {page === "appearance" ? <AppearanceSettings /> : <>
         <button ref={appearanceButtonRef} type="button" onClick={() => setPage("appearance")}>Appearance</button>
         <button type="button" onClick={onShortcuts}>Keyboard shortcuts</button>
+        <AnalyticsPreference />
         <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={onClose}>Guide</Link>
         {children}
       </>}

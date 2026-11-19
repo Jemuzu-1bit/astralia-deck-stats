@@ -10,11 +10,13 @@ import CardLibraryPage from "./pages/CardLibraryPage";
 import ProfilePage from "./pages/ProfilePage";
 import PublicDecksPage from "./pages/PublicDecksPage";
 import PublicProfilePage from "./pages/PublicProfilePage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<ArchiveLayout />}>
+        <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/" element={<App />} />
         <Route path="/my-decks" element={<MyDecksPage />} />
         <Route path="/public-decks" element={<PublicDecksPage />} />

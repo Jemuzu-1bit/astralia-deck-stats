@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import type { AuthSession } from "../hooks/useAuthSession";
 import { supabase } from "../services/supabaseClient";
 import { getPlayerProfile } from "../domain/playerProfile";
@@ -7,7 +7,7 @@ import PlayerAvatar from "./PlayerAvatar";
 import ArchiveIcon from "./ArchiveIcon";
 import styles from "./DiscordProfile.module.scss";
 
-export default function DiscordProfile({ user, authReady, authError, onSettings }: AuthSession & { onSettings: () => void }) {
+export default function DiscordProfile({ user, authReady, authError, isAdmin = false, onSettings }: AuthSession & { isAdmin?: boolean; onSettings: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const menu = useRef<HTMLDetailsElement>(null);
@@ -36,6 +36,7 @@ export default function DiscordProfile({ user, authReady, authError, onSettings 
   };
 
   return <section className={styles.profile} aria-label="Discord profile" aria-busy={!authReady || busy}>
+    {authReady && user && isAdmin && <NavLink to="/admin" className={({ isActive }) => `${styles.dashboard} ${isActive ? styles.dashboardActive : ""}`}><ArchiveIcon name="chart" size={18} /> Admin dashboard</NavLink>}
     {!authReady ? <p className={styles.hint} role="status">Loading account...</p> : user ? <details ref={menu} className={styles.accountMenu} onKeyDown={event => {
       if (event.key === "Escape") { closeMenu(); menu.current?.querySelector("summary")?.focus(); }
     }}>
