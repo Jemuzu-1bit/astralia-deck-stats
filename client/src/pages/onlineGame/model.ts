@@ -1,4 +1,4 @@
-import type { DragEvent, MouseEvent } from "react";
+import type { MouseEvent } from "react";
 import type { Card } from "../../types/Card";
 import type { DeckRequest, GameCard, GameCounter, GameTable, GameZone, LobbyPlayerState } from "../../services/gameConnection";
 
@@ -7,18 +7,16 @@ export type ZoneName = "persona" | "graveyard" | "oblivion" | "hand";
 export type OpenZone = { owner: "self" | "opponent"; name: ZoneName };
 export type OpenSlot = { owner: "self" | "opponent"; zone: "battle" | "protagonist"; slot?: number };
 export type ResolvedCard = { gameCard: GameCard; card: Card | null; canFlip: boolean };
-export type CardDrag = (event: DragEvent<HTMLButtonElement>, card: GameCard) => void;
 export type CardMenu = (event: MouseEvent<HTMLButtonElement>, card: GameCard, resolvedCard: Card | null, canFlip: boolean) => void;
-export type CardAttachDrop = (event: DragEvent<HTMLElement>, targetUid: string) => void;
 export type CombatAction = "attack" | "block";
 export type CombatSelection = { uid: string; action: CombatAction };
 export type SlotRailControls = {
   movable: boolean;
+  slot: OpenSlot;
   attachingUid: string | null;
   combatSelection: CombatSelection | null;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
-  onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
 };
 export type CountedDeckAction = "draw" | "discard" | "look" | "oblivion";

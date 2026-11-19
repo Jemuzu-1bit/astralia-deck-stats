@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import { gameConnection, type GameCard, type GameTable, type GameZone, type LobbyPlayerState } from "../../services/gameConnection";
-import type { CardAttachDrop, CardDrag, CardMenu, CardStat, CombatAction, CombatSelection, InspectCard, ZoneName } from "./model";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { gameConnection, type GameCard, type GameTable, type LobbyPlayerState } from "../../services/gameConnection";
+import type { CardMenu, CardStat, CombatAction, CombatSelection, InspectCard, ZoneName } from "./model";
+import { previewSlot, useGameDrop, type CardDragPreview, type GameDrop } from "./cardDrag";
 import { CardZone, DeckZone, Zone, CardThumb } from "./CardElements";
 import { FrazzleCounter, StatCounter, CustomCounter } from "./CardIndicators";
 import { useResolvedCards } from "./useResolvedCards";
 import styles from "../OnlineGamePage.module.scss";
 
-export function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, combatSelection, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachDrop, onAttachTarget, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+export function PlayerTable({ player, table, opponentSide, readOnly, attachingUid, combatSelection, dragPreview, onInspect, onOpenZone, onOpenSlot, onDrawDeck, onDeckMenu, onCardFrazzleAdjust, onCardStatAdjust, onAttachTarget, onMenu }: {
   player: LobbyPlayerState | null;
   table: GameTable;
   opponentSide?: boolean;
   readOnly?: boolean;
   attachingUid: string | null;
   combatSelection: CombatSelection | null;
+  dragPreview?: CardDragPreview | null;
   onInspect: InspectCard;
   onOpenZone: (name: ZoneName) => void;
   onOpenSlot: (zone: "battle" | "protagonist", slot?: number) => void;
@@ -20,13 +22,8 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
   onDeckMenu: (event: MouseEvent<HTMLDivElement>, owner: "self" | "opponent") => void;
   onCardFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onCardStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
-  onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
-  onDragStart: CardDrag;
-  onDragEnd: () => void;
   onMenu: CardMenu;
-  onDragOver: (event: DragEvent<HTMLElement>) => void;
-  onDrop: (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number) => void;
 }) {
   const movable = !readOnly && !opponentSide && Boolean(player?.table);
   const protagonistIndex = opponentSide ? 1 : 4;
@@ -40,11 +37,7 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
     movable={movable}
     onInspect={onInspect}
     onOpen={() => onOpenZone(name)}
-    onDragStart={onDragStart}
-    onDragEnd={onDragEnd}
     onMenu={onMenu}
-    onDragOver={movable ? onDragOver : undefined}
-    onDrop={movable ? (event) => onDrop(event, name) : undefined}
   />;
 
   return <section className={`${styles.tableHalf} ${opponentSide ? styles.opponentHalf : styles.playerHalf}`}>
@@ -61,23 +54,20 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
           key={visualIndex}
           ariaLabel="Protagonist"
           className={styles.protagonistSlot}
-          onDragOver={movable ? onDragOver : undefined}
-          onDrop={movable ? (event) => onDrop(event, "protagonist") : undefined}
+          target={movable ? { zone: "protagonist" } : undefined}
         >
           <SlotStack
             items={table.protagonist}
-            protagonist
+            zone="protagonist"
+            dragPreview={dragPreview}
             onOpen={() => onOpenSlot("protagonist")}
             movable={movable}
             attachingUid={attachingUid}
             combatSelection={combatSelection}
             onInspect={onInspect}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
             onMenu={onMenu}
             onFrazzleAdjust={onCardFrazzleAdjust}
             onStatAdjust={onCardStatAdjust}
-            onAttachDrop={onAttachDrop}
             onAttachTarget={onAttachTarget}
           />
         </Zone>;
@@ -87,22 +77,21 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
           key={visualIndex}
           ariaLabel="Battle"
           className={styles.battleSlot}
-          onDragOver={movable ? onDragOver : undefined}
-          onDrop={movable ? (event) => onDrop(event, "battle", slot) : undefined}
+          target={movable ? { zone: "battle", slot } : undefined}
         >
           <SlotStack
             items={items}
+            zone="battle"
+            slot={slot}
+            dragPreview={dragPreview}
             onOpen={() => onOpenSlot("battle", slot)}
             movable={movable}
             attachingUid={attachingUid}
             combatSelection={combatSelection}
             onInspect={onInspect}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
             onMenu={onMenu}
             onFrazzleAdjust={onCardFrazzleAdjust}
             onStatAdjust={onCardStatAdjust}
-            onAttachDrop={onAttachDrop}
             onAttachTarget={onAttachTarget}
           />
         </Zone>;
@@ -119,8 +108,6 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
           owner="self"
           onDraw={onDrawDeck}
           onMenu={(event) => onDeckMenu(event, "self")}
-          onDragOver={movable ? onDragOver : undefined}
-          onDrop={movable ? (event) => onDrop(event, "deck") : undefined}
         />
         {sideZone("graveyard")}
       </>}
@@ -128,29 +115,35 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
   </section>;
 }
 
-export function SlotStack({ items, protagonist = false, movable, attachingUid, combatSelection, onOpen, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget }: {
+function SlotStack({ items, zone, slot, dragPreview, movable, attachingUid, combatSelection, onOpen, onInspect, onMenu, onFrazzleAdjust, onStatAdjust, onAttachTarget }: {
   items: GameCard[];
-  protagonist?: boolean;
+  zone: "battle" | "protagonist";
+  slot?: number;
+  dragPreview?: CardDragPreview | null;
   movable: boolean;
   attachingUid: string | null;
   combatSelection: CombatSelection | null;
   onOpen: () => void;
   onInspect: InspectCard;
-  onDragStart: CardDrag;
-  onDragEnd: () => void;
   onMenu: CardMenu;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
-  onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
 }) {
   const [subslotIndex, setSubslotIndex] = useState(0);
   const [visibleSubslotCount, setVisibleSubslotCount] = useState(1);
   const subslotViewportRef = useRef<HTMLDivElement>(null);
-  const subslotCount = items.length - 1;
+  const subslotCount = Math.max(0, items.length - 1);
   const visibleCount = Math.min(subslotCount, visibleSubslotCount);
   const maxSubslotIndex = Math.max(0, subslotCount - visibleCount);
   const visibleSubslotIndex = Math.min(subslotIndex, maxSubslotIndex);
+  const mainTarget = movable && items[0] ? { zone, slot, targetUid: items[0].uid } : undefined;
+  const mainDrop = useGameDrop(mainTarget);
+  const firstVisibleSubslot = items[visibleSubslotIndex + 1];
+  const subslotDrop = useGameDrop(movable && firstVisibleSubslot ? { zone, slot, targetUid: firstVisibleSubslot.uid } : undefined);
+  // Keep each drop target tied to its actual slot while showing the new card order.
+  const displayedItems = previewSlot(items, dragPreview);
+  const protagonist = zone === "protagonist";
 
   useEffect(() => {
     const viewport = subslotViewportRef.current;
@@ -165,22 +158,18 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
 
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
 
-  const renderCard = (item: GameCard, className: string) => <BattleCard
-    key={item.uid}
+  const renderCard = (item: GameCard, className: string, target?: GameDrop) => <BattleCard
     item={item}
     movable={movable}
     combatSelected={combatSelection?.uid === item.uid ? combatSelection.action : null}
     menuEnabled={movable}
     frazzleEditable={movable}
-    dropTargetEnabled={movable}
+    target={target ? { ...target, attachToCard: true } : undefined}
     attachTargetEnabled={movable && attachingUid !== null && attachingUid !== item.uid}
     onInspect={onInspect}
-    onDragStart={onDragStart}
-    onDragEnd={onDragEnd}
     onMenu={onMenu}
     onFrazzleAdjust={onFrazzleAdjust}
     onStatAdjust={onStatAdjust}
-    onAttachDrop={onAttachDrop}
     onAttachTarget={onAttachTarget}
     className={className}
   />;
@@ -193,8 +182,7 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
       aria-label={`Show all ${items.length} cards in this ${protagonist ? "Protagonist" : "Battle"} slot`}
     >Cards · {items.length}</button>}
     <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
-      <div className={styles.slotMainArea}>{renderCard(items[0], styles.slotMain)}</div>
-      {subslotCount > 0 && <div className={styles.subslotCarousel} role="group" aria-label={`Sub slot: ${subslotCount} cards`}>
+      {subslotCount > 0 && <div {...subslotDrop} className={styles.subslotCarousel} role="group" aria-label={`Sub slot: ${subslotCount} cards`}>
         <div ref={subslotViewportRef} className={styles.subslotViewport}>
           <div
             className={styles.subslotTrack}
@@ -206,7 +194,7 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
               className={styles.subslotItem}
               inert={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
               aria-hidden={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
-            >{renderCard(item, styles.attachedCard)}</div>)}
+            >{renderCard(displayedItems[index + 1], styles.attachedCard, movable ? { zone, slot, targetUid: item.uid } : undefined)}</div>)}
           </div>
         </div>
         {subslotCount > visibleCount && <div className={styles.subslotControls}>
@@ -214,36 +202,34 @@ export function SlotStack({ items, protagonist = false, movable, attachingUid, c
           <button type="button" aria-label="Next sub slot card" disabled={visibleSubslotIndex === maxSubslotIndex} onClick={() => setSubslotIndex(Math.min(maxSubslotIndex, visibleSubslotIndex + 1))}>›</button>
         </div>}
       </div>}
+      <div {...mainDrop} className={styles.slotMainArea} role="group" aria-label="Main slot">{renderCard(displayedItems[0], styles.slotMain, mainTarget)}</div>
     </div>
   </div>;
 }
 
-export function BattleCard({ item, movable, combatSelected = null, menuEnabled = movable, frazzleEditable = movable, dropTargetEnabled = false, attachTargetEnabled = false, onInspect, onDragStart, onDragEnd, onMenu, onFrazzleAdjust, onStatAdjust, onAttachDrop, onAttachTarget, className = "", style }: {
+export function BattleCard({ item, movable, combatSelected = null, menuEnabled = movable, frazzleEditable = movable, target, attachTargetEnabled = false, onInspect, onMenu, onFrazzleAdjust, onStatAdjust, onAttachTarget, className = "", style }: {
   item: GameCard;
   movable: boolean;
   combatSelected?: CombatAction | null;
   menuEnabled?: boolean;
   frazzleEditable?: boolean;
-  dropTargetEnabled?: boolean;
+  target?: GameDrop;
   attachTargetEnabled?: boolean;
   onInspect: InspectCard;
-  onDragStart: CardDrag;
-  onDragEnd: () => void;
   onMenu: CardMenu;
   onFrazzleAdjust: (uid: string, delta: -1 | 1) => void;
   onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
-  onAttachDrop: CardAttachDrop;
   onAttachTarget: (targetUid: string) => void;
   className?: string;
   style?: CSSProperties;
 }) {
   const items = useMemo(() => [item], [item]);
   const cards = useResolvedCards(items);
+  const drop = useGameDrop(target);
   return cards[0] && <div
+    {...drop}
     className={`${styles.battleCardWrap} ${attachTargetEnabled ? styles.attachTarget : ""} ${combatSelected === "attack" ? styles.attackSelected : combatSelected === "block" ? styles.blockSelected : ""} ${className}`}
     style={style}
-    onDragOver={dropTargetEnabled ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined}
-    onDrop={dropTargetEnabled ? (event) => onAttachDrop(event, item.uid) : undefined}
   >
     <CardThumb
       entry={cards[0]}
@@ -251,8 +237,7 @@ export function BattleCard({ item, movable, combatSelected = null, menuEnabled =
       canBlock={movable && !item.faceDown && !attachTargetEnabled && (item.frazzle || 0) === 0}
       combatSelected={combatSelected}
       onInspect={onInspect}
-      onDragStart={movable ? onDragStart : undefined}
-      onDragEnd={movable ? onDragEnd : undefined}
+      movable={movable}
       onMenu={menuEnabled ? onMenu : undefined}
       onActivate={attachTargetEnabled ? () => onAttachTarget(item.uid) : undefined}
       className={styles.battleCard}

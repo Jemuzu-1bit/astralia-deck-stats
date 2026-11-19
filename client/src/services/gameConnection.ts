@@ -403,7 +403,7 @@ export class GameConnection {
   }
   giveCardControl(uid: string) { this.sendAction("game:giveCardControl", { uid }); }
   attachCard(uid: string, targetUid: string) { this.sendAction("game:attachCard", { uid, targetUid }); }
-  swapSlotCard(uid: string) { this.sendAction("game:swapSlotCard", { uid }); }
+  swapSlotCard(uid: string, targetUid?: string) { this.sendAction("game:swapSlotCard", { uid, targetUid }); }
   deckAction(action: RequestedDeckAction, count?: number) { this.sendAction("game:deckAction", { action, count }); }
   requestDeckAction(action: RequestedDeckAction, count?: number) { this.sendAction("game:requestDeckAction", { action, count }); }
   respondDeckAction(id: string, accepted: boolean) { this.sendAction("game:respondDeckAction", { id, accepted }); }

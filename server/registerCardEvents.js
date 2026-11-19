@@ -188,9 +188,12 @@ export function registerCardEvents(socket, { currentRoom, currentPlayer, emitSta
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player?.table || !room.started) return;
     const found = findCard(player.table, String(payload?.uid || ""));
-    if (!found?.slotted || found.index < 1) return;
+    if (!found?.slotted) return;
     const stack = found.zone === "battle" ? player.table.battle[found.slot] : player.table.protagonist;
-    [stack[0], stack[found.index]] = [stack[found.index], stack[0]];
+    const targetIndex = payload?.targetUid === undefined ? 0 : stack.findIndex((card) => card.uid === payload.targetUid);
+    if (targetIndex < 0 || targetIndex === found.index) return;
+    if (targetIndex === 0 || found.index === 0) [stack[targetIndex], stack[found.index]] = [stack[found.index], stack[targetIndex]];
+    else stack.splice(targetIndex, 0, ...stack.splice(found.index, 1));
     room.lastActivity = Date.now(); emitState(room);
   });
   socket.on("game:attachCard", (payload) => {

@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type CSSProperties, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { gameConnection, type DeckAction, type GameZone, type LobbyState, type RequestedDeckAction } from "../services/gameConnection";
+import { gameConnection, type DeckAction, type LobbyState, type RequestedDeckAction } from "../services/gameConnection";
 import type { Card } from "../types/Card";
 import ShortcutSettings from "../components/ShortcutSettings";
 import FeedbackLink from "../components/FeedbackLink";
@@ -10,7 +12,10 @@ import { TURN_BUTTON_POSITION_CHANGE_EVENT, savedTurnButtonPosition, type TurnBu
 import { TURN_GLOW_CHANGE_EVENT, savedTurnGlowPreferences, type TurnGlowPreferences } from "../services/turnGlowPreferences";
 import { useGameShortcuts } from "./gameShortcuts";
 import { useGameKeyboardShortcuts } from "./onlineGame/useGameKeyboardShortcuts";
-import { EMPTY_TABLE, ZONE_NAMES, describeDeckRequest, findSlottedCard, playerTable, tableCards, type CardAttachDrop, type CardDrag, type CardMenu, type CardMenuPanel, type CombatSelection, type CountedDeckAction, type OpenSlot, type OpenZone } from "./onlineGame/model";
+import { EMPTY_TABLE, ZONE_NAMES, describeDeckRequest, findSlottedCard, playerTable, tableCards, type CardMenu, type CardMenuPanel, type CombatSelection, type CountedDeckAction, type OpenSlot, type OpenZone } from "./onlineGame/model";
+import { DraggedCardContext, gameDropCollision, useGameDrop, type GameDrop } from "./onlineGame/cardDrag";
+import { useGameCardDrag } from "./onlineGame/useGameCardDrag";
+import { GameCardDataProvider } from "./onlineGame/useResolvedCards";
 import { TargetArrows } from "./onlineGame/TargetArrows";
 import { ActionStage } from "./onlineGame/CardElements";
 import { CardRail } from "./onlineGame/CardRail";
@@ -23,6 +28,16 @@ import styles from "./OnlineGamePage.module.scss";
 const TURN_COLORS: Record<string, string> = {
   red: "#e64a4a", blue: "#3a8ee6", green: "#34c47a", purple: "#7b72f1", pink: "#e676ad",
 };
+
+function HandDock({ target, ...props }: ComponentPropsWithoutRef<"section"> & { target?: GameDrop }) {
+  const drop = useGameDrop(target);
+  return <section {...drop} {...props} />;
+}
+
+function DeckDropTarget({ position }: { position: "top" | "bottom" }) {
+  const drop = useGameDrop({ zone: "deck", position });
+  return <div {...drop}>Drop on {position}</div>;
+}
 
 export default function OnlineGamePage() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -56,9 +71,6 @@ export default function OnlineGamePage() {
   const [attachingUid, setAttachingUid] = useState<string | null>(null);
   const [targetingUid, setTargetingUid] = useState<string | null>(null);
   const [combatSelection, setCombatSelection] = useState<CombatSelection | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const draggedUid = useRef<string | null>(null);
-  const draggedElement = useRef<HTMLButtonElement | null>(null);
   const inspectedOpponentHandCardId = useRef<string | null>(null);
   const inspectOtherCard = (card: Card | null) => { inspectedOpponentHandCardId.current = null; setInspectedCard(card); };
   const inspectOpponentHandCard = (card: Card | null) => { inspectedOpponentHandCardId.current = card?.id ?? null; setInspectedCard(card); };
@@ -117,20 +129,6 @@ export default function OnlineGamePage() {
   }, [turnButtonPosition]);
 
   useEffect(() => {
-    const offState = gameConnection.onState(setState);
-    const offError = gameConnection.onError(setError);
-    const offStatus = gameConnection.onStatus((status) => {
-      setConnectionStatus(status);
-      if (status === "ready") setError(null);
-    });
-    if (routeCode) {
-      if (isSpectator) gameConnection.watch(routeCode);
-      else gameConnection.resume(routeCode);
-    }
-    else gameConnection.connect();
-    return () => { offState(); offError(); offStatus(); };
-  }, [routeCode, isSpectator]);
-  useEffect(() => {
     if (state.code && routeCode !== state.code) navigate(`/game/${state.code}${isSpectator ? "?watch=1" : ""}`, { replace: true });
   }, [state.code, routeCode, isSpectator, navigate]);
 
@@ -144,6 +142,30 @@ export default function OnlineGamePage() {
   const opponentVote = !isSpectator && opponent ? state.startVotes?.[opponent.role] : null;
   const myTable = useMemo(() => playerTable(me), [me]);
   const opponentTable = useMemo(() => playerTable(opponent), [opponent]);
+  const cardDrag = useGameCardDrag(rootRef, myTable, !isSpectator && Boolean(me?.table), () => {
+    setAttachingUid(null);
+    setTargetingUid(null);
+    setCombatSelection(null);
+    setMenu(null);
+    setDeckMenu(null);
+    setInspectedCard(null);
+  });
+  const dragging = Boolean(cardDrag.active);
+  const { captureUpdate } = cardDrag;
+  useEffect(() => {
+    const offState = gameConnection.onState((next) => { captureUpdate(); setState(next); });
+    const offError = gameConnection.onError(setError);
+    const offStatus = gameConnection.onStatus((status) => {
+      setConnectionStatus(status);
+      if (status === "ready") setError(null);
+    });
+    if (routeCode) {
+      if (isSpectator) gameConnection.watch(routeCode);
+      else gameConnection.resume(routeCode);
+    }
+    else gameConnection.connect();
+    return () => { offState(); offError(); offStatus(); };
+  }, [routeCode, isSpectator, captureUpdate]);
   const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
     card.targetUid && card.targetExpiresAt
       ? [{ sourceUid: card.uid, targetUid: card.targetUid, expiresAt: card.targetExpiresAt, kind: card.targetKind ?? "target" }]
@@ -159,7 +181,7 @@ export default function OnlineGamePage() {
   const peekedUidSet = useMemo(() => peekedUids === null ? undefined : new Set(peekedUids), [peekedUids]);
   const railCards = peekedUids !== null || deckSearchQuery !== null ? myTable.deck : openSlot ? slotCards : openZone ? openCards : myTable.hand;
   const railMovable = !isSpectator && Boolean(me?.table) && (!openZone || openZone.owner === "self") && (!openSlot || openSlot.owner === "self");
-  useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection, setOwnHandExpanded });
+  useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, dragging, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection, setOwnHandExpanded });
   const menuCard = menu ? tableCards(myTable).find((card) => card.uid === menu.uid) : undefined;
   const menuHandCard = menu ? myTable.hand.find((card) => card.uid === menu.uid) : undefined;
   const menuDeckCard = menu ? myTable.deck.find((card) => card.uid === menu.uid) : undefined;
@@ -185,13 +207,13 @@ export default function OnlineGamePage() {
       && !opponentTable.hand.some((card) => card.id === inspectedCard.id)) setInspectedCard(null);
   }, [opponentTable.hand, inspectedCard]);
   useEffect(() => {
-    if (!openZone && !openSlot && peekedUids === null && deckSearchQuery === null) return;
+    if (dragging || (!openZone && !openSlot && peekedUids === null && deckSearchQuery === null)) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") { setOpenZone(null); setOpenSlot(null); setPeekedUids(null); setDeckSearchQuery(null); setInspectedCard(null); }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [openZone, openSlot, peekedUids, deckSearchQuery]);
+  }, [openZone, openSlot, peekedUids, deckSearchQuery, dragging]);
   useEffect(() => {
     if (!attachingUid) return;
     const cancelAttach = (event: KeyboardEvent) => { if (event.key === "Escape") setAttachingUid(null); };
@@ -215,45 +237,11 @@ export default function OnlineGamePage() {
     const source = findSlottedCard(myTable, combatSelection.uid);
     if (!source || source.card.faceDown || (source.card.frazzle || 0) >= 1) setCombatSelection(null);
   }, [combatSelection, myTable]);
-  const startDrag: CardDrag = (event, card) => {
-    draggedUid.current = card.uid;
-    draggedElement.current = event.currentTarget;
-    event.currentTarget.classList.add(styles.draggedCard);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", card.uid);
-    setDragging(true);
-    setAttachingUid(null);
-    setTargetingUid(null);
-    setCombatSelection(null);
-    setMenu(null);
-  };
-  const endDrag = () => {
-    draggedElement.current?.classList.remove(styles.draggedCard);
-    draggedElement.current = null;
-    draggedUid.current = null;
-    setDragging(false);
-  };
-  const dragOver = (event: DragEvent<HTMLElement>) => {
-    if (draggedUid.current) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
-  };
-  const drop = (event: DragEvent<HTMLElement>, zone: GameZone, slot?: number, position?: "top" | "bottom") => {
-    if (isSpectator || !draggedUid.current) return;
-    event.preventDefault(); event.stopPropagation();
-    gameConnection.moveCard(draggedUid.current, zone, { slot, position });
-    endDrag(); setInspectedCard(null);
-  };
   const attachCard = (sourceUid: string, targetUid: string) => {
     if (sourceUid === targetUid) return;
     gameConnection.attachCard(sourceUid, targetUid);
     setAttachingUid(null);
     setInspectedCard(null);
-  };
-  const dropOnCard: CardAttachDrop = (event, targetUid) => {
-    const sourceUid = draggedUid.current;
-    if (!sourceUid || sourceUid === targetUid) return;
-    event.preventDefault(); event.stopPropagation();
-    attachCard(sourceUid, targetUid);
-    endDrag();
   };
   const selectAttachTarget = (targetUid: string) => {
     if (attachingUid) attachCard(attachingUid, targetUid);
@@ -312,7 +300,18 @@ export default function OnlineGamePage() {
     gameConnection.respondDeckAction(incomingDeckRequest.id, accepted);
   };
 
-  return <div
+  return <DndContext
+    sensors={cardDrag.sensors}
+    collisionDetection={gameDropCollision}
+    onDragStart={cardDrag.onDragStart}
+    onDragOver={cardDrag.onDragOver}
+    onDragEnd={cardDrag.onDragEnd}
+    onDragCancel={cardDrag.onDragCancel}
+    accessibility={{ screenReaderInstructions: { draggable: "Press Space to pick up a card, use the arrow keys to move it, and press Space to drop it. Press Escape to cancel." } }}
+  >
+  <GameCardDataProvider>
+  <DraggedCardContext.Provider value={cardDrag.draggedUid}>
+  <div
     ref={rootRef}
     style={{ "--ui-scale": interfaceSize / 100 } as CSSProperties}
     onPointerMove={(event) => { pointerPosition.current = { x: event.clientX, y: event.clientY }; }}
@@ -406,13 +405,8 @@ export default function OnlineGamePage() {
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
         onCardStatAdjust={(uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta)}
-        onAttachDrop={dropOnCard}
         onAttachTarget={selectAttachTarget}
-        onDragStart={startDrag}
-        onDragEnd={endDrag}
         onMenu={showMenu}
-        onDragOver={dragOver}
-        onDrop={drop}
       />
       <div ref={dividerRef} className={`${styles.divider} ${activePlayer ? activeOnTop ? styles.turnTop : styles.turnBottom : ""} ${activePlayer && turnButtonPosition !== "center" ? styles.turnGlowSide : ""}`} data-glow-shape={turnGlow.shape} style={{
         "--turn-color": turnColor,
@@ -426,8 +420,6 @@ export default function OnlineGamePage() {
           items={opponentTable.action}
           local={false}
           onInspect={inspectOtherCard}
-          onDragStart={startDrag}
-          onDragEnd={endDrag}
           onMenu={showMenu}
         /></div>
         <div ref={turnControlRef} className={`${styles.turnControl} ${activePlayer && turnButtonPosition !== "center" ? styles.turnControlMoved : ""} ${activePlayer ? styles.turnActive : ""}`}>
@@ -450,8 +442,6 @@ export default function OnlineGamePage() {
           items={myTable.action}
           local={!isSpectator && Boolean(me?.table)}
           onInspect={inspectOtherCard}
-          onDragStart={startDrag}
-          onDragEnd={endDrag}
           onMenu={showMenu}
         /></div>
       </div>
@@ -461,6 +451,7 @@ export default function OnlineGamePage() {
         readOnly={isSpectator}
         attachingUid={attachingUid}
         combatSelection={combatSelection}
+        dragPreview={cardDrag.preview}
         onInspect={inspectOtherCard}
         onOpenZone={(name) => { setOwnHandExpanded(true); setInspectedCard(null); setPeekedUids(null); setDeckSearchQuery(null); setOpenSlot(null); setOpenZone({ owner: "self", name }); }}
         onOpenSlot={(zone, slot) => showSlot("self", zone, slot)}
@@ -468,15 +459,10 @@ export default function OnlineGamePage() {
         onDeckMenu={showDeckMenu}
         onCardFrazzleAdjust={(uid, delta) => gameConnection.adjustCardFrazzle(uid, delta)}
         onCardStatAdjust={(uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta)}
-        onAttachDrop={dropOnCard}
         onAttachTarget={selectAttachTarget}
-        onDragStart={startDrag}
-        onDragEnd={endDrag}
         onMenu={showMenu}
-        onDragOver={dragOver}
-        onDrop={drop}
       />
-      <section className={`${styles.handDock} ${ownHandExpanded ? "" : styles.handDockCollapsed}`} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : isSpectator ? `${me?.name || "Host"} hand` : "Your hand"} onDragOver={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : dragOver} onDrop={isSpectator || openSlot?.owner === "opponent" || openZone?.owner === "opponent" ? undefined : (event) => drop(event, peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", openSlot?.slot)}>
+      <HandDock data-card-surface="rail" className={`${styles.handDock} ${ownHandExpanded ? "" : styles.handDockCollapsed}`} aria-label={peekedUids !== null ? "Your deck, viewed cards face up" : deckSearchQuery !== null ? "Cards in your deck" : openSlot ? `${slotLabel} cards` : openZone ? `${ZONE_NAMES[openZone.name]} cards` : isSpectator ? `${me?.name || "Host"} hand` : "Your hand"} target={railMovable ? { zone: peekedUids !== null || deckSearchQuery !== null ? "deck" : openSlot?.zone ?? openZone?.name ?? "hand", slot: openSlot?.slot } : undefined}>
         <div className={styles.handDockHeader}>
           <button type="button" className={styles.handDockToggle} aria-expanded={ownHandExpanded} aria-controls="own-hand-panel" onClick={() => setOwnHandExpanded((expanded) => !expanded)}>
             <span className={styles.handDockChevron} aria-hidden="true">⌄</span>
@@ -489,8 +475,8 @@ export default function OnlineGamePage() {
             <div className={styles.handDockContent}>
         {(openZone || openSlot || peekedUids !== null || deckSearchQuery !== null) && <button className={styles.handDockBack} type="button" onClick={showHand}>← {isSpectator ? `${me?.name || "Host"} hand` : "Hand"} · {myTable.hand.length}</button>}
         {peekedUids !== null && <div className={styles.deckDropTargets} aria-label="Deck order controls">
-          <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "top")}>Drop on top</div>
-          <div onDragOver={dragOver} onDrop={(event) => drop(event, "deck", undefined, "bottom")}>Drop on bottom</div>
+          <DeckDropTarget position="top" />
+          <DeckDropTarget position="bottom" />
         </div>}
         {deckSearchQuery !== null && <label className={styles.deckSearchControl}>
           <span>Search Card</span>
@@ -511,23 +497,23 @@ export default function OnlineGamePage() {
           faceUpUids={peekedUidSet}
           slotControls={openSlot ? {
             movable: railMovable,
+            slot: openSlot,
             attachingUid,
             combatSelection,
             onFrazzleAdjust: (uid, delta) => gameConnection.adjustCardFrazzle(uid, delta),
             onStatAdjust: (uid, stat, delta) => gameConnection.adjustCardStat(uid, stat, delta),
-            onAttachDrop: dropOnCard,
             onAttachTarget: selectAttachTarget,
           } : undefined}
+          dragPreview={openSlot?.owner === "self" ? cardDrag.preview : null}
           onInspect={inspectOtherCard}
-          onDragStart={railMovable ? startDrag : undefined}
-          onDragEnd={railMovable ? endDrag : undefined}
+          movable={railMovable}
           onMenu={railMovable ? showMenu : undefined}
         />
         {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} readOnly={isSpectator} />}
             </div>
           </div>
         </div>
-      </section>
+      </HandDock>
     </main>
     {attachingUid && <div className={styles.attachHint} role="status">
       Select a card on your table to attach to
@@ -609,5 +595,11 @@ export default function OnlineGamePage() {
       onSearch={deckMenu.owner === "self" ? searchDeck : () => requestDeckAction("search")}
       onClose={() => setDeckMenu(null)}
     />}
-  </div>;
+  </div>
+  {createPortal(<DragOverlay adjustScale={false} dropAnimation={null} zIndex={10050} className={styles.cardDragOverlay}>
+    {cardDrag.active && <img ref={cardDrag.overlayRef} src={cardDrag.active.image} alt="" draggable={false} />}
+  </DragOverlay>, document.body)}
+  </DraggedCardContext.Provider>
+  </GameCardDataProvider>
+  </DndContext>;
 }

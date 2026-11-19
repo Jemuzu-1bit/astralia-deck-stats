@@ -81,7 +81,11 @@ export function appendActivity(room, before, actorId, event, payload, now) {
     case "game:playAction": text = `played ${visibleSource}`; break;
     case "game:giveCardControl": text = `gave control of ${source} to ${room[after.source.ownerRole].name}`; break;
     case "game:attachCard": text = `attached ${visibleSource} to ${target}`; break;
-    case "game:swapSlotCard": text = `made ${source} the main card in ${location(before.source)}`; break;
+    case "game:swapSlotCard":
+      if (after.source.index === 0) text = `made ${source} the main card in ${location(before.source)}`;
+      else if (before.source.index === 0) text = `moved ${source} to the sub slot in ${location(before.source)}`;
+      else text = `reordered ${source} in the sub slot in ${location(before.source)}`;
+      break;
     case "game:revealCard": text = payload.revealed ? `revealed ${visibleSource} in hand` : `hid ${source} in hand`; break;
     case "game:flipCard": text = `flipped ${source}`; break;
     case "game:setFaceDown": text = payload.faceDown ? `turned ${source} face down` : `turned ${visibleSource} face up`; break;

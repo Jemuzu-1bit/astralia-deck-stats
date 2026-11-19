@@ -28,6 +28,39 @@ async function fixture(backend = new MemoryBackend(), now = Date.now) {
   return { store, backend, actors, code, command, read: async () => decodeRoom(await backend.get(code)) };
 }
 
+test("dragging cards between main and sub slots preserves card state and synchronizes their order", async () => {
+  const f = await fixture();
+  const [main, first, second, third, outside] = (await f.read()).host.table.hand.map((card) => card.uid);
+  for (const uid of [main, first, second, third]) {
+    await f.command("host", "game:moveCard", { uid, to: "battle", slot: 0 });
+  }
+  await f.command("host", "game:setFrazzle", { uid: first, value: 2 });
+
+  const reorder = (uid, targetUid, role = "host") => f.command(role, "game:swapSlotCard", { uid, targetUid });
+  const order = async () => (await f.read()).host.table.battle[0].map((card) => card.uid);
+  await reorder(first, outside);
+  await reorder(first, main, "guest");
+  assert.deepEqual(await order(), [main, first, second, third]);
+
+  await reorder(first, main);
+  assert.deepEqual(await order(), [first, main, second, third]);
+  await reorder(first, second);
+  assert.deepEqual(await order(), [second, main, first, third]);
+  const effects = [];
+  const unsubscribe = f.backend.subscribe((messages) => effects.push(...messages));
+  await reorder(main, third);
+  unsubscribe();
+  const expected = [second, first, third, main];
+  assert.deepEqual(await order(), expected);
+
+  for (const actor of Object.values(f.actors)) {
+    const state = effects.find(({ ids, event }) => ids.includes(actor.id) && event === "lobby:state")?.payload;
+    assert.ok(state);
+    assert.deepEqual(state.host.table.battle[0].map((card) => card.uid), expected);
+    assert.equal(state.host.table.battle[0][1].frazzle, 2);
+  }
+});
+
 test("only returning to the starting player adds and readies both players' fragments", async () => {
   const f = await fixture();
   const turnState = (room) => ({

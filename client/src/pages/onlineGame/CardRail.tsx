@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { GameCard } from "../../services/gameConnection";
-import type { CardDrag, CardMenu, InspectCard, SlotRailControls } from "./model";
+import type { CardMenu, InspectCard, SlotRailControls } from "./model";
+import { previewSlot, type CardDragPreview } from "./cardDrag";
 import { CardThumb } from "./CardElements";
 import { BattleCard } from "./PlayerTable";
 import { useResolvedCards } from "./useResolvedCards";
 import styles from "../OnlineGamePage.module.scss";
 
-export function CardRail({ items, label, searchQuery, sortByName = false, faceUpUids, slotControls, onInspect, onDragStart, onDragEnd, onMenu }: {
+export function CardRail({ items, label, searchQuery, sortByName = false, faceUpUids, slotControls, dragPreview, movable = false, onInspect, onMenu }: {
   items: GameCard[];
   label: string;
   searchQuery?: string;
   sortByName?: boolean;
   faceUpUids?: ReadonlySet<string>;
   slotControls?: SlotRailControls;
+  dragPreview?: CardDragPreview | null;
+  movable?: boolean;
   onInspect: InspectCard;
-  onDragStart?: CardDrag;
-  onDragEnd?: () => void;
   onMenu?: CardMenu;
 }) {
-  const cards = useResolvedCards(items);
+  const displayedItems = useMemo(() => previewSlot(items, dragPreview), [items, dragPreview]);
+  const cards = useResolvedCards(displayedItems);
+  const slotPositions = useMemo(() => new Map(displayedItems.map(({ uid }, index) => [uid, items[index].uid])), [displayedItems, items]);
   const railRef = useRef<HTMLDivElement>(null);
   const visibleCards = useMemo(() => {
     const query = searchQuery?.trim().toLocaleLowerCase();
@@ -54,28 +57,25 @@ export function CardRail({ items, label, searchQuery, sortByName = false, faceUp
   return <div ref={railRef} className={`${styles.hand} ${slotControls ? styles.handSlotCards : ""}`} aria-label={label}>
     {faceUpUids && items.length > 0 && <span className={styles.deckEdgeLabel}>Top</span>}
     {visibleCards.map((entry) => slotControls ? <BattleCard
-      key={entry.gameCard.uid}
+      key={slotPositions.get(entry.gameCard.uid)}
       item={entry.gameCard}
       movable={slotControls.movable}
+      target={slotControls.movable ? { zone: slotControls.slot.zone, slot: slotControls.slot.slot, targetUid: slotPositions.get(entry.gameCard.uid) } : undefined}
       combatSelected={slotControls.combatSelection?.uid === entry.gameCard.uid ? slotControls.combatSelection.action : null}
       menuEnabled={slotControls.movable}
       frazzleEditable={slotControls.movable}
       attachTargetEnabled={slotControls.movable && slotControls.attachingUid !== null && slotControls.attachingUid !== entry.gameCard.uid}
       onInspect={onInspect}
-      onDragStart={(event, card) => onDragStart?.(event, card)}
-      onDragEnd={() => onDragEnd?.()}
       onMenu={(event, card, resolved, canFlip) => onMenu?.(event, card, resolved, canFlip)}
       onFrazzleAdjust={slotControls.onFrazzleAdjust}
       onStatAdjust={slotControls.onStatAdjust}
-      onAttachDrop={slotControls.onAttachDrop}
       onAttachTarget={slotControls.onAttachTarget}
     /> : <CardThumb
       key={entry.gameCard.uid}
       entry={entry}
       hidden={faceUpUids !== undefined && !faceUpUids.has(entry.gameCard.uid)}
       onInspect={onInspect}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      movable={movable}
       onMenu={onMenu}
     />)}
     {faceUpUids && items.length > 0 && <span className={styles.deckEdgeLabel}>Bottom</span>}

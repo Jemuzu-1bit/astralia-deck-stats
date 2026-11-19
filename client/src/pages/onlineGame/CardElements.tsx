@@ -1,37 +1,44 @@
-import { type CSSProperties, type DragEvent, type MouseEvent } from "react";
+import { useContext, useId, type CSSProperties, type MouseEvent } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import type { GameCard } from "../../services/gameConnection";
 import { getCardImagePath } from "../../services/cardImageService";
 import normalCardBack from "../../assets/N_Back.png";
-import { ZONE_NAMES, type CardDrag, type CardMenu, type CombatAction, type InspectCard, type ResolvedCard, type ZoneName } from "./model";
+import { ZONE_NAMES, type CardMenu, type CombatAction, type InspectCard, type ResolvedCard, type ZoneName } from "./model";
+import { DraggedCardContext, useGameDrop, type GameDrop } from "./cardDrag";
 import { useResolvedCards } from "./useResolvedCards";
 import styles from "../OnlineGamePage.module.scss";
 
-export function CardThumb({ entry, hidden = false, canAttack = false, canBlock = false, combatSelected = null, onInspect, onDragStart, onDragEnd, onMenu, onActivate, className = "", style }: {
+export function CardThumb({ entry, hidden = false, movable = false, canAttack = false, canBlock = false, combatSelected = null, onInspect, onMenu, onActivate, className = "", style }: {
   entry: ResolvedCard;
   hidden?: boolean;
   canAttack?: boolean;
   canBlock?: boolean;
   combatSelected?: CombatAction | null;
   onInspect: InspectCard;
-  onDragStart?: CardDrag;
-  onDragEnd?: () => void;
+  movable?: boolean;
   onMenu?: CardMenu;
   onActivate?: (card: GameCard) => void;
   className?: string;
   style?: CSSProperties;
 }) {
+  const id = useId();
+  const uid = entry.gameCard.uid;
+  const image = hidden || entry.gameCard.faceDown || !entry.card ? normalCardBack : getCardImagePath(entry.card, "thumb");
+  const draggedUid = useContext(DraggedCardContext);
+  const { attributes, listeners, setNodeRef } = useDraggable({ id, disabled: !movable, data: { uid, image } });
   return <button
-    className={className}
+    ref={setNodeRef}
+    {...(movable ? attributes : {})}
+    {...(movable ? listeners : {})}
+    className={`${className} ${uid === draggedUid && movable ? styles.draggedCard : ""}`}
     style={style}
     type="button"
-    data-card-uid={entry.gameCard.uid}
+    data-card-uid={uid}
+    data-game-drag-id={movable ? id : undefined}
     data-can-flip={entry.canFlip ? "true" : undefined}
     data-is-action={entry.card?.type.toLowerCase() === "action" ? "true" : undefined}
     aria-label={`${hidden || entry.gameCard.faceDown ? "Face-down card" : `Inspect ${entry.card?.name ?? "card"}${entry.gameCard.revealed ? ", revealed" : ""}`}${combatSelected ? `. Selected to ${combatSelected}; choose an opponent card or click the same section to cancel` : `${canAttack ? ". Click the top quarter to declare attacker" : ""}${canBlock ? ". Click the bottom quarter to declare blocker" : ""}`}${entry.gameCard.ownerRole ? ", controlled by another player" : ""}`}
     aria-pressed={canAttack || canBlock ? Boolean(combatSelected) : undefined}
-    draggable={Boolean(onDragStart)}
-    onDragStart={(event) => onDragStart?.(event, entry.gameCard)}
-    onDragEnd={onDragEnd}
     onContextMenu={(event) => onMenu?.(event, entry.gameCard, entry.card, entry.canFlip)}
     onMouseEnter={() => onInspect(hidden || entry.gameCard.faceDown ? null : entry.card)}
     onMouseLeave={() => onInspect(null)}
@@ -40,7 +47,7 @@ export function CardThumb({ entry, hidden = false, canAttack = false, canBlock =
     onClick={() => { if (onActivate) onActivate(entry.gameCard); else onInspect(hidden || entry.gameCard.faceDown ? null : entry.card); }}
   >
     <img
-      src={hidden || entry.gameCard.faceDown || !entry.card ? normalCardBack : getCardImagePath(entry.card, "thumb")}
+      src={image}
       alt=""
       draggable={false}
     />
@@ -67,16 +74,16 @@ export function DeckStack({ count }: { count: number }) {
   </div>;
 }
 
-export function DeckZone({ count, local, owner, onDraw, onMenu, onDragOver, onDrop }: {
+export function DeckZone({ count, local, owner, onDraw, onMenu }: {
   count: number;
   local: boolean;
   owner: "self" | "opponent";
   onDraw: () => void;
   onMenu: (event: MouseEvent<HTMLDivElement>) => void;
-  onDragOver?: (event: DragEvent<HTMLElement>) => void;
-  onDrop?: (event: DragEvent<HTMLElement>) => void;
 }) {
+  const drop = useGameDrop(local ? { zone: "deck" } : undefined);
   return <div
+    {...drop}
     className={`${styles.zone} ${local ? styles.deckZone : ""}`}
     data-deck-owner={owner}
     role={local ? "button" : undefined}
@@ -87,20 +94,17 @@ export function DeckZone({ count, local, owner, onDraw, onMenu, onDragOver, onDr
       if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDraw(); }
     } : undefined}
     onContextMenu={onMenu}
-    onDragOver={onDragOver}
-    onDrop={onDrop}
   >
     <span className={styles.zoneLabel}>Main deck</span>
     <div className={styles.zoneContent}><DeckStack count={count} /></div>
   </div>;
 }
 
-export function CardStack({ items, spread = false, onInspect, onDragStart, onDragEnd, onMenu }: {
+export function CardStack({ items, spread = false, movable, onInspect, onMenu }: {
   items: GameCard[];
   spread?: boolean;
   onInspect: InspectCard;
-  onDragStart?: CardDrag;
-  onDragEnd?: () => void;
+  movable: boolean;
   onMenu?: CardMenu;
 }) {
   const cards = useResolvedCards(items);
@@ -112,8 +116,7 @@ export function CardStack({ items, spread = false, onInspect, onDragStart, onDra
         key={entry.gameCard.uid}
         entry={entry}
         onInspect={onInspect}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        movable={movable}
         onMenu={onMenu}
         className={styles.stackCard}
         style={spread
@@ -125,12 +128,10 @@ export function CardStack({ items, spread = false, onInspect, onDragStart, onDra
   </div>;
 }
 
-export function ActionStage({ items, local, onInspect, onDragStart, onDragEnd, onMenu }: {
+export function ActionStage({ items, local, onInspect, onMenu }: {
   items: GameCard[];
   local: boolean;
   onInspect: InspectCard;
-  onDragStart: CardDrag;
-  onDragEnd: () => void;
   onMenu: CardMenu;
 }) {
   const cards = useResolvedCards(items);
@@ -141,40 +142,37 @@ export function ActionStage({ items, local, onInspect, onDragStart, onDragEnd, o
       key={entry.gameCard.uid}
       entry={entry}
       onInspect={onInspect}
-      onDragStart={local ? onDragStart : undefined}
-      onDragEnd={local ? onDragEnd : undefined}
+      movable={local}
       onMenu={local ? onMenu : undefined}
       className={styles.actionCard}
     />)}
   </div>;
 }
 
-export function Zone({ ariaLabel, children, className = "", onDragOver, onDrop, onContextMenu }: {
+export function Zone({ ariaLabel, children, className = "", target, onContextMenu }: {
   ariaLabel: string;
   children?: React.ReactNode;
   className?: string;
-  onDragOver?: (event: DragEvent<HTMLElement>) => void;
-  onDrop?: (event: DragEvent<HTMLElement>) => void;
+  target?: GameDrop;
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
-  return <div className={`${styles.zone} ${className}`} aria-label={ariaLabel} onDragOver={onDragOver} onDrop={onDrop} onContextMenu={onContextMenu}>
+  const drop = useGameDrop(target);
+  return <div {...drop} className={`${styles.zone} ${className}`} aria-label={ariaLabel} onContextMenu={onContextMenu}>
     <div className={styles.zoneContent}>{children}</div>
   </div>;
 }
 
-export function CardZone({ name, items, movable, onInspect, onOpen, onDragStart, onDragEnd, onMenu, onDragOver, onDrop }: {
+export function CardZone({ name, items, movable, onInspect, onOpen, onMenu }: {
   name: ZoneName;
   items: GameCard[];
   movable: boolean;
   onInspect: InspectCard;
   onOpen: () => void;
-  onDragStart: CardDrag;
-  onDragEnd: () => void;
   onMenu: CardMenu;
-  onDragOver?: (event: DragEvent<HTMLElement>) => void;
-  onDrop?: (event: DragEvent<HTMLElement>) => void;
 }) {
+  const drop = useGameDrop(movable ? { zone: name } : undefined);
   return <div
+    {...drop}
     className={`${styles.zone} ${styles.expandableZone}`}
     data-zone-name={name}
     role="button"
@@ -187,8 +185,6 @@ export function CardZone({ name, items, movable, onInspect, onOpen, onDragStart,
       }
     }}
     onMouseLeave={() => onInspect(null)}
-    onDragOver={onDragOver}
-    onDrop={onDrop}
   >
     <span className={styles.zoneLabel}>{ZONE_NAMES[name]}</span>
     <div className={styles.zoneContent}>
@@ -196,8 +192,7 @@ export function CardZone({ name, items, movable, onInspect, onOpen, onDragStart,
         items={items}
         spread={name === "persona"}
         onInspect={onInspect}
-        onDragStart={movable ? onDragStart : undefined}
-        onDragEnd={movable ? onDragEnd : undefined}
+        movable={movable}
         onMenu={movable ? onMenu : undefined}
       />
     </div>

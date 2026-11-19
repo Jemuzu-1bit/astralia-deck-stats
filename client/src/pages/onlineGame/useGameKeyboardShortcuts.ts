@@ -23,6 +23,7 @@ type KeyboardOptions = {
   COUNTER_KEYS: ShortcutBindings["counter"];
   shortcutSettingsOpen: boolean;
   gameMenuOpen: boolean;
+  dragging: boolean;
   setMenu: Dispatch<SetStateAction<CardMenuState | null>>;
   setDeckMenu: Dispatch<SetStateAction<DeckMenuState | null>>;
   setOpenZone: Dispatch<SetStateAction<OpenZone | null>>;
@@ -36,9 +37,9 @@ type KeyboardOptions = {
   setOwnHandExpanded: Dispatch<SetStateAction<boolean>>;
 };
 
-export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection, setOwnHandExpanded }: KeyboardOptions) {
+export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator, state, me, opponent, myTable, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, dragging, setMenu, setDeckMenu, setOpenZone, setOpenSlot, setPeekedUids, setDeckSearchQuery, setInspectedCard, setAttachingUid, setTargetingUid, setCombatSelection, setOwnHandExpanded }: KeyboardOptions) {
   useEffect(() => {
-    if (isSpectator || !state.started || !me?.table || shortcutSettingsOpen || gameMenuOpen) return;
+    if (isSpectator || !state.started || !me?.table || shortcutSettingsOpen || gameMenuOpen || dragging) return;
     const onGameKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
       const target = event.target;
@@ -245,5 +246,5 @@ export function useGameKeyboardShortcuts({ rootRef, pointerPosition, isSpectator
     };
     window.addEventListener("keydown", onGameKeyDown);
     return () => window.removeEventListener("keydown", onGameKeyDown);
-  }, [isSpectator, state.started, me?.table, myTable, opponent, state.deckRequest, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, pointerPosition, rootRef, setAttachingUid, setCombatSelection, setDeckMenu, setDeckSearchQuery, setInspectedCard, setMenu, setOpenSlot, setOpenZone, setPeekedUids, setTargetingUid, setOwnHandExpanded]);
+  }, [isSpectator, state.started, me?.table, myTable, opponent, state.deckRequest, menu, deckMenu, CARD_KEYS, DECK_KEYS, FRAGMENT_KEYS, COUNTER_KEYS, shortcutSettingsOpen, gameMenuOpen, dragging, pointerPosition, rootRef, setAttachingUid, setCombatSelection, setDeckMenu, setDeckSearchQuery, setInspectedCard, setMenu, setOpenSlot, setOpenZone, setPeekedUids, setTargetingUid, setOwnHandExpanded]);
 }
