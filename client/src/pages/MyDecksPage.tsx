@@ -23,6 +23,7 @@ import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, upd
 import ArchiveIcon from "../components/ArchiveIcon";
 import { FACTIONS } from "../domain/deckBuilder";
 import { CHRONICLES } from "../data/chronicles";
+import { readCardData } from "../data/cardDataReader";
 
 export default function MyDecksPage() {
   const location = useLocation();
@@ -172,7 +173,8 @@ export default function MyDecksPage() {
     setPageError(null);
     try {
       if (file.size > 25 * 1024 * 1024) throw new Error("Backup file is too large (maximum 25 MB).");
-      const imported = parseDeckBackup(await file.text());
+      const [json, catalog] = await Promise.all([file.text(), readCardData()]);
+      const imported = parseDeckBackup(json, catalog.filter(card => card.face === 1));
       const count = user ? await importLocalDecks(imported) : mergeLocalDecks(imported);
       setBackupMessage(`${count} deck${count === 1 ? "" : "s"} imported. Existing decks and the backup file were kept.`);
       refresh();

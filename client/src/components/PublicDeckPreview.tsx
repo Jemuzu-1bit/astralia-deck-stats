@@ -23,7 +23,7 @@ export default function PublicDeckPreview({ deck, onClose, onImport, importDisab
     let active = true;
     setLoading(true);
     setLoadError(false);
-    const ids = [...new Set([...(deck.protagonist ? [deck.protagonist] : []), ...deck.persona, ...deck.deck.map(entry => entry.id)])];
+    const ids = [...new Set([...(deck.protagonist ? [deck.protagonist] : []), ...deck.persona, ...deck.deck.map(entry => entry.id), ...(deck.sideboard ?? []).map(entry => entry.id)])];
     void Promise.all(ids.map(async id => [id, (await getCardFaces(id)).front] as const)).then(entries => {
       if (active) setCatalog(new Map(entries.filter((entry): entry is readonly [string, Card] => Boolean(entry[1]))));
     }).catch(() => { if (active) setLoadError(true); }).finally(() => { if (active) setLoading(false); });
@@ -33,6 +33,7 @@ export default function PublicDeckPreview({ deck, onClose, onImport, importDisab
     { name: "Protagonist", entries: deck.protagonist ? [{ id: deck.protagonist, qty: 1 }] : [] },
     { name: "Persona", entries: deck.persona.map(id => ({ id, qty: 1 })) },
     { name: "Main deck", entries: deck.deck },
+    ...(deck.sideboard?.length ? [{ name: "Sideboard", entries: deck.sideboard }] : []),
   ];
   return <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={modal} className={styles.preview} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>

@@ -43,8 +43,12 @@ test("untrusted public profile URLs reject executable schemes and credentials", 
   assert.equal(safeProfileUrl("https://example.com/player"), "https://example.com/player");
 });
 
-test("imported public decks preserve their description without copying discussion metadata", () => {
-  const copied = privateDeckCopy({ ...source, description: "A strategy\nwith two lines", comments: [{ body: "Feedback" }] });
+test("imported public decks preserve their description and sideboard without copying discussion metadata", () => {
+  const sideboard = [{ id: "card", qty: 1 }];
+  const copied = privateDeckCopy({ ...source, sideboard, description: "A strategy\nwith two lines", comments: [{ body: "Feedback" }] });
   assert.equal(copied.description, "A strategy\nwith two lines");
+  assert.deepEqual(copied.sideboard, sideboard);
+  copied.sideboard[0].qty = 2;
+  assert.equal(sideboard[0].qty, 1);
   assert.equal(copied.comments, undefined);
 });

@@ -10,7 +10,7 @@ type DeckRow = {
   description: string;
   faction: string;
   protagonist_id: string | null;
-  content: { persona: string[]; deck: Deck["deck"] };
+  content: Pick<Deck, "persona" | "deck" | "sideboard">;
   background_image_path: string | null;
   updated_at: string;
   revision: number;
@@ -47,6 +47,7 @@ async function mapRow(row: DeckRow): Promise<Deck> {
     protagonist: row.protagonist_id,
     persona: row.content.persona,
     deck: row.content.deck,
+    sideboard: row.content.sideboard,
     backgroundImage,
     updatedAt: Date.parse(row.updated_at),
     revision: row.revision,
@@ -92,7 +93,7 @@ export async function createCloudDeck(input: DeckInput, importKey?: string): Pro
     description: input.description ?? "",
     faction: input.faction,
     protagonist_id: input.protagonist ?? null,
-    content: { persona: input.persona, deck: input.deck },
+    content: { persona: input.persona, deck: input.deck, sideboard: input.sideboard },
     background_image_path: path,
   }).select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();
   if (error) {
@@ -138,7 +139,7 @@ export async function updateCloudDeck(deck: Deck): Promise<Deck> {
     description: deck.description ?? "",
     faction: deck.faction,
     protagonist_id: deck.protagonist ?? null,
-    content: { persona: deck.persona, deck: deck.deck },
+    content: { persona: deck.persona, deck: deck.deck, sideboard: deck.sideboard },
     background_image_path: newPath,
   }).eq("id", deck.id).eq("owner_id", user.id).eq("revision", deck.revision!)
     .select("id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, revision, visibility, published_at").single();

@@ -11,6 +11,7 @@ export interface Deck {
   protagonist?: string | null;
   persona: string[];
   deck: DeckEntry[];
+  sideboard?: DeckEntry[];
   backgroundImage?: string | null;
   updatedAt: number;
   revision?: number;

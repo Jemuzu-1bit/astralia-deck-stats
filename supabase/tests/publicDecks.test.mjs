@@ -10,6 +10,29 @@ const runtime = process.env.PUBLIC_DECKS_TEST_RUNTIME;
 if (!runtime) throw new Error("Set PUBLIC_DECKS_TEST_RUNTIME to the npm prefix containing @electric-sql/pglite.");
 const { PGlite } = await import(pathToFileURL(join(runtime, "node_modules/@electric-sql/pglite/dist/index.js")).href);
 
+test("deck content validates all sideboard copies without capping its size", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(await readFile(new URL("../migrations/202611200002_deck_sideboard.sql", import.meta.url), "utf8"));
+    const valid = async (content) => (await db.query("select public.valid_deck_content($1) as valid", [JSON.stringify(content)])).rows[0].valid;
+    const mainPrint = "apx_01_001_a_n";
+    const sidePrint = "apx_01_001_b_n";
+    const content = { persona: [], deck: [{ id: mainPrint, qty: 1 }] };
+    const sideboard = [
+      { id: sidePrint, qty: 3 },
+      ...Array.from({ length: 500 }, (_, i) => ({ id: `card-${i}-${"x".repeat(85)}`, qty: 1 })),
+    ];
+    assert.equal(await valid(content), true);
+    assert.equal(await valid({ ...content, sideboard }), true);
+    assert.equal(await valid({ ...content, sideboard: null }), false);
+    assert.equal(await valid({ ...content, sideboard: [...sideboard, { id: mainPrint, qty: 1 }] }), false);
+    assert.equal(await valid({ ...content, sideboard: [...sideboard, { id: sidePrint, qty: 1 }] }), false);
+    assert.equal(await valid({ persona: [], deck: Array.from({ length: 23 }, (_, i) => ({ id: `main-${i}`, qty: 2 })), sideboard }), false);
+  } finally {
+    await db.close();
+  }
+});
+
 test("public deck and author lifecycle enforces ownership and privacy in Postgres", async () => {
   const db = new PGlite();
   const author = "10000000-0000-4000-8000-000000000001";
@@ -43,7 +66,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     await db.query("insert into auth.users values ($1, 'secret@example.com', $2), ($3, 'reader@example.com', '{}')", [
       author, JSON.stringify({ full_name: "Deck author", player_profile: { bio: "My strategy", favoriteChronicle: "blue" } }), reader,
     ]);
-    for (const migration of ["202611170001_decks.sql", "202611170002_public_profiles.sql", "202611170003_deck_discussions.sql"]) {
+    for (const migration of ["202611170001_decks.sql", "202611170002_public_profiles.sql", "202611170003_deck_discussions.sql", "202611200002_deck_sideboard.sql", "202611200003_persona_sideboard.sql"]) {
       await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), "utf8"));
     }
     const ownProfile = await asRole("authenticated", author, "select * from public.player_profiles");
@@ -54,6 +77,9 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("anon", null, "select * from public.player_profiles")).length, 0);
     await asRole("authenticated", author, `insert into public.decks(id, owner_id, name, faction, background_image_path, description)
       values ($1, $2, 'Strategy', 'blue', $3, 'Private strategy notes')`, [deckId, author, background]);
+    await assert.rejects(asRole("authenticated", author, "update public.decks set content = $1 where id = $2", [
+      JSON.stringify({ persona: ["persona-card"], deck: [], sideboard: [{ id: "PERSONA-CARD", qty: 1 }] }), deckId,
+    ]), /decks_persona_sideboard_exclusive/);
     assert.equal((await asRole("authenticated", author, "select description from public.decks where id = $1", [deckId]))[0].description, "Private strategy notes");
     await assert.rejects(asRole("authenticated", author, "update public.decks set description = $1 where id = $2", ["x".repeat(5001), deckId]), /check constraint/);
     await db.query("insert into storage.objects values ('deck-backgrounds', $1)", [background]);

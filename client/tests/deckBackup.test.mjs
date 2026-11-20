@@ -49,3 +49,23 @@ test("invalid and duplicate backups are rejected before importing", () => {
   assert.throws(() => parseDeckBackup(serializeDeckBackup([oldDeck, oldDeck])), /same deck ID/);
   assert.throws(() => parseDeckBackup(JSON.stringify([{ ...oldDeck, deck: [{ id: "x", qty: 50 }] }])), /unsupported format/);
 });
+
+test("backups preserve large sideboards and enforce the combined copy limit", () => {
+  const deck = {
+    ...oldDeck,
+    deck: [{ id: "apx_01_001_a_n", qty: 1 }],
+    sideboard: [{ id: "apx_01_001_b_n", qty: 3 }, ...Array.from({ length: 50 }, (_, i) => ({ id: `card-${i}`, qty: 1 }))],
+  };
+  assert.deepEqual(parseDeckBackup(serializeDeckBackup([deck])), [deck]);
+  deck.sideboard[0].qty = 4;
+  assert.throws(() => parseDeckBackup(serializeDeckBackup([deck])), /unsupported format/);
+});
+
+test("backup restore validates single-copy Persona placement using the catalog", () => {
+  const candidate = { id: "aor_05_005_ex", mainDeck: "Persona" };
+  const deck = { ...oldDeck, sideboard: [{ id: candidate.id, qty: 1 }] };
+  const restore = (value) => parseDeckBackup(serializeDeckBackup([value]), [candidate]);
+  assert.deepEqual(restore(deck), [deck]);
+  assert.throws(() => restore({ ...deck, persona: [candidate.id] }), /unsupported format/);
+  assert.throws(() => restore({ ...deck, sideboard: [{ id: candidate.id, qty: 2 }] }), /unsupported format/);
+});

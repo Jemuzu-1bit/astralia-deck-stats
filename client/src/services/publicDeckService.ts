@@ -1,12 +1,13 @@
 import { supabase } from "./supabaseClient";
 import { privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicProfile } from "../domain/publicDecks";
+import type { Deck } from "../types/Deck";
 
 const PAGE_SIZE = 24;
 const COLUMNS = "id, owner_id, name, description, faction, protagonist_id, content, background_image_path, updated_at, published_at";
 type ProfileRow = { id: string; name: string; avatar: string; bio: string; favorite_chronicle: string; website: string };
 type PublicRow = {
   id: string; owner_id: string; name: string; description: string; faction: string; protagonist_id: string | null;
-  content: { persona: string[]; deck: { id: string; qty: number }[] };
+  content: Pick<Deck, "persona" | "deck" | "sideboard">;
   background_image_path: string | null; updated_at: string; published_at: string;
 };
 
@@ -56,7 +57,7 @@ export async function listPublicDecks({ search = "", faction = "", ownerId, page
     }
     return { id: row.id, ownerId: row.owner_id, author: byId.get(row.owner_id) ?? null,
       name: row.name, description: row.description, faction: row.faction, protagonist: row.protagonist_id,
-      persona: row.content.persona, deck: row.content.deck, backgroundImage,
+      persona: row.content.persona, deck: row.content.deck, sideboard: row.content.sideboard, backgroundImage,
       updatedAt: Date.parse(row.updated_at), publishedAt: Date.parse(row.published_at), visibility: "public" };
   }));
   return { decks, hasMore: data.length > PAGE_SIZE };
@@ -70,5 +71,6 @@ export async function fetchPublicDeckCopy(id: string) {
   if (!data) throw new Error("This deck is no longer public. Refresh the collection.");
   const row = data as PublicRow;
   return privateDeckCopy({ id: row.id, name: row.name, description: row.description, faction: row.faction,
-    protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck, updatedAt: 0 });
+    protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck,
+    sideboard: row.content.sideboard, updatedAt: 0 });
 }

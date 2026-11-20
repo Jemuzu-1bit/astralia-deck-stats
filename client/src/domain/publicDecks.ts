@@ -25,6 +25,7 @@ export function privateDeckCopy(deck: Deck): Omit<Deck, "id" | "updatedAt"> {
     protagonist: deck.protagonist ?? null,
     persona: [...deck.persona],
     deck: deck.deck.map(entry => ({ id: entry.id, qty: entry.qty })),
+    ...(deck.sideboard?.length ? { sideboard: deck.sideboard.map(({ id, qty }) => ({ id, qty })) } : {}),
     backgroundImage: null,
     visibility: "private",
     publishedAt: null,

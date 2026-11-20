@@ -8,7 +8,8 @@ export const CARDS_PER_DECK = 45;
 export const PERSONA_LIMIT = 5;
 export const COPIES_PER_CARD = 4;
 
-export type DeckSection = "protagonist" | "persona" | "deck";
+export type DeckCardSection = "persona" | "deck" | "sideboard";
+export type DeckSection = "protagonist" | DeckCardSection;
 
 export interface SelectedCard {
   card: Card;
@@ -16,6 +17,7 @@ export interface SelectedCard {
 }
 
 export type CardSelection = Record<string, SelectedCard>;
+export type DeckCardSelections = Record<DeckCardSection, CardSelection>;
 
 export interface CardFilterValues {
   searchText: string;
@@ -31,7 +33,27 @@ export const SECTION_LIMITS: Record<DeckSection, number> = {
   protagonist: 1,
   persona: PERSONA_LIMIT,
   deck: CARDS_PER_DECK,
+  sideboard: Infinity,
 };
+
+export const SECTION_LABELS: Record<DeckSection, string> = {
+  protagonist: "Protagonist",
+  persona: "Persona Deck",
+  deck: "Main Deck",
+  sideboard: "Sideboard",
+};
+
+export function getCardDeckSection(card: Pick<Card, "mainDeck">): Exclude<DeckSection, "sideboard"> | undefined {
+  switch (card.mainDeck?.toLowerCase()) {
+    case "protagonist": return "protagonist";
+    case "persona": return "persona";
+    case "deck": return "deck";
+  }
+}
+
+export function getDeckCardCopyLimit(card: Pick<Card, "mainDeck">): number {
+  return getCardDeckSection(card) === "persona" ? 1 : COPIES_PER_CARD;
+}
 
 export function countSelectedCards(selection: CardSelection): number {
   return Object.values(selection).reduce((total, item) => total + item.qty, 0);
@@ -71,6 +93,39 @@ export function addToSelection(
   return Object.fromEntries(entries);
 }
 
+export function otherDeckSection(section: DeckCardSection, card: Card): DeckCardSection | undefined {
+  const home = getCardDeckSection(card);
+  if (home !== "deck" && home !== "persona") return;
+  if (section === "sideboard") return home;
+  if (section === home) return "sideboard";
+}
+
+export function canAddDeckCard(selections: DeckCardSelections, section: DeckCardSection, card: Card): boolean {
+  const home = getCardDeckSection(card);
+  if ((home !== "deck" && home !== "persona") || (section !== home && section !== "sideboard")) return false;
+  return countSelectedCards(selections[section]) < SECTION_LIMITS[section]
+    && countCardIdentity(selections[home], card) + countCardIdentity(selections.sideboard, card) < getDeckCardCopyLimit(card);
+}
+
+export function addDeckCard(
+  selections: DeckCardSelections,
+  section: DeckCardSection,
+  card: Card,
+  insertionIndex?: number,
+): DeckCardSelections {
+  if (!canAddDeckCard(selections, section, card)) return selections;
+  const selection = addToSelection(selections[section], card, SECTION_LIMITS[section], getDeckCardCopyLimit(card), insertionIndex);
+  return { ...selections, [section]: selection };
+}
+
+export function transferDeckCard(selections: DeckCardSelections, from: DeckCardSection, card: Card, insertionIndex?: number): DeckCardSelections {
+  const to = otherDeckSection(from, card);
+  if (!to || !selections[from][card.id]) return selections;
+  const removed = { ...selections, [from]: removeFromSelection(selections[from], card) };
+  const moved = addDeckCard(removed, to, card, insertionIndex);
+  return moved === removed ? selections : moved;
+}
+
 export function removeFromSelection(
   selection: CardSelection,
   card: Card
@@ -93,11 +148,11 @@ export function removeFromSelection(
 export function moveSelectedCard(
   selection: CardSelection,
   cardId: string,
-  targetId: string
+  target: string | number,
 ): CardSelection {
   const entries = Object.entries(selection);
   const from = entries.findIndex(([id]) => id === cardId);
-  const to = entries.findIndex(([id]) => id === targetId);
+  const to = typeof target === "number" ? Math.min(target, entries.length - 1) : entries.findIndex(([id]) => id === target);
   if (from < 0 || to < 0 || from === to) return selection;
 
   const [entry] = entries.splice(from, 1);
@@ -177,6 +232,7 @@ export function buildDeckPayload({
   protagonist,
   persona,
   deck,
+  sideboard = {},
   backgroundImage,
 }: {
   name: string;
@@ -185,16 +241,19 @@ export function buildDeckPayload({
   protagonist: SelectedCard | null;
   persona: CardSelection;
   deck: CardSelection;
+  sideboard?: CardSelection;
   backgroundImage: string | null;
 }): Omit<Deck, "id" | "updatedAt"> {
-  const remainingByIdentity = new Map<string, number>();
-  const deckEntries = Object.values(deck).flatMap((item) => {
+  const remainingByIdentity = new Map(Object.values(persona).map(({ card }) => [getCardIdentity(card), 0]));
+  const toEntries = (selection: CardSelection) => Object.values(selection).flatMap((item) => {
     const identity = getCardIdentity(item.card);
-    const remaining = remainingByIdentity.get(identity) ?? COPIES_PER_CARD;
+    const remaining = remainingByIdentity.get(identity) ?? getDeckCardCopyLimit(item.card);
     const qty = Math.min(item.qty, remaining);
     remainingByIdentity.set(identity, remaining - qty);
     return qty > 0 ? [{ id: item.card.id, qty }] : [];
   });
+  const deckEntries = toEntries(deck);
+  const sideboardEntries = toEntries(sideboard);
 
   return {
     name: name.trim() || "New Deck",
@@ -203,6 +262,7 @@ export function buildDeckPayload({
     protagonist: protagonist?.card.id ?? null,
     persona: Object.values(persona).map((item) => item.card.id),
     deck: deckEntries,
+    ...(sideboardEntries.length ? { sideboard: sideboardEntries } : {}),
     backgroundImage,
   };
 }

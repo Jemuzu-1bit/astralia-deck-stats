@@ -9,7 +9,7 @@ globalThis.fetch = async (url) => {
   assert.equal(url, "/data/cards.csv");
   return new Response(csv);
 };
-test("official share links keep new AOR card IDs and copies", async () => {
+test("official share links keep main deck cards and omit the sideboard", async () => {
   const deck = {
     id: "saved-deck",
     name: "New AOR cards",
@@ -17,6 +17,7 @@ test("official share links keep new AOR card IDs and copies", async () => {
     protagonist: "aor_05_001_ex",
     persona: ["aor_05_004_ex"],
     deck: [{ id: "aor_05_037_n", qty: 2 }, { id: "aor_05_014_n", qty: 3 }],
+    sideboard: [{ id: "aor_05_037_n", qty: 2 }],
     updatedAt: 1,
   };
   const link = await exportDeck(deck);

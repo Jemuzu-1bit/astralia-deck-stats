@@ -2,11 +2,26 @@ import { useState, useEffect } from "react";
 import { getCardIdentity } from "../data/cardDataReader";
 import { getCardFaces } from "../services/cardDataService";
 import type { Card } from "../types/Card";
-import type { Deck } from "../types/Deck";
+import type { Deck, DeckEntry } from "../types/Deck";
 import { createDeck, updateDeck } from "../services/deckService";
-import { addToSelection, buildDeckPayload, COPIES_PER_CARD, moveSelectedCard, removeFromSelection, SECTION_LIMITS, type CardSelection, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
-import { useCardFilters } from "../hooks/useCardFilters";
+import { addDeckCard, buildDeckPayload, canAddDeckCard, getCardDeckSection, getDeckCardCopyLimit, moveSelectedCard, otherDeckSection, removeFromSelection, transferDeckCard, type CardSelection, type DeckCardSection, type DeckCardSelections, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
+
+function loadSelection(section: DeckCardSection, entries: DeckEntry[], faces: { front?: Card }[], copiesByIdentity: Map<string, number>): CardSelection {
+  const selection: CardSelection = {};
+  faces.forEach(({ front }, index) => {
+    if (!front) return;
+    const home = getCardDeckSection(front);
+    if ((home !== "deck" && home !== "persona") || (section !== home && section !== "sideboard")) return;
+    const identity = getCardIdentity(front);
+    const copies = copiesByIdentity.get(identity) ?? 0;
+    const qty = Math.min(getDeckCardCopyLimit(front) - copies, entries[index].qty);
+    if (qty <= 0) return;
+    selection[front.id] = { card: front, qty: (selection[front.id]?.qty ?? 0) + qty };
+    copiesByIdentity.set(identity, copies + qty);
+  });
+  return selection;
+}
 
 export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
   const [loadingDeck, setLoadingDeck] = useState(Boolean(initialDeck));
@@ -28,15 +43,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
 
   const [protagonistSelection, setProtagonistSelection] =
     useState<SelectedCard | null>(null);
-  const [personaSelectionMap, setPersonaSelectionMap] =
-    useState<CardSelection>({});
-  const [deckSelectionMap, setDeckSelectionMap] =
-    useState<CardSelection>({});
-  const [editing, setEditing] = useState<Record<DeckSection, boolean>>({
-    protagonist: false,
-    persona: false,
-    deck: false,
-  });
+  const [deckSelections, setDeckSelections] = useState<DeckCardSelections>({ persona: {}, deck: {}, sideboard: {} });
 
   const [detailCard, setDetailCard] = useState<Card | null>(null);
   const openCardDetails = (card: Card) => setDetailCard(card);
@@ -70,36 +77,26 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
       };
 
     const tryPrefill = async () => {
-      const [protagonistFaces, personaFaces, deckFaces] = await Promise.all([
+      const sideboard = initialDeck.sideboard ?? [];
+      const [protagonistFaces, personaFaces, deckFaces, sideboardFaces] = await Promise.all([
         initialDeck.protagonist
           ? getCardFaces(initialDeck.protagonist)
           : Promise.resolve<{ front?: Card; back?: Card }>({}),
         Promise.all(initialDeck.persona.map(getCardFaces)),
         Promise.all(initialDeck.deck.map((entry) => getCardFaces(entry.id))),
+        Promise.all(sideboard.map((entry) => getCardFaces(entry.id))),
       ]);
       if (!active) return;
 
       setProtagonistSelection(
         protagonistFaces.front ? { card: protagonistFaces.front, qty: 1 } : null
       );
-      const pMap: CardSelection = {};
-      for (const { front } of personaFaces) {
-        if (front) pMap[front.id] = { card: front, qty: 1 };
-      }
-      const dMap: CardSelection = {};
-      deckFaces.forEach(({ front }, index) => {
-        if (!front) return;
-        const existing = dMap[front.id];
-        dMap[front.id] = {
-          card: front,
-          qty: Math.min(
-            COPIES_PER_CARD,
-            (existing?.qty ?? 0) + initialDeck.deck[index].qty
-          ),
-        };
+      const copiesByIdentity = new Map<string, number>();
+      setDeckSelections({
+        persona: loadSelection("persona", initialDeck.persona.map(id => ({ id, qty: 1 })), personaFaces, copiesByIdentity),
+        deck: loadSelection("deck", initialDeck.deck, deckFaces, copiesByIdentity),
+        sideboard: loadSelection("sideboard", sideboard, sideboardFaces, copiesByIdentity),
       });
-      setDeckSelectionMap(dMap);
-      setPersonaSelectionMap(pMap);
       setBackgroundImage(initialDeck.backgroundImage ?? null);
     };
     setLoadingDeck(true);
@@ -112,27 +109,18 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
     };
   }, [initialDeck, selectedFaction]);
 
-  const toggleEdit = (section: DeckSection) => {
-    setEditing((prev) => ({ ...prev, [section]: !prev[section] }));
+  const canAddCard = (section: DeckSection, card: Card) => {
+    if (section === "protagonist") return getCardDeckSection(card) === "protagonist"
+      && (!protagonistSelection || getCardIdentity(protagonistSelection.card) !== getCardIdentity(card));
+    return canAddDeckCard(deckSelections, section, card);
   };
-
-  const protagonistFilters = useCardFilters();
-  const personaFilters = useCardFilters();
-  const deckFilters = useCardFilters();
 
   const addCard = (section: DeckSection, card: Card, insertionIndex?: number) => {
     if (section === "protagonist") {
-      setProtagonistSelection({ card, qty: 1 });
+      if (getCardDeckSection(card) === section) setProtagonistSelection({ card, qty: 1 });
       return;
     }
-
-    const updateSelection = section === "persona"
-      ? setPersonaSelectionMap
-      : setDeckSelectionMap;
-    const identityLimit = section === "persona" ? 1 : COPIES_PER_CARD;
-    updateSelection((current) =>
-      addToSelection(current, card, SECTION_LIMITS[section], identityLimit, insertionIndex)
-    );
+    setDeckSelections(current => addDeckCard(current, section, card, insertionIndex));
   };
 
   const removeCard = (section: DeckSection, card: Card) => {
@@ -145,17 +133,17 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
       return;
     }
 
-    const updateSelection = section === "persona"
-      ? setPersonaSelectionMap
-      : setDeckSelectionMap;
-    updateSelection((current) => removeFromSelection(current, card));
+    setDeckSelections(current => ({ ...current, [section]: removeFromSelection(current[section], card) }));
   };
 
-  const moveCard = (section: "persona" | "deck", cardId: string, targetId: string) => {
-    const updateSelection = section === "persona"
-      ? setPersonaSelectionMap
-      : setDeckSelectionMap;
-    updateSelection((current) => moveSelectedCard(current, cardId, targetId));
+  const moveCard = (from: DeckCardSection, to: DeckCardSection, card: Card, insertionIndex: number) => {
+    setDeckSelections(current => {
+      if (from === to) {
+        const ordered = moveSelectedCard(current[from], card.id, insertionIndex);
+        return ordered === current[from] ? current : { ...current, [from]: ordered };
+      }
+      return otherDeckSection(from, card) === to ? transferDeckCard(current, from, card, insertionIndex) : current;
+    });
   };
 
   const handleSave = async () => {
@@ -170,8 +158,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
       description,
       faction: selectedFaction,
       protagonist: protagonistSelection,
-      persona: personaSelectionMap,
-      deck: deckSelectionMap,
+      ...deckSelections,
       backgroundImage,
     });
     setSaving(true);
@@ -191,5 +178,5 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
     }
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, personaSelectionMap, deckSelectionMap, editing, detailCard, openCardDetails, closeCardDetails, protagonistFilters, personaFilters, deckFilters, toggleEdit, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
 }
