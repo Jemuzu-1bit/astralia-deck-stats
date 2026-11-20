@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { PublicDeck } from "../domain/publicDecks";
 import type { Card } from "../types/Card";
@@ -9,35 +9,38 @@ import CardDisplay from "./CardDisplay";
 import DeckDiscussion from "./DeckDiscussion";
 import styles from "./PublicDeckCollection.module.scss";
 
-export default function PublicDeckPreview({ deck, onClose, onImport, importDisabled, importing, error, imported }: {
+export default function PublicDeckPreview({ deck, onClose, onImport, importDisabled, importing, error, imported, children }: {
   deck: PublicDeck; onClose: () => void; onImport: () => void; importDisabled: boolean;
   importing: boolean; error: string | null; imported: { id: string; name: string } | null;
+  children: ReactNode;
 }) {
   const [catalog, setCatalog] = useState<Map<string, Card>>(new Map());
   const [detail, setDetail] = useState<Card | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const modal = useRef<HTMLDivElement>(null);
+  const { protagonist, persona, deck: mainDeck, sideboard } = deck;
   useModalFocus(modal, Boolean(detail));
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError(false);
-    const ids = [...new Set([...(deck.protagonist ? [deck.protagonist] : []), ...deck.persona, ...deck.deck.map(entry => entry.id), ...(deck.sideboard ?? []).map(entry => entry.id)])];
+    const ids = [...new Set([...(protagonist ? [protagonist] : []), ...persona, ...mainDeck.map(entry => entry.id), ...(sideboard ?? []).map(entry => entry.id)])];
     void Promise.all(ids.map(async id => [id, (await getCardFaces(id)).front] as const)).then(entries => {
       if (active) setCatalog(new Map(entries.filter((entry): entry is readonly [string, Card] => Boolean(entry[1]))));
     }).catch(() => { if (active) setLoadError(true); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [deck]);
+  }, [protagonist, persona, mainDeck, sideboard]);
   const sections = [
-    { name: "Protagonist", entries: deck.protagonist ? [{ id: deck.protagonist, qty: 1 }] : [] },
-    { name: "Persona", entries: deck.persona.map(id => ({ id, qty: 1 })) },
-    { name: "Main deck", entries: deck.deck },
-    ...(deck.sideboard?.length ? [{ name: "Sideboard", entries: deck.sideboard }] : []),
+    { name: "Protagonist", entries: protagonist ? [{ id: protagonist, qty: 1 }] : [] },
+    { name: "Persona", entries: persona.map(id => ({ id, qty: 1 })) },
+    { name: "Main deck", entries: mainDeck },
+    ...(sideboard?.length ? [{ name: "Sideboard", entries: sideboard }] : []),
   ];
   return <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={modal} className={styles.preview} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>
       <header><div><h2 id="public-deck-title">{deck.name}</h2><Link className={styles.author} to={`/players/${deck.ownerId}`} onClick={onClose}>By {deck.author?.name || "Player"} →</Link></div><button onClick={onClose} aria-label="Close deck preview">Close</button></header>
+      {children}
       <section className={styles.description} aria-label="Deck description"><h3>About this deck</h3><p>{deck.description || "The creator has not added a description yet."}</p></section>
       {loading && <p role="status">Loading cards...</p>}
       {loadError && <p role="alert">Card details could not be loaded. Card IDs are shown below.</p>}

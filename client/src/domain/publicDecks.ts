@@ -10,7 +10,26 @@ export type PublicProfile = {
   website: string;
 };
 
-export type PublicDeck = Deck & { ownerId: string; author: PublicProfile | null };
+export type PublicDeckEngagement = {
+  likeCount: number;
+  viewCount: number;
+  importCount: number;
+  likedByViewer: boolean;
+};
+
+export type PublicDeck = Deck & PublicDeckEngagement & { ownerId: string; author: PublicProfile | null };
+
+export const PUBLIC_DECK_SORTS = {
+  newest: { column: "published_at", ascending: false, label: "Newest first" },
+  mostLikes: { column: "like_count", ascending: false, label: "Most likes" },
+  fewestLikes: { column: "like_count", ascending: true, label: "Fewest likes" },
+  mostViews: { column: "view_count", ascending: false, label: "Most views" },
+  fewestViews: { column: "view_count", ascending: true, label: "Fewest views" },
+  mostImports: { column: "import_count", ascending: false, label: "Most imports" },
+  fewestImports: { column: "import_count", ascending: true, label: "Fewest imports" },
+} as const;
+
+export type PublicDeckSort = keyof typeof PUBLIC_DECK_SORTS;
 
 export function safeProfileUrl(value: string): string {
   try { return profileWebsite(value); } catch { return ""; }

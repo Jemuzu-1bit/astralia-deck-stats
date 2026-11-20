@@ -66,9 +66,32 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     await db.query("insert into auth.users values ($1, 'secret@example.com', $2), ($3, 'reader@example.com', '{}')", [
       author, JSON.stringify({ full_name: "Deck author", player_profile: { bio: "My strategy", favoriteChronicle: "blue" } }), reader,
     ]);
-    for (const migration of ["202611170001_decks.sql", "202611170002_public_profiles.sql", "202611170003_deck_discussions.sql", "202611200002_deck_sideboard.sql", "202611200003_persona_sideboard.sql"]) {
+    for (const migration of ["202611170001_decks.sql", "202611170002_public_profiles.sql", "202611170003_deck_discussions.sql", "202611200002_deck_sideboard.sql", "202611200003_persona_sideboard.sql", "202611200004_public_deck_engagement.sql"]) {
       await db.exec(await readFile(new URL(`../migrations/${migration}`, import.meta.url), "utf8"));
     }
+
+    const legacyDeckId = "31000000-0000-4000-8000-000000000003";
+    const legacyCopyId = "41000000-0000-4000-8000-000000000004";
+    await asRole("authenticated", author, `insert into public.decks(id, owner_id, name, faction, visibility)
+      values ($1, $2, 'Existing strategy', 'blue', 'public')`, [legacyDeckId, author]);
+    const setLegacyLike = id => asRole("authenticated", id, "select public.set_public_deck_like($1, true) as count", [legacyDeckId]);
+    assert.deepEqual(await setLegacyLike(author), [{ count: 1 }]);
+    assert.deepEqual(await setLegacyLike(reader), [{ count: 2 }]);
+    await asRole("authenticated", author, "select public.record_public_deck_view($1)", [legacyDeckId]);
+    const legacyCopy = [{ id: legacyCopyId, name: "Existing strategy", import_count: 1 }];
+    const importLegacy = () => asRole("authenticated", author,
+      "select * from public.import_public_deck($1, $2)", [legacyDeckId, legacyCopyId]);
+    assert.deepEqual(await importLegacy(), legacyCopy);
+    const upgrade = await readFile(new URL("../migrations/202611210001_exclude_public_deck_author_activity.sql", import.meta.url), "utf8");
+    await db.exec(upgrade);
+    await db.exec(upgrade);
+    assert.deepEqual(await asRole("authenticated", reader, `select like_count, view_count, import_count, liked_by_viewer
+      from public.published_decks where id = $1`, [legacyDeckId]), [
+      { like_count: 1, view_count: 1, import_count: 1, liked_by_viewer: true },
+    ]);
+    assert.deepEqual(await importLegacy(), legacyCopy);
+    await asRole("authenticated", author, "delete from public.decks where id in ($1, $2)", [legacyDeckId, legacyCopyId]);
+
     const ownProfile = await asRole("authenticated", author, "select * from public.player_profiles");
     assert.equal(ownProfile.length, 1);
     assert.equal(ownProfile[0].name, "Deck author");
@@ -88,14 +111,78 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("anon", null, "select * from storage.objects")).length, 0);
     await assert.rejects(asRole("authenticated", reader,
       "insert into public.decks(owner_id, name, faction) values ($1, 'Forged', 'blue')", [author]), /row-level security/);
+    const deckContent = { persona: ["persona-card"], deck: [{ id: "main-card", qty: 2 }], sideboard: [{ id: "side-card", qty: 1 }] };
     const published = await asRole("authenticated", author,
-      "update public.decks set visibility = 'public', description = 'Public strategy notes' where id = $1 and revision = 1 returning *", [deckId]);
+      `update public.decks set visibility = 'public', description = 'Public strategy notes', content = $2
+      where id = $1 and revision = 1 returning *`, [deckId, JSON.stringify(deckContent)]);
     assert.equal(published[0].revision, 2);
     assert.ok(published[0].published_at);
     assert.equal(published[0].description, "Public strategy notes");
     assert.equal((await asRole("anon", null, "select * from public.decks")).length, 1);
     assert.equal((await asRole("anon", null, "select * from public.player_profiles")).length, 1);
     assert.equal((await asRole("anon", null, "select * from storage.objects")).length, 1);
+
+    const readMetrics = async (role = "anon", id = null) => (await asRole(role, id, `
+      select like_count, view_count, import_count, liked_by_viewer from public.published_decks where id = $1`, [deckId]))[0];
+    assert.deepEqual(await readMetrics(), { like_count: 0, view_count: 0, import_count: 0, liked_by_viewer: false });
+    await assert.rejects(asRole("anon", null, "select public.set_public_deck_like($1, true)", [deckId]), /permission denied/);
+    const setLike = (userId, liked) => asRole("authenticated", userId, "select public.set_public_deck_like($1, $2) as count", [deckId, liked]);
+    await assert.rejects(setLike(author, true), /cannot like your own deck/);
+    assert.deepEqual(await setLike(reader, true), [{ count: 1 }]);
+    assert.deepEqual(await setLike(reader, true), [{ count: 1 }]);
+    assert.deepEqual(await setLike(reader, false), [{ count: 0 }]);
+    assert.deepEqual(await setLike(reader, true), [{ count: 1 }]);
+    await assert.rejects(setLike(author, false), /cannot like your own deck/);
+    assert.equal((await readMetrics("authenticated", reader)).liked_by_viewer, true);
+    assert.equal((await readMetrics("authenticated", author)).liked_by_viewer, false);
+    assert.deepEqual(await asRole("authenticated", author, "select * from public.deck_likes"), []);
+    await assert.rejects(asRole("authenticated", author, "update public.deck_engagement set like_count = 999"), /permission denied/);
+    await assert.rejects(asRole("authenticated", author, "select public.increment_deck_import_count($1)", [deckId]), /permission denied/);
+    const viewSql = "select public.record_public_deck_view($1) as count";
+    assert.deepEqual(await asRole("authenticated", author, viewSql, [deckId]), [{ count: 0 }]);
+    assert.deepEqual(await asRole("anon", null, viewSql, [deckId]), [{ count: 1 }]);
+    assert.deepEqual(await asRole("authenticated", reader, viewSql, [deckId]), [{ count: 2 }]);
+    assert.deepEqual(await asRole("authenticated", author, viewSql, [deckId]), [{ count: 2 }]);
+
+    const cloudCopyId = "80000000-0000-4000-8000-000000000008";
+    const copySql = "select * from public.import_public_deck($1, $2)";
+    await assert.rejects(asRole("anon", null, copySql, [deckId, cloudCopyId]), /permission denied/);
+    await assert.rejects(asRole("authenticated", reader, copySql, [deckId, deckId]), /no rows/);
+    const authorCopyId = "81000000-0000-4000-8000-000000000008";
+    const authorCopy = [{ id: authorCopyId, name: "Strategy", import_count: 0 }];
+    assert.deepEqual(await asRole("authenticated", author, copySql, [deckId, authorCopyId]), authorCopy);
+    assert.deepEqual(await asRole("authenticated", author, copySql, [deckId, authorCopyId]), authorCopy);
+    assert.deepEqual(await asRole("authenticated", author, "select visibility from public.decks where id = $1", [authorCopyId]), [{ visibility: "private" }]);
+    const localCopySql = "select public.record_local_public_deck_import($1, $2) as count";
+    assert.deepEqual(await asRole("authenticated", author, localCopySql, [deckId, copiedId]), [{ count: 0 }]);
+    assert.equal((await readMetrics()).import_count, 0);
+    const cloudCopy = [{ id: cloudCopyId, name: "Strategy", import_count: 1 }];
+    assert.deepEqual(await asRole("authenticated", reader, copySql, [deckId, cloudCopyId]), cloudCopy);
+    assert.deepEqual(await asRole("authenticated", reader, copySql, [deckId, cloudCopyId]), cloudCopy);
+    assert.deepEqual(await asRole("authenticated", reader, `select owner_id, visibility, description, background_image_path, content
+      from public.decks where id = $1`, [cloudCopyId]), [
+      { owner_id: reader, visibility: "private", description: "Public strategy notes", background_image_path: null, content: deckContent },
+    ]);
+    assert.deepEqual(await asRole("anon", null, localCopySql, [deckId, copiedId]), [{ count: 2 }]);
+    assert.deepEqual(await asRole("anon", null, localCopySql, [deckId, copiedId]), [{ count: 2 }]);
+    const secondAuthorCopyId = "82000000-0000-4000-8000-000000000008";
+    assert.deepEqual(await asRole("authenticated", author, copySql, [deckId, secondAuthorCopyId]), [
+      { id: secondAuthorCopyId, name: "Strategy", import_count: 2 },
+    ]);
+    assert.deepEqual(await readMetrics(), { like_count: 1, view_count: 2, import_count: 2, liked_by_viewer: false });
+    assert.deepEqual(await asRole("authenticated", author, "select revision, updated_at from public.decks where id = $1", [deckId]), [
+      { revision: published[0].revision, updated_at: published[0].updated_at },
+    ]);
+    const secondPublicId = "90000000-0000-4000-8000-000000000009";
+    await asRole("authenticated", author, `insert into public.decks(id, owner_id, name, faction, visibility)
+      values ($1, $2, 'New strategy', 'blue', 'public')`, [secondPublicId, author]);
+    for (const column of ["like_count", "view_count", "import_count"]) {
+      const sorted = direction => asRole("anon", null, `select id from public.published_decks order by ${column} ${direction} limit 1`);
+      assert.deepEqual(await sorted("asc"), [{ id: secondPublicId }]);
+      assert.deepEqual(await sorted("desc"), [{ id: deckId }]);
+    }
+    await asRole("authenticated", author, "delete from public.decks where id = $1", [secondPublicId]);
+
     assert.equal((await asRole("authenticated", reader,
       "update public.decks set name = 'Hijacked' where id = $1 returning id", [deckId])).length, 0);
     assert.equal((await asRole("authenticated", reader,
@@ -164,6 +251,11 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
       "update public.decks set visibility = 'private' where id = $1 and revision = 2 returning *", [deckId]);
     assert.equal(withdrawn[0].published_at, null);
     assert.equal(withdrawn[0].revision, 3);
+    assert.equal(await readMetrics("authenticated", author), undefined);
+    await assert.rejects(asRole("anon", null, "select public.record_public_deck_view($1)", [deckId]), /no longer public/);
+    await assert.rejects(asRole("anon", null, localCopySql, [deckId, copiedId]), /no longer public/);
+    await assert.rejects(asRole("authenticated", reader, copySql, [deckId, cloudCopyId]), /no longer public/);
+    await assert.rejects(setLike(reader, false), /no longer public/);
     assert.equal((await asRole("anon", null, "select * from public.decks")).length, 0);
     assert.equal((await asRole("anon", null, "select * from public.player_profiles")).length, 0);
     assert.equal((await asRole("anon", null, "select * from storage.objects")).length, 0);
@@ -174,15 +266,21 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("authenticated", author, deleteComment, [commentId])).length, 0);
     assert.equal((await db.query("select * from public.deck_comments")).rows.length, 3);
     await asRole("authenticated", author, "update public.decks set visibility = 'public' where id = $1", [deckId]);
+    assert.deepEqual(await readMetrics("authenticated", reader), { like_count: 1, view_count: 2, import_count: 2, liked_by_viewer: true });
     assert.equal((await asRole("anon", null, "select * from public.deck_comments")).length, 3);
     assert.deepEqual(await asRole("authenticated", author, deleteComment, [commentId]), [{ id: commentId }]);
     const remaining = await asRole("anon", null, "select * from public.deck_comments order by created_at, id");
     assert.deepEqual(remaining, [{ ...edited, parent_id: null }, discussion[2]]);
+    await asRole("authenticated", reader, "update public.decks set visibility = 'public' where id = $1", [copiedId]);
+    await asRole("authenticated", author, "select public.set_public_deck_like($1, true)", [copiedId]);
     await asRole("authenticated", author, "update public.decks set visibility = 'private' where id = $1", [deckId]);
     assert.equal((await asRole("authenticated", reader, "select * from public.decks where id = $1", [copiedId])).length, 1);
     await db.query("delete from auth.users where id = $1", [author]);
     assert.equal((await db.query("select * from public.player_profiles where id = $1", [author])).rows.length, 0);
     assert.equal((await db.query("select * from public.deck_comments where deck_id = $1", [deckId])).rows.length, 0);
+    assert.equal((await db.query("select * from public.deck_engagement where deck_id = $1", [deckId])).rows.length, 0);
+    assert.equal((await db.query("select * from public.deck_import_receipts where deck_id = $1", [deckId])).rows.length, 0);
+    assert.deepEqual(await asRole("anon", null, "select like_count from public.published_decks where id = $1", [copiedId]), [{ like_count: 0 }]);
     assert.equal((await asRole("authenticated", reader, "select * from public.decks where id = $1", [copiedId])).length, 1);
     await db.query("insert into auth.users values ($1, 'new@example.com', '{}')", [author]);
     assert.equal((await asRole("authenticated", author, "select name from public.player_profiles"))[0].name, "Discord user");

@@ -13,3 +13,25 @@
 .cardPlaceholder { display: grid; place-items: center; aspect-ratio: 5 / 7; padding: 12px; border: 1px solid #34363e; border-radius: 7px; background: #25262e; color: #a5a9b7; font-size: 12px; }
 @media (max-width: 600px) { .overlay { padding: 12px; } .preview { padding: 20px; } .cardGrid { grid-template-columns: repeat(auto-fill, minmax(min(104px, 100%), 1fr)); gap: 16px 12px; } }
 .description { margin-bottom: 24px; padding: 16px; border: 1px solid #34363e; border-radius: 8px; background: #17181d; h3 { margin: 0 0 10px; font-size: 14px; } p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; } }
+.metrics {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 12px;
+  color: #b6bac5;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+
+  > span, .like { display: inline-flex; align-items: center; gap: 4px; }
+  .like {
+    padding: 4px 7px;
+    border: 1px solid #4a4336;
+    border-radius: 4px;
+    background: #ddbd7d08;
+    color: #ddbd7d;
+    font-size: inherit;
+
+    &[aria-pressed="true"] { color: #f1a9b6; border-color: #965768; svg { fill: currentColor; } }
+  }
+}

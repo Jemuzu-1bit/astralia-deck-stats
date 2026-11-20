@@ -1,5 +1,5 @@
 import { supabase } from "./supabaseClient";
-import { privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicProfile } from "../domain/publicDecks";
+import { PUBLIC_DECK_SORTS, privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicDeckSort, type PublicProfile } from "../domain/publicDecks";
 import type { Deck } from "../types/Deck";
 
 const PAGE_SIZE = 24;
@@ -9,6 +9,9 @@ type PublicRow = {
   id: string; owner_id: string; name: string; description: string; faction: string; protagonist_id: string | null;
   content: Pick<Deck, "persona" | "deck" | "sideboard">;
   background_image_path: string | null; updated_at: string; published_at: string;
+};
+type ListedRow = PublicRow & {
+  like_count: number; view_count: number; import_count: number; liked_by_viewer: boolean;
 };
 
 function client() {
@@ -36,17 +39,20 @@ export async function getPublicProfiles(ids: string[]): Promise<Map<string, Publ
   return new Map((data as ProfileRow[]).map(row => [row.id, profile(row)]));
 }
 
-export async function listPublicDecks({ search = "", faction = "", ownerId, page = 0 }: {
-  search?: string; faction?: string; ownerId?: string; page?: number;
+export async function listPublicDecks({ search = "", faction = "", ownerId, page = 0, sort = "newest" }: {
+  search?: string; faction?: string; ownerId?: string; page?: number; sort?: PublicDeckSort;
 } = {}): Promise<{ decks: PublicDeck[]; hasMore: boolean }> {
-  let query = client().from("decks").select(COLUMNS).eq("visibility", "public");
+  let query = client().from("published_decks").select(`${COLUMNS}, like_count, view_count, import_count, liked_by_viewer`);
   if (faction) query = query.eq("faction", faction);
   if (ownerId) query = query.eq("owner_id", ownerId);
   if (search.trim()) query = query.ilike("name", `%${search.trim().replace(/[\\%_]/g, "\\$&")}%`);
-  const { data, error } = await query.order("published_at", { ascending: false }).order("id")
+  const { column, ascending } = PUBLIC_DECK_SORTS[sort];
+  query = query.order(column, { ascending });
+  if (column !== "published_at") query = query.order("published_at", { ascending: false });
+  const { data, error } = await query.order("id")
     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   if (error) throw error;
-  const rows = (data as PublicRow[]).slice(0, PAGE_SIZE);
+  const rows = (data as ListedRow[]).slice(0, PAGE_SIZE);
   if (!rows.length) return { decks: [], hasMore: false };
   const byId = await getPublicProfiles(rows.map(row => row.owner_id));
   const decks = await Promise.all(rows.map(async (row): Promise<PublicDeck> => {
@@ -58,7 +64,8 @@ export async function listPublicDecks({ search = "", faction = "", ownerId, page
     return { id: row.id, ownerId: row.owner_id, author: byId.get(row.owner_id) ?? null,
       name: row.name, description: row.description, faction: row.faction, protagonist: row.protagonist_id,
       persona: row.content.persona, deck: row.content.deck, sideboard: row.content.sideboard, backgroundImage,
-      updatedAt: Date.parse(row.updated_at), publishedAt: Date.parse(row.published_at), visibility: "public" };
+      updatedAt: Date.parse(row.updated_at), publishedAt: Date.parse(row.published_at), visibility: "public",
+      likeCount: row.like_count, viewCount: row.view_count, importCount: row.import_count, likedByViewer: row.liked_by_viewer };
   }));
   return { decks, hasMore: data.length > PAGE_SIZE };
 }
@@ -73,4 +80,34 @@ export async function fetchPublicDeckCopy(id: string) {
   return privateDeckCopy({ id: row.id, name: row.name, description: row.description, faction: row.faction,
     protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck,
     sideboard: row.content.sideboard, updatedAt: 0 });
+}
+
+export async function setPublicDeckLike(id: string, liked: boolean): Promise<number> {
+  const { data, error } = await client().rpc("set_public_deck_like", { p_deck_id: id, p_liked: liked });
+  if (error) throw error;
+  return data;
+}
+
+export async function recordPublicDeckView(id: string): Promise<number> {
+  const { data, error } = await client().rpc("record_public_deck_view", { p_deck_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function importCloudPublicDeck(id: string): Promise<{ id: string; name: string; importCount: number }> {
+  const copyId = crypto.randomUUID();
+  const request = () => client().rpc("import_public_deck", { p_deck_id: id, p_copy_id: copyId }).single();
+  const first = await request();
+  const { data, error } = first.status === 0 ? await request() : first;
+  if (error) throw new Error(error.message);
+  const row = data as { id: string; name: string; import_count: number };
+  return { id: row.id, name: row.name, importCount: row.import_count };
+}
+
+export async function recordLocalPublicDeckImport(id: string, copyId: string): Promise<number> {
+  const request = () => client().rpc("record_local_public_deck_import", { p_deck_id: id, p_copy_id: copyId });
+  const first = await request();
+  const { data, error } = first.status === 0 ? await request() : first;
+  if (error) throw error;
+  return data;
 }
