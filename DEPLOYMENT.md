@@ -23,9 +23,11 @@ carte restano gli stessi.
 
 I comandi e le route sono definiti in `vercel.json`. La Function `api/game.js`
 esporta il server HTTP con Socket.IO e usa una durata massima di 300 secondi.
-Alla chiusura di una connessione il client si riconnette, recupera la sessione e
-riprende le azioni in attesa. Il limite non diventa un limite alla durata della
-partita: lo stato rimane in Redis fino alla scadenza della stanza.
+Dopo 255 secondi il client apre un nuovo WebSocket. Quando il collegamento è
+pronto, Redis trasferisce il posto del giocatore o dello spettatore in un'unica
+operazione. Il client applica lo stato aggiornato, riprende le azioni in attesa
+con lo stesso identificativo e chiude il collegamento precedente. In caso di
+caduta imprevista recupera la sessione tramite la riconnessione automatica.
 
 La build Vercel configura `/api/game/socket.io` come endpoint del client. La build
 locale normale continua a usare `/socket.io`. Rimuovere l'eventuale vecchia
@@ -118,8 +120,9 @@ node --test server/distributed.test.mjs
 ```
 
 Prima del cambio dominio verificare nel deploy di preview: `/api/health`, apertura
-diretta e refresh di `/my-decks`, lobby, partita a due browser, spettatore,
-privacy delle mani e riconnessione dopo oltre cinque minuti.
+diretta e refresh di `/my-decks`, lobby, partita a due browser, spettatore e
+privacy delle mani. Tenere aperta la partita per almeno 15 minuti e giocare
+durante i passaggi automatici per verificare la continuità del tavolo.
 
 Le stanze gia' presenti nella memoria del vecchio server Render non vengono
 trasferite automaticamente: effettuare il passaggio quando non ci sono partite

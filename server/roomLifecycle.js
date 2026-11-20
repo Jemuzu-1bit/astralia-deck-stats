@@ -21,6 +21,12 @@ export function roomExpiresAt(room) {
 // A killed Function cannot leave a player or spectator permanently connected.
 export function maintainRoom(room, now) {
   let changed = false;
+  if (room.handoffs) {
+    for (const [id, handoff] of Object.entries(room.handoffs)) {
+      if (handoff.expiresAt <= now) delete room.handoffs[id];
+    }
+    if (!Object.keys(room.handoffs).length) delete room.handoffs;
+  }
   for (const [id, expiresAt] of Object.entries(room.presence || {})) {
     if (expiresAt > now) continue;
     delete room.presence[id];

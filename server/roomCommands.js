@@ -8,12 +8,14 @@ import { activityContext, appendActivity } from "./activityLog.js";
 
 const MAX_SPECTATORS = 20;
 const TARGET_DURATION_MS = 5 * 1000;
+const HANDOFF_TTL_MS = 30 * 1000;
 
 // Run existing game rules on an isolated snapshot. Effects are delivered only
 // by the store's successful atomic commit; failed CAS attempts have no effects.
 export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now = Date.now()) {
   let current = initialRoom;
   let changed = current ? maintainRoom(current, now) : false;
+  let handoffAccepted = false;
   const effects = [];
   const handlers = new Map();
   const socket = {
@@ -149,6 +151,43 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
   socket.on("lobby:join", (payload) => joinRoom(socket, payload));
   socket.on("lobby:watch", (payload) => watchRoom(socket, payload));
   socket.on("lobby:resume", (payload) => resumeRoom(socket, payload));
+  socket.on("lobby:prepareHandoff", (payload) => {
+    const room = currentRoom(socket);
+    if (!room || !memberIds(room).includes(socket.id)) return;
+    const { to, token } = payload || {};
+    if (typeof to !== "string" || !/^[a-zA-Z0-9_-]{20}$/.test(to) || to === socket.id
+      || typeof token !== "string" || !/^[0-9a-f-]{36}$/.test(token)) return;
+    room.handoffs ??= {};
+    room.handoffs[socket.id] = { to, token, expiresAt: now + HANDOFF_TTL_MS };
+    handoffAccepted = true;
+  });
+  socket.on("lobby:handoff", (payload) => {
+    const room = rooms.get(roomCode);
+    if (!room || (socket.data.roomCode && socket.data.roomCode !== roomCode)) return;
+    const { from, token } = payload || {};
+    const handoff = typeof from === "string" && room.handoffs?.[from];
+    if (!handoff || handoff.to !== socket.id || handoff.token !== token) return;
+
+    const memberId = handoff.completed ? socket.id : from;
+    const player = [room.host, room.guest].find((entry) => entry?.socketId === memberId);
+    if (!player && !room.spectators.has(memberId)) return;
+    if (!handoff.completed) {
+      if (memberIds(room).includes(socket.id)) return;
+      if (player) player.socketId = socket.id;
+      else {
+        room.spectators.delete(from);
+        room.spectators.add(socket.id);
+      }
+      delete room.presence?.[from];
+      handoff.completed = true;
+      effects.push({ type: "detach", ids: [from], code: room.code });
+      emitState();
+    }
+    socket.data.roomCode = room.code;
+    socket.data.role = player?.role ?? "spectator";
+    socket.data.sessionToken = player?.token;
+    handoffAccepted = true;
+  });
   socket.on("lobby:setName", (name) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player || room.started) return;
@@ -280,9 +319,12 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
       room.lastActivity = now; emitState(room);
       return;
     }
-    const player = currentPlayer(socket, room); if (player) player.connected = false;
-    if (player) player.socketId = null;
-    if (player) { room.deckRequest = null; room.deckRequestResult = null; }
+    const player = currentPlayer(socket, room);
+    if (!player) return;
+    player.connected = false;
+    player.socketId = null;
+    room.deckRequest = null;
+    room.deckRequestResult = null;
     room.lastActivity = now;
     emitState(room);
   });
@@ -316,7 +358,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
   return {
     room: current, data: socket.data,
     effects,
-    stateChanged: changed,
+    stateChanged: changed, handoffAccepted,
   };
 }
 

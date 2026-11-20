@@ -45,7 +45,10 @@ export class RoomStore {
       const result = runRoomCommand(room, actor, event, payload, code, this.now());
       let next = result.room;
       const ttl = next ? roomExpiresAt(next) - this.now() : 0;
-      if (ttl <= 0) next = null;
+      if (ttl <= 0) {
+        next = null;
+        result.handoffAccepted = false;
+      }
       let effects = result.effects;
       if (next) {
         if (key) next.commands = [...(next.commands || []), key].slice(-512);

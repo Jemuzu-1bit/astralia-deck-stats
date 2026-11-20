@@ -9,6 +9,7 @@ import { publicState } from "./roomState.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const codePattern = /^[A-F0-9]{6}$/;
+const handoffEvents = new Set(["lobby:prepareHandoff", "lobby:handoff"]);
 
 export async function createGameServer({ backend, socketPath = "/socket.io", serveStatic = true } = {}) {
   if (!backend) {
@@ -83,9 +84,9 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
       const membershipGeneration = socket.data.membershipGeneration || 0;
       let code = socket.data.roomCode;
       if (event === "lobby:host") code = crypto.randomBytes(3).toString("hex").toUpperCase();
-      else if (["lobby:join", "lobby:watch", "lobby:resume"].includes(event)) code = String(payload?.code || "").trim().toUpperCase();
+      else if (["lobby:join", "lobby:watch", "lobby:resume", "lobby:handoff"].includes(event)) code = String(payload?.code || "").trim().toUpperCase();
       if (!codePattern.test(code || "")) {
-        if (event !== "disconnect" && event !== "heartbeat") {
+        if (event !== "disconnect" && event !== "heartbeat" && !handoffEvents.has(event)) {
           socket.emit(event === "lobby:resume" ? "lobby:resumeError" : "lobby:error", "Invalid or expired join code.");
         }
         return;
@@ -106,10 +107,11 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
         socket.data.role = result.data.role;
         socket.data.sessionToken = result.data.sessionToken;
       }
+      return result;
     };
     const syncState = async () => {
       const code = socket.data.roomCode;
-      if (!code) return;
+      if (!code) return false;
       let room = decodeRoom(await backend.get(code));
       const player = room && [room.host, room.guest].find((entry) => entry?.token === socket.data.sessionToken);
       if (player && !player.socketId) {
@@ -119,16 +121,17 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
       if (!room) {
         socket.data.roomCode = undefined;
         socket.emit("lobby:closed", "This game session has expired.");
-        return;
+        return false;
       }
       const state = publicState(room, socket.id);
       if (!state.viewerRole) {
         socket.data.roomCode = undefined;
         socket.data.sessionToken = undefined;
-        socket.emit("lobby:replaced");
-        return;
+        if (!room.handoffs?.[socket.id]?.completed) socket.emit("lobby:replaced");
+        return false;
       }
       deliver(socket, "lobby:state", state);
+      return true;
     };
     socket.data.syncState = syncState;
     socket.onAny((event, packet, acknowledge) => {
@@ -143,10 +146,18 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
       }
       const commandId = typeof packet?.__commandId === "string" && packet.__commandId.length <= 80 ? packet.__commandId : undefined;
       const payload = commandId ? packet.data : packet;
-      enqueue(() => event === "lobby:sync" ? syncState() : execute(event, payload, commandId)).then(() => {
-        if (typeof acknowledge === "function") acknowledge({ ok: true });
+      enqueue(async () => {
+        if (event === "lobby:sync") return { ok: await syncState() };
+        const result = await execute(event, payload, commandId);
+        if (!handoffEvents.has(event)) return { ok: true };
+        if (!result?.handoffAccepted) return { ok: false };
+        return event === "lobby:handoff"
+          ? { ok: true, state: publicState(result.room, socket.id) }
+          : { ok: true, handoff: true };
+      }).then((response) => {
+        if (typeof acknowledge === "function") acknowledge(response);
       }).catch(() => {
-        socket.emit("lobby:error", "The game server is temporarily unavailable. Please try again.");
+        if (!handoffEvents.has(event)) socket.emit("lobby:error", "The game server is temporarily unavailable. Please try again.");
         if (typeof acknowledge === "function") acknowledge({ ok: false });
       });
     });

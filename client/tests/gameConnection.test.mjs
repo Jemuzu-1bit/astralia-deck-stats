@@ -36,13 +36,13 @@ test("the Vercel socket path connects without a trailing slash and creates a lob
   assert.ok(upgradePaths.some((path) => path.startsWith("/api/game/socket.io?")), "the upgrade must omit the trailing slash");
 });
 
-async function connectedHost(t, backend = new MemoryBackend()) {
+async function connectedHost(t, backend = new MemoryBackend(), options = {}) {
   const values = new Map();
   globalThis.localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
   const app = await createGameServer({ backend });
   app.server.listen(0, "127.0.0.1");
   await once(app.server, "listening");
-  const host = new GameConnection({ url: `http://127.0.0.1:${app.server.address().port}` });
+  const host = new GameConnection({ url: `http://127.0.0.1:${app.server.address().port}`, ...options });
   t.after(async () => { host.leave(); await app.close(); delete globalThis.localStorage; });
   const joined = waitForState(host, (state) => Boolean(state.code));
   host.connect();
@@ -189,6 +189,95 @@ test("an unresponsive application check recreates the connection and resumes the
   assert.equal(host.isConnected(), true);
 });
 
+test("a scheduled handoff keeps the session ready and replays unacknowledged actions in order", { timeout: 8000 }, async (t) => {
+  const { app, host, code, backend } = await connectedHost(t, new MemoryBackend(), { rotateAfterMs: 300 });
+  const original = host.getSocketId();
+  const statuses = [];
+  const errors = [];
+  host.onStatus((status) => statuses.push(status));
+  host.onError((error) => errors.push(error));
+
+  const serverSocket = app.io.sockets.sockets.get(original);
+  const acknowledge = serverSocket.ack.bind(serverSocket);
+  let dropped = false;
+  serverSocket.ack = (id) => {
+    const ack = acknowledge(id);
+    return (...args) => {
+      if (!dropped) { dropped = true; return; }
+      ack(...args);
+    };
+  };
+  const prepare = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const execute = app.store.execute.bind(app.store);
+  app.store.execute = async (...args) => {
+    if (args[2] === "lobby:prepareHandoff" && args[1].id === original) {
+      prepare.resolve();
+      await release.promise;
+    }
+    return execute(...args);
+  };
+  t.after(() => release.resolve());
+
+  const firstCommand = waitForState(host, (state) => state.host?.name === "First");
+  host.setName("First");
+  await firstCommand;
+  await prepare.promise;
+  assert.equal(host.getSocketId(), original);
+  assert.equal(host.getStatus(), "ready");
+  const secondCommand = waitForState(host, (state) => state.host?.name === "Second");
+  host.setName("Second");
+  release.resolve();
+  const after = await secondCommand;
+
+  assert.ok(dropped);
+  assert.equal(after.viewerRole, "host");
+  assert.notEqual(host.getSocketId(), original);
+  assert.equal(after.host.socketId, host.getSocketId());
+  assert.equal(JSON.parse(await backend.get(code)).commands.length, 2);
+  assert.deepEqual(statuses, []);
+  assert.deepEqual(errors, []);
+});
+
+test("a lost handoff confirmation is retried on the new socket without showing recovery", async (t) => {
+  const { app, host, code, backend } = await connectedHost(t);
+  const original = host.getSocketId();
+  const statuses = [];
+  host.onStatus((status) => statuses.push(status));
+  app.io.once("connection", (socket) => {
+    const acknowledge = socket.ack.bind(socket);
+    socket.ack = (id) => {
+      socket.ack = acknowledge;
+      return () => {};
+    };
+  });
+  await host.rotateSocket();
+  assert.notEqual(host.getSocketId(), original);
+  assert.equal(host.getSocketId(), JSON.parse(await backend.get(code)).host.socketId);
+  assert.deepEqual(statuses, []);
+});
+
+test("a failed preparation leaves the original connection usable", async (t) => {
+  const { app, host } = await connectedHost(t);
+  const original = host.getSocketId();
+  const execute = app.store.execute.bind(app.store);
+  app.store.execute = (...args) => {
+    if (args[2] === "lobby:prepareHandoff") throw new Error("Simulated transient Redis failure");
+    return execute(...args);
+  };
+  const statuses = [];
+  const errors = [];
+  host.onStatus((status) => statuses.push(status));
+  host.onError((error) => errors.push(error));
+  await host.rotateSocket();
+  const acted = waitForState(host, (state) => state.host?.name === "Still here");
+  host.setName("Still here");
+  await acted;
+  assert.equal(host.getSocketId(), original);
+  assert.deepEqual(statuses, []);
+  assert.deepEqual(errors, []);
+});
+
 test("the browser service resumes before replaying a committed action whose acknowledgement was lost", async (t) => {
   const values = new Map();
   globalThis.localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
@@ -227,7 +316,7 @@ test("the browser service resumes before replaying a committed action whose ackn
   const resumed = waitForState(host, (state) => state.host.socketId && state.host.socketId !== originalSocket && state.host.connected);
   host.deckAction("draw", 1);
   await resumed;
-  const nextAction = waitForState(host, (state) => state.host.table.fragments.length === 1);
+  const nextAction = waitForState(host, (state) => state.host.table.fragments.length === 2);
   host.updateFragments("add");
   const after = await nextAction;
   assert.ok(interrupted);

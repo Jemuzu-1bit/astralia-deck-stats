@@ -115,6 +115,9 @@ interface StoredSession {
 }
 
 const SESSION_PREFIX = "astralia.gameSession.";
+const VERCEL_SOCKET_PATH = "/api/game/socket.io";
+const ROTATE_AFTER_MS = 255000;
+const ROTATION_RETRY_MS = 3000;
 
 function normalizeCode(code: string) {
   return code.trim().toUpperCase();
@@ -141,9 +144,18 @@ function removeSession(code: string) {
 }
 
 export class GameConnection {
-  private readonly endpoint: { url?: string; path?: string };
-  constructor(endpoint: { url?: string; path?: string } = {}) { this.endpoint = endpoint; }
+  private readonly url: string | undefined;
+  private readonly path: string;
+  private readonly rotateAfterMs: number | undefined;
+  constructor(endpoint: { url?: string; path?: string; rotateAfterMs?: number } = {}) {
+    this.url = endpoint.url || import.meta.env?.VITE_SERVER_URL || undefined;
+    this.path = endpoint.path || import.meta.env?.VITE_SOCKET_PATH || "/socket.io";
+    this.rotateAfterMs = endpoint.rotateAfterMs ?? (this.path === VERCEL_SOCKET_PATH ? ROTATE_AFTER_MS : undefined);
+  }
   private socket: Socket | null = null;
+  private connectedAt = 0;
+  private rotationTimer: ReturnType<typeof setTimeout> | null = null;
+  private rotation: { next: Socket; transferring: boolean } | null = null;
   private state: LobbyState = { host: null, guest: null, started: false };
   private listeners = new Set<StateListener>();
   private errorListeners = new Set<ErrorListener>();
@@ -155,7 +167,7 @@ export class GameConnection {
   private watchCode: string | null = null;
   private sessionReady = false;
   private pendingActions: Array<{ id: string; event: string; data: unknown; code: string }> = [];
-  private flushing = false;
+  private inFlight: { id: string } | null = null;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private syncTimer: ReturnType<typeof setInterval> | null = null;
   private syncing = false;
@@ -175,22 +187,34 @@ export class GameConnection {
     this.sessionReady = true;
     this.setStatus("ready");
     if (this.syncTimer === null) this.syncTimer = setInterval(() => this.syncSession(), 15000);
+    this.scheduleRotation();
   }
   private stopSession() {
     this.stopRecovery();
+    this.stopRotation();
     if (this.syncTimer !== null) clearInterval(this.syncTimer);
     this.syncTimer = null;
     this.sessionReady = false;
     this.activeSession = null;
+    this.inFlight = null;
     this.setStatus("idle");
+  }
+  private clearRoom() {
+    this.resumeCode = null;
+    this.watchCode = null;
+    this.pendingActions = [];
+    this.stopSession();
+    this.publishState({ host: null, guest: null, started: false });
   }
   private syncSession() {
     const socket = this.socket;
-    if (!socket?.connected || !this.sessionReady || this.syncing || (!this.resumeCode && !this.watchCode)) return;
+    if (!socket?.connected || !this.sessionReady || this.syncing || this.rotation?.transferring
+      || (!this.resumeCode && !this.watchCode)) return;
     this.syncing = true;
     socket.timeout(5000).emit("lobby:sync", undefined, (error: Error | null, response?: { ok: boolean }) => {
       if (this.socket !== socket) return;
       this.syncing = false;
+      if (this.rotation?.transferring) return;
       if (error && (this.resumeCode || this.watchCode)) {
         // An open WebSocket alone does not prove the game server is responding.
         socket.disconnect();
@@ -200,29 +224,161 @@ export class GameConnection {
     });
   }
 
+  private createSocket(reconnection = true) {
+    return io(this.url, {
+      path: this.path, addTrailingSlash: !this.path.startsWith("/api/"),
+      autoConnect: false, transports: ["websocket"], forceNew: true, reconnection,
+    });
+  }
+  private publishState(state: LobbyState) {
+    if (state.instanceId && state.instanceId === this.state.instanceId
+      && state.revision !== undefined && this.state.revision !== undefined
+      && state.revision <= this.state.revision) return;
+    this.state = state;
+    this.listeners.forEach((listener) => listener(state));
+  }
+  private stopRotation() {
+    if (this.rotationTimer !== null) clearTimeout(this.rotationTimer);
+    this.rotationTimer = null;
+    const rotation = this.rotation;
+    this.rotation = null;
+    rotation?.next.disconnect();
+  }
+  private scheduleRotation(minimumDelay = 0) {
+    if (this.rotationTimer !== null) clearTimeout(this.rotationTimer);
+    this.rotationTimer = null;
+    if (this.rotateAfterMs === undefined || !this.socket?.connected || !this.sessionReady
+      || this.rotation || (!this.resumeCode && !this.watchCode)) return;
+    const delay = Math.max(minimumDelay, this.rotateAfterMs - (performance.now() - this.connectedAt));
+    this.rotationTimer = setTimeout(() => { this.rotationTimer = null; void this.rotateSocket(); }, delay);
+  }
+  private async rotateSocket() {
+    const socket = this.socket;
+    const from = socket?.id;
+    const code = this.resumeCode || this.watchCode;
+    const role = this.activeSession?.role ?? (this.watchCode ? "spectator" : null);
+    if (!socket || !from || !code || !role || !this.sessionReady || this.rotation) return;
+
+    const next = this.createSocket(false);
+    const rotation = { next, transferring: false };
+    this.rotation = rotation;
+    let latest: LobbyState | undefined;
+    let invalidation: { message?: string } | undefined;
+    let handoffSent = false;
+    const bufferState = (state: LobbyState) => {
+      if (state.code === code && state.viewerRole === role
+        && (!latest || (state.revision ?? 0) > (latest.revision ?? 0))) latest = state;
+    };
+    const closed = (message: string) => { invalidation = { message }; };
+    const replaced = () => { invalidation = {}; };
+    next.on("lobby:state", bufferState);
+    next.on("lobby:closed", closed);
+    next.on("lobby:replaced", replaced);
+
+    try {
+      const opened = await new Promise<boolean>((resolve) => {
+        const finish = (connected: boolean) => {
+          clearTimeout(timer);
+          next.off("connect", connectedListener);
+          next.off("connect_error", errorListener);
+          resolve(connected);
+        };
+        const connectedListener = () => finish(true);
+        const errorListener = () => finish(false);
+        const timer = setTimeout(errorListener, 6000);
+        next.once("connect", connectedListener).once("connect_error", errorListener).connect();
+      });
+      if (!opened || !next.id || this.rotation !== rotation || socket.id !== from || !this.sessionReady) return;
+      const connectedAt = performance.now();
+      const token = crypto.randomUUID();
+      rotation.transferring = true;
+      // Socket.IO preserves packet order. The old server queues preparation after any in-flight move.
+      const prepared = await socket.timeout(4000).emitWithAck("lobby:prepareHandoff", { to: next.id, token }).catch(() => null);
+      if (!prepared?.handoff || !next.connected || this.rotation !== rotation) return;
+
+      handoffSent = true;
+      const payload = { code, from, token };
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (!next.connected || invalidation || this.rotation !== rotation) return;
+        const result = await next.timeout(3000).emitWithAck("lobby:handoff", payload).catch(() => null);
+        if (!result?.ok || !result.state) continue;
+        bufferState(result.state);
+        if (!latest || invalidation || !next.connected || this.rotation !== rotation) return;
+
+        this.rotation = null;
+        this.socket = next;
+        this.connectedAt = connectedAt;
+        this.inFlight = null;
+        this.syncing = false;
+        next.off("lobby:state", bufferState).off("lobby:closed", closed).off("lobby:replaced", replaced);
+        next.io.reconnection(true);
+        this.listenToSocket(next);
+        socket.removeAllListeners().disconnect();
+        this.publishState(latest);
+        this.sessionJoined();
+        this.flushActions();
+        return;
+      }
+    } finally {
+      if (this.rotation === rotation) {
+        // If a confirmation was lost, verify the old socket still owns its place before using it again.
+        const original = handoffSent && socket.connected && !invalidation
+          ? await socket.timeout(3000).emitWithAck("lobby:sync", undefined).catch(() => null)
+          : null;
+        if (this.rotation === rotation) {
+          this.rotation = null;
+          next.removeAllListeners().disconnect();
+          if (invalidation) {
+            const message = invalidation.message;
+            this.clearRoom();
+            if (message) this.errorListeners.forEach((listener) => listener(message));
+          } else if (!socket.connected || (handoffSent && !original?.ok)) {
+            this.sessionReady = false;
+            this.setStatus("recovering");
+            if (!socket.connected) socket.connect();
+            else if (this.watchCode) this.emitWatch();
+            else this.emitResume();
+          } else {
+            this.flushActions();
+            this.scheduleRotation(ROTATION_RETRY_MS);
+          }
+        }
+      }
+    }
+  }
   connect(code?: string) {
     if (code) { this.resumeCode = normalizeCode(code); this.watchCode = null; }
     if (this.socket) {
       if (!this.socket.connected) this.socket.connect();
-      else if (code) this.emitResume();
+      else if (code && !this.rotation?.transferring) this.emitResume();
       return;
     }
-    const url = this.endpoint.url || import.meta.env?.VITE_SERVER_URL || undefined;
-    const path = this.endpoint.path || import.meta.env?.VITE_SOCKET_PATH || "/socket.io";
-    this.socket = io(url, { path, addTrailingSlash: !path.startsWith("/api/"), autoConnect: false, transports: ["websocket"] });
-    this.socket.on("connect", () => {
+    const socket = this.createSocket();
+    this.socket = socket;
+    this.listenToSocket(socket);
+    socket.connect();
+  }
+  private listenToSocket(socket: Socket) {
+    socket.on("connect", () => {
+      this.connectedAt = performance.now();
       this.sessionReady = false;
       if (this.watchCode) this.emitWatch();
       else if (this.resumeCode) this.emitResume();
       else this.sessionReady = true;
       this.connectionListeners.forEach((listener) => listener());
     });
-    this.socket.on("disconnect", () => {
+    socket.on("disconnect", () => {
+      if (this.rotation?.transferring) {
+        // Give the replacement the remaining time to finish without racing an automatic resume.
+        socket.disconnect();
+        return;
+      }
+      this.stopRotation();
       this.stopRecovery();
       this.sessionReady = false;
       if (this.resumeCode || this.watchCode) this.setStatus("recovering");
     });
-    this.socket.on("lobby:joined", (payload: StoredSession | { code: string; role: "spectator" }) => {
+    socket.on("lobby:joined", (payload: StoredSession | { code: string; role: "spectator" }) => {
       if (payload.role === "spectator") {
         this.watchCode = normalizeCode(payload.code);
         this.resumeCode = null;
@@ -239,39 +395,22 @@ export class GameConnection {
       this.flushActions();
       this.sessionListeners.forEach((listener) => listener(session.code));
     });
-    this.socket.on("lobby:state", (state: LobbyState) => {
-      if (state.instanceId && state.instanceId === this.state.instanceId
-        && state.revision !== undefined && this.state.revision !== undefined
-        && state.revision <= this.state.revision) return;
-      this.state = state;
-      this.listeners.forEach((listener) => listener(state));
-    });
-    this.socket.on("lobby:error", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
-    this.socket.on("lobby:joinError", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
-    this.socket.on("lobby:resumeError", (message: string) => {
+    socket.on("lobby:state", (state: LobbyState) => this.publishState(state));
+    socket.on("lobby:error", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
+    socket.on("lobby:joinError", (message: string) => this.errorListeners.forEach((listener) => listener(message)));
+    socket.on("lobby:resumeError", (message: string) => {
       if (this.resumeCode) removeSession(this.resumeCode);
-      this.resumeCode = null;
-      this.pendingActions = [];
-      this.stopSession();
+      this.clearRoom();
       this.errorListeners.forEach((listener) => listener(message));
     });
-    this.socket.on("lobby:closed", (message: string) => {
-      this.resumeCode = null;
-      this.watchCode = null;
-      this.pendingActions = [];
-      this.stopSession();
-      this.state = { host: null, guest: null, started: false };
-      this.listeners.forEach((listener) => listener(this.state));
+    socket.on("lobby:closed", (message: string) => {
+      this.clearRoom();
       this.errorListeners.forEach((listener) => listener(message));
     });
-    this.socket.on("lobby:replaced", () => {
+    socket.on("lobby:replaced", () => {
       // Keep localStorage: the replacement tab uses the same valid session token.
-      this.resumeCode = null;
-      this.watchCode = null;
-      this.stopSession();
-      this.pendingActions = [];
+      this.clearRoom();
     });
-    this.socket.connect();
   }
   private sendAction(event: string, data?: unknown) {
     if (!this.resumeCode) return;
@@ -279,7 +418,7 @@ export class GameConnection {
     this.flushActions();
   }
   private flushActions() {
-    if (this.flushing || !this.sessionReady || !this.socket?.connected) return;
+    if (this.inFlight || this.rotation?.transferring || !this.sessionReady || !this.socket?.connected) return;
     const action = this.pendingActions[0];
     if (!action) return;
     if (action.code !== this.resumeCode) {
@@ -288,16 +427,17 @@ export class GameConnection {
       return;
     }
     const socket = this.socket;
-    this.flushing = true;
+    const attempt = { id: action.id };
+    this.inFlight = attempt;
     socket.timeout(10000).emit(action.event, { __commandId: action.id, data: action.data },
       (error: Error | null, response?: { ok: boolean }) => {
-        if (this.socket !== socket) return;
-        this.flushing = false;
+        if (this.inFlight !== attempt) return;
+        this.inFlight = null;
         if (!error && response?.ok) {
           if (this.sessionReady) this.setStatus("ready");
-          if (this.pendingActions[0]?.id === action.id) this.pendingActions.shift();
+          if (this.pendingActions[0]?.id === attempt.id) this.pendingActions.shift();
           this.flushActions();
-        } else if (socket.connected && this.sessionReady) {
+        } else if (socket.connected && this.sessionReady && !this.rotation?.transferring) {
           this.setStatus("recovering");
           if (error) this.emitResume();
           else setTimeout(() => this.flushActions(), 2000);
@@ -318,6 +458,7 @@ export class GameConnection {
     this.socket.emit("lobby:watch", { code: this.watchCode });
   }
   private beginRecovery(retry: () => void) {
+    this.stopRotation();
     this.stopRecovery();
     this.sessionReady = false;
     this.setStatus("recovering");
@@ -366,7 +507,7 @@ export class GameConnection {
     this.watchCode = normalizeCode(code);
     this.resumeCode = null;
     this.connect();
-    if (this.socket?.connected) this.emitWatch();
+    if (this.socket?.connected && !this.rotation?.transferring) this.emitWatch();
   }
   setName(name: string) { this.sendAction("lobby:setName", name); }
   setFaction(faction: string | null) { this.sendAction("lobby:setFaction", faction); }
@@ -419,8 +560,10 @@ export class GameConnection {
   leave() {
     const code = this.state.code || this.resumeCode;
     const wasSpectator = this.state.viewerRole === "spectator" || Boolean(this.watchCode);
-    const socket = this.socket;
-    if (socket) {
+    const sockets = [this.socket, this.rotation?.next];
+    this.rotation = null;
+    for (const socket of sockets) {
+      if (!socket) continue;
       socket.removeAllListeners();
       if (socket.connected) socket.timeout(3000).emit("lobby:leave", undefined, () => socket.disconnect());
       else socket.disconnect();
@@ -433,7 +576,6 @@ export class GameConnection {
     this.watchCode = null;
     this.sessionReady = false;
     this.pendingActions = [];
-    this.flushing = false;
     this.state = { host: null, guest: null, started: false };
   }
 }

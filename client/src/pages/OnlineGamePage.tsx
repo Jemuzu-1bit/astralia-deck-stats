@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentPr
 import { createPortal } from "react-dom";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { gameConnection, type DeckAction, type LobbyState, type RequestedDeckAction } from "../services/gameConnection";
+import { gameConnection, type DeckAction, type GameConnectionStatus, type LobbyState, type RequestedDeckAction } from "../services/gameConnection";
 import type { Card } from "../types/Card";
 import ShortcutSettings from "../components/ShortcutSettings";
 import FeedbackLink from "../components/FeedbackLink";
@@ -51,7 +51,8 @@ export default function OnlineGamePage() {
   const isSpectator = searchParams.get("watch") === "1";
   const [state, setState] = useState<LobbyState>(gameConnection.getCurrentState());
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState(gameConnection.getStatus());
+  const [showReconnectNotice, setShowReconnectNotice] = useState(false);
+  const displayedState = useRef(state);
   const [shortcutSettingsOpen, setShortcutSettingsOpen] = useState(false);
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [activityLogOpen, setActivityLogOpen] = useState(() => window.matchMedia("(min-width: 1101px)").matches);
@@ -132,9 +133,11 @@ export default function OnlineGamePage() {
     if (state.code && routeCode !== state.code) navigate(`/game/${state.code}${isSpectator ? "?watch=1" : ""}`, { replace: true });
   }, [state.code, routeCode, isSpectator, navigate]);
 
-  const myId = gameConnection.getSocketId();
-  const me = isSpectator ? state.host : myId ? state.host?.socketId === myId ? state.host : state.guest?.socketId === myId ? state.guest : null : null;
-  const opponent = isSpectator ? state.guest : me?.role === "host" ? state.guest : state.host;
+  const viewerRole = state.viewerRole;
+  const viewing = isSpectator && viewerRole === "spectator";
+  const playerRole = !isSpectator && (viewerRole === "host" || viewerRole === "guest") ? viewerRole : null;
+  const me = viewing ? state.host : playerRole ? state[playerRole] : null;
+  const opponent = viewing || playerRole === "host" ? state.guest : playerRole === "guest" ? state.host : null;
   const activePlayer = state.turnRole === "host" ? state.host : state.turnRole === "guest" ? state.guest : null;
   const activeOnTop = Boolean(activePlayer && activePlayer.role === opponent?.role);
   const turnColor = TURN_COLORS[activePlayer?.faction?.toLowerCase() ?? ""] ?? "#d4af37";
@@ -153,18 +156,32 @@ export default function OnlineGamePage() {
   const dragging = Boolean(cardDrag.active);
   const { captureUpdate } = cardDrag;
   useEffect(() => {
-    const offState = gameConnection.onState((next) => { captureUpdate(); setState(next); });
-    const offError = gameConnection.onError(setError);
-    const offStatus = gameConnection.onStatus((status) => {
-      setConnectionStatus(status);
-      if (status === "ready") setError(null);
+    const offState = gameConnection.onState((next) => {
+      const previous = displayedState.current;
+      if (JSON.stringify([previous.host?.table, previous.guest?.table])
+        !== JSON.stringify([next.host?.table, next.guest?.table])) captureUpdate();
+      displayedState.current = next;
+      setState(next);
     });
+    const offError = gameConnection.onError(setError);
+    let reconnectTimer: number | undefined;
+    const updateConnectionNotice = (status: GameConnectionStatus) => {
+      window.clearTimeout(reconnectTimer);
+      if (status === "recovering") {
+        reconnectTimer = window.setTimeout(() => setShowReconnectNotice(true), 1500);
+      } else {
+        setShowReconnectNotice(false);
+        if (status === "ready") setError(null);
+      }
+    };
+    const offStatus = gameConnection.onStatus(updateConnectionNotice);
+    updateConnectionNotice(gameConnection.getStatus());
     if (routeCode) {
       if (isSpectator) gameConnection.watch(routeCode);
       else gameConnection.resume(routeCode);
     }
     else gameConnection.connect();
-    return () => { offState(); offError(); offStatus(); };
+    return () => { offState(); offError(); offStatus(); window.clearTimeout(reconnectTimer); };
   }, [routeCode, isSpectator, captureUpdate]);
   const targetLinks = useMemo(() => [...tableCards(myTable), ...tableCards(opponentTable)].flatMap((card) =>
     card.targetUid && card.targetExpiresAt
@@ -358,7 +375,7 @@ export default function OnlineGamePage() {
         <button onClick={() => { gameConnection.leave(); navigate("/"); }}>Leave match</button>
       </nav>
     </header>
-    {connectionStatus === "recovering" && <div className={styles.deckRequestNotice} role="status">Reconnecting to game… Your actions will resume automatically.</div>}
+    {showReconnectNotice && <div className={styles.deckRequestNotice} role="status">Reconnecting to game… Your actions will resume automatically.</div>}
     {error && <div className={styles.deckRequestNotice} role="alert">{error}</div>}
     {incomingDeckRequest && <div className={styles.deckRequestNotice} role="dialog" aria-label="Opponent deck request">
       <span><strong>{incomingDeckRequest.fromName}</strong> asks you to {describeDeckRequest(incomingDeckRequest, "your")}.</span>

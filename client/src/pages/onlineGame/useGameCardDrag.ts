@@ -16,14 +16,12 @@ export function useGameCardDrag(rootRef: RefObject<HTMLDivElement | null>, table
   const pending = useRef<{ timer: number; origin?: DropOrigin } | null>(null);
   const [active, setActive] = useState<DraggedGameCard | null>(null);
   const [preview, setPreview] = useState<CardDragPreview | null>(null);
-  const [pendingUid, setPendingUid] = useState<string | null>(null);
   const captureCards = useCardMotion(rootRef);
 
   const clearPending = useCallback(() => {
     if (!pending.current) return;
     window.clearTimeout(pending.current.timer);
     pending.current = null;
-    setPendingUid(null);
     setPreview(null);
   }, []);
 
@@ -70,7 +68,6 @@ export function useGameCardDrag(rootRef: RefObject<HTMLDivElement | null>, table
       gameConnection.swapSlotCard(card.uid, slotPreview.targetUid);
     } else if (canMove) {
       setPreview(null);
-      setPendingUid(card.uid);
       if (target.attachToCard && target.targetUid && (!slotted || slotted.index === 0)) gameConnection.attachCard(card.uid, target.targetUid);
       else gameConnection.moveCard(card.uid, target.zone, { slot: target.slot, position: target.position });
     } else {
@@ -85,7 +82,7 @@ export function useGameCardDrag(rootRef: RefObject<HTMLDivElement | null>, table
   };
 
   return {
-    active, preview, overlayRef, captureUpdate, draggedUid: active?.uid ?? pendingUid,
+    active, preview, overlayRef, captureUpdate, draggedUid: active?.uid ?? null,
     sensors, onDragStart, onDragOver,
     onDragEnd: ({ over }: DragEndEvent) => finishDrag(over?.data.current?.target as GameDrop | undefined),
     onDragCancel: () => finishDrag(),

@@ -58,6 +58,17 @@ async function exerciseCluster(t, backends) {
   const watcherJoined = waitFor(spectator, "lobby:joined");
   spectator.emit("lobby:watch", { code });
   await watcherJoined;
+  const nextSpectator = await connect(0);
+  const watchToken = randomUUID();
+  assert.equal((await spectator.timeout(3000).emitWithAck("lobby:prepareHandoff", {
+    to: nextSpectator.id, token: watchToken,
+  })).handoff, true);
+  const watchHandoff = await nextSpectator.timeout(3000).emitWithAck("lobby:handoff", {
+    code, from: spectator.id, token: watchToken,
+  });
+  assert.equal(watchHandoff.state.viewerRole, "spectator");
+  assert.equal(watchHandoff.state.spectatorCount, 1);
+  spectator.disconnect();
   const ready = waitFor(host, "lobby:state", (state) => state.host.deckId && state.guest?.deckId);
   for (const [socket, role] of [[host, "host"], [guest, "guest"]]) socket.emit("lobby:setDeck", {
     deckId: role, protagonistId: role === "host" ? "dcs_02_002ex" : "dcs_02_001ex",
@@ -65,7 +76,7 @@ async function exerciseCluster(t, backends) {
   });
   await ready;
   const started = waitFor(host, "lobby:state", (state) => state.started);
-  const publicStarted = waitFor(spectator, "lobby:state", (state) => state.started);
+  const publicStarted = waitFor(nextSpectator, "lobby:state", (state) => state.started);
   host.emit("lobby:startRequest");
   const hostState = await started;
   const publicState = await publicStarted;
@@ -95,12 +106,31 @@ async function exerciseCluster(t, backends) {
   resumedHost.emit("game:updateFragments", { action: "add" });
   assert.equal((await revision).host.table.hand.length, 6, "an acknowledgement lost before reconnect must not duplicate a draw");
 
-  const replaced = waitFor(resumedHost, "lobby:replaced");
-  const newerHost = await connect(0);
+  const transferredHost = await connect(0);
+  const handoffToken = randomUUID();
+  const request = { code, from: resumedHost.id, token: handoffToken };
+  assert.equal((await resumedHost.timeout(3000).emitWithAck("lobby:prepareHandoff", {
+    to: transferredHost.id, token: handoffToken,
+  })).handoff, true);
+  assert.equal((await nextSpectator.timeout(3000).emitWithAck("lobby:handoff", request)).ok, false,
+    "only the named socket can redeem the handoff");
+  const handoff = await transferredHost.timeout(3000).emitWithAck("lobby:handoff", request);
+  assert.equal(handoff.state.host.socketId, transferredHost.id);
+  assert.equal(handoff.state.host.connected, true);
+  assert.equal(handoff.state.host.table.hand.length, 6);
+  assert.equal(handoff.state.guest.table.hand.length, 0);
+  assert.equal(handoff.state.host.token, undefined);
+  assert.equal((await transferredHost.timeout(3000).emitWithAck("lobby:handoff", request)).ok, true,
+    "the new socket can retry the handoff after losing its confirmation");
+  resumedHost.disconnect();
+  assert.equal((await transferredHost.timeout(3000).emitWithAck("game:deckAction", command)).ok, true);
+
+  const replaced = waitFor(transferredHost, "lobby:replaced");
+  const newerHost = await connect(1);
   const newerJoined = waitFor(newerHost, "lobby:joined");
   newerHost.emit("lobby:resume", { code, token });
   await Promise.all([newerJoined, replaced]);
-  resumedHost.emit("lobby:leave");
+  transferredHost.emit("lobby:leave");
   const closed = waitFor(guest, "lobby:closed");
   newerHost.emit("lobby:leave");
   await closed;
