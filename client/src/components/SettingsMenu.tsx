@@ -60,7 +60,7 @@ export default function SettingsMenu({ onClose, onShortcuts, children }: Setting
         <button ref={appearanceButtonRef} type="button" onClick={() => setPage("appearance")}>Appearance</button>
         <button type="button" onClick={onShortcuts}>Keyboard shortcuts</button>
         <AnalyticsPreference />
-        <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={onClose}>Guide</Link>
+        <Link to="/help" target="_blank" rel="noopener noreferrer" onClick={onClose}>Getting started</Link>
         {children}
       </>}
     </div>

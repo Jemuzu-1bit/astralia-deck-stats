@@ -58,7 +58,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Adjust the match interface size from 75% to 150%.
 - Choose the End turn button's position along the center line of the table; adjust the turn light's intensity, size, shape, and faction or custom color.
 - Choose an optional animated cursor in the appearance settings. Custom cursors are disabled on devices without a fine pointer and when reduced motion is requested.
-- Open the **How to play** page for a quick guide, table controls, and current keyboard shortcuts; use the feedback link to send feedback.
+- Open **Getting started** for a quick introduction to the Card library, My decks, Public decks, and Multiplayer. Use **Send feedback** on that page to report a bug or suggest an improvement.
 
 ## Project scope
 
