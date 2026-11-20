@@ -48,10 +48,15 @@ export function useCardMotion(rootRef: RefObject<HTMLDivElement | null>) {
       if (!old || (old.left === rect.left && old.top === rect.top && old.width === rect.width && old.height === rect.height)) continue;
       animation?.cancel();
       const final = animation ? image.getBoundingClientRect() : rect;
-      image.animate([
+      const movement = image.animate([
         { translate: `${old.left - final.left}px ${old.top - final.top}px`, scale: `${old.width / final.width} ${old.height / final.height}`, transformOrigin: "top left" },
         { translate: "0px 0px", scale: "1", transformOrigin: "top left" },
       ], { id: motionId, duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      image.dataset.gameCardMoving = "";
+      const clearMoving = () => {
+        if (!image.getAnimations().some((item) => item !== movement && item.id === motionId)) delete image.dataset.gameCardMoving;
+      };
+      void movement.finished.then(clearMoving, clearMoving);
     }
   });
 

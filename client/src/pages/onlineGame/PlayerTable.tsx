@@ -54,7 +54,7 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
           key={visualIndex}
           ariaLabel="Protagonist"
           className={styles.protagonistSlot}
-          target={movable ? { zone: "protagonist" } : undefined}
+          target={movable && table.protagonist.length === 0 ? { zone: "protagonist" } : undefined}
         >
           <SlotStack
             items={table.protagonist}
@@ -77,7 +77,7 @@ export function PlayerTable({ player, table, opponentSide, readOnly, attachingUi
           key={visualIndex}
           ariaLabel="Battle"
           className={styles.battleSlot}
-          target={movable ? { zone: "battle", slot } : undefined}
+          target={movable && items.length === 0 ? { zone: "battle", slot } : undefined}
         >
           <SlotStack
             items={items}
@@ -130,19 +130,23 @@ function SlotStack({ items, zone, slot, dragPreview, movable, attachingUid, comb
   onStatAdjust: (uid: string, stat: CardStat, delta: -1 | 1) => void;
   onAttachTarget: (targetUid: string) => void;
 }) {
-  const [subslotIndex, setSubslotIndex] = useState(0);
+  const [subslotPage, setSubslotPage] = useState({ order: "", index: 0 });
   const [visibleSubslotCount, setVisibleSubslotCount] = useState(1);
   const subslotViewportRef = useRef<HTMLDivElement>(null);
-  const subslotCount = Math.max(0, items.length - 1);
+  const mainDrop = useGameDrop(movable ? { zone, slot, slotPosition: "main" } : undefined);
+  const subslotDrop = useGameDrop(movable ? { zone, slot, slotPosition: "sub" } : undefined);
+  const placement = dragPreview?.kind === "placement" && dragPreview.zone === zone && dragPreview.slot === slot
+    ? dragPreview : null;
+  const displayedItems = placement ? items.filter(({ uid }) => uid !== placement.uid) : previewSlot(items, dragPreview);
+  const mainCard = placement?.slotPosition === "main" ? null : displayedItems[0];
+  const subCards = placement?.slotPosition === "main" ? displayedItems
+    : placement?.slotPosition === "sub" ? [null, ...displayedItems.slice(1)] : displayedItems.slice(1);
+  const subslotCount = subCards.length;
+  const hasSubslots = subslotCount > 0;
   const visibleCount = Math.min(subslotCount, visibleSubslotCount);
   const maxSubslotIndex = Math.max(0, subslotCount - visibleCount);
-  const visibleSubslotIndex = Math.min(subslotIndex, maxSubslotIndex);
-  const mainTarget = movable && items[0] ? { zone, slot, targetUid: items[0].uid } : undefined;
-  const mainDrop = useGameDrop(mainTarget);
-  const firstVisibleSubslot = items[visibleSubslotIndex + 1];
-  const subslotDrop = useGameDrop(movable && firstVisibleSubslot ? { zone, slot, targetUid: firstVisibleSubslot.uid } : undefined);
-  // Keep each drop target tied to its actual slot while showing the new card order.
-  const displayedItems = previewSlot(items, dragPreview);
+  const order = items.map(({ uid }) => uid).join(",");
+  const visibleSubslotIndex = !placement && subslotPage.order === order ? Math.min(subslotPage.index, maxSubslotIndex) : 0;
   const protagonist = zone === "protagonist";
 
   useEffect(() => {
@@ -154,17 +158,16 @@ function SlotStack({ items, zone, slot, dragPreview, movable, attachingUid, comb
     });
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [subslotCount]);
+  }, [hasSubslots]);
 
   if (items.length === 0) return <span className={styles.emptyText}>Empty</span>;
 
-  const renderCard = (item: GameCard, className: string, target?: GameDrop) => <BattleCard
+  const renderCard = (item: GameCard, className: string) => <BattleCard
     item={item}
     movable={movable}
     combatSelected={combatSelection?.uid === item.uid ? combatSelection.action : null}
     menuEnabled={movable}
     frazzleEditable={movable}
-    target={target ? { ...target, attachToCard: true } : undefined}
     attachTargetEnabled={movable && attachingUid !== null && attachingUid !== item.uid}
     onInspect={onInspect}
     onMenu={onMenu}
@@ -174,7 +177,7 @@ function SlotStack({ items, zone, slot, dragPreview, movable, attachingUid, comb
     className={className}
   />;
 
-  return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""} ${items.length === 1 ? styles.soloStack : ""}`}>
+  return <div className={`${styles.slotStack} ${protagonist ? styles.protagonistStack : ""} ${placement ? styles.slotPlacement : ""}`}>
     {items.length > 1 && <button
       type="button"
       className={styles.slotViewButton}
@@ -182,28 +185,36 @@ function SlotStack({ items, zone, slot, dragPreview, movable, attachingUid, comb
       aria-label={`Show all ${items.length} cards in this ${protagonist ? "Protagonist" : "Battle"} slot`}
     >Cards · {items.length}</button>}
     <div className={styles.attachedStack} aria-label={`${items.length} cards in stack`}>
-      {subslotCount > 0 && <div {...subslotDrop} className={styles.subslotCarousel} role="group" aria-label={`Sub slot: ${subslotCount} cards`}>
+      <div className={styles.slotMainArea} role="group" aria-label="Main slot">
+        {mainCard ? renderCard(mainCard, styles.slotMain)
+          : <div className={`${styles.slotMain} ${styles.slotPlaceholder}`} role="status">Drop to move to main slot</div>}
+      </div>
+      {hasSubslots && <div className={styles.subslotCarousel} role="group" aria-label="Sub slots">
         <div ref={subslotViewportRef} className={styles.subslotViewport}>
           <div
             className={styles.subslotTrack}
             data-visible={visibleCount}
             style={maxSubslotIndex > 0 ? { transform: `translateX(calc(-${visibleSubslotIndex * 100 / visibleCount}% - ${visibleSubslotIndex * 3 / visibleCount}px))` } : undefined}
           >
-            {items.slice(1).map((item, index) => <div
-              key={item.uid}
+            {subCards.map((item, index) => <div
+              key={item?.uid ?? "placement"}
               className={styles.subslotItem}
               inert={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
               aria-hidden={index < visibleSubslotIndex || index >= visibleSubslotIndex + visibleCount}
-            >{renderCard(displayedItems[index + 1], styles.attachedCard, movable ? { zone, slot, targetUid: item.uid } : undefined)}</div>)}
+            >{item ? renderCard(item, styles.attachedCard)
+                : <div className={`${styles.attachedCard} ${styles.slotPlaceholder}`} role="status">Drop to move to sub slot</div>}</div>)}
           </div>
         </div>
         {subslotCount > visibleCount && <div className={styles.subslotControls}>
-          <button type="button" aria-label="Previous sub slot card" disabled={visibleSubslotIndex === 0} onClick={() => setSubslotIndex(Math.max(0, visibleSubslotIndex - 1))}>‹</button>
-          <button type="button" aria-label="Next sub slot card" disabled={visibleSubslotIndex === maxSubslotIndex} onClick={() => setSubslotIndex(Math.min(maxSubslotIndex, visibleSubslotIndex + 1))}>›</button>
+          <button type="button" aria-label="Previous sub slot card" disabled={visibleSubslotIndex === 0} onClick={() => setSubslotPage({ order, index: visibleSubslotIndex - 1 })}>‹</button>
+          <button type="button" aria-label="Next sub slot card" disabled={visibleSubslotIndex === maxSubslotIndex} onClick={() => setSubslotPage({ order, index: visibleSubslotIndex + 1 })}>›</button>
         </div>}
       </div>}
-      <div {...mainDrop} className={styles.slotMainArea} role="group" aria-label="Main slot">{renderCard(displayedItems[0], styles.slotMain, mainTarget)}</div>
     </div>
+    {movable && <div className={styles.slotDropAreas} aria-hidden="true">
+      <div {...mainDrop} />
+      <div {...subslotDrop} />
+    </div>}
   </div>;
 }
 

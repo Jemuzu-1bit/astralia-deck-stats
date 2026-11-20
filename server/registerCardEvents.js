@@ -133,16 +133,24 @@ export function registerCardEvents(socket, { currentRoom, currentPlayer, emitSta
     const found = findCard(table, String(payload?.uid || ""));
     const target = String(payload?.to || "");
     if (!found || !CARD_ZONES.includes(target)) return;
-    if (target === "battle" || target === "protagonist") {
+    const slottedDestination = target === "battle" || target === "protagonist";
+    const slotPosition = payload?.slotPosition;
+    if (slotPosition !== undefined && (!slottedDestination || (slotPosition !== "main" && slotPosition !== "sub"))) return;
+    if (slottedDestination) {
       const slot = Number(payload?.slot);
       if (target === "battle" && (!Number.isInteger(slot) || slot < 0 || slot >= table.battle.length)) return;
-      if ((found.zone === "battle" && target === "battle" && found.slot === slot)
-        || (found.zone === "protagonist" && target === "protagonist")) return;
       const destination = target === "battle" ? table.battle[slot] : table.protagonist;
+      const sameSlot = found.zone === target && (target === "protagonist" || found.slot === slot);
+      const insertIndex = slotPosition === "main" ? 0 : 1;
+      if (sameSlot && (!slotPosition || found.index === insertIndex)) return;
+      if (slotPosition === "sub" && destination.length <= (sameSlot ? 1 : 0)) return;
       const card = removeFoundCard(table, found);
-      card.revealed = false;
-      if (!found.slotted) setPrintedStats(card);
-      if (target === "protagonist" && card.isProtagonist) destination.unshift(card);
+      if (!sameSlot) {
+        card.revealed = false;
+        if (!found.slotted) setPrintedStats(card);
+      }
+      if (slotPosition) destination.splice(insertIndex, 0, card);
+      else if (target === "protagonist" && card.isProtagonist) destination.unshift(card);
       else destination.push(card);
     } else {
       const owner = found.card.ownerRole && found.card.ownerRole !== player.role

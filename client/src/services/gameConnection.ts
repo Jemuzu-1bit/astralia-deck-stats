@@ -539,7 +539,7 @@ export class GameConnection {
     this.sendAction("game:updateFragments", { action: "set", index, spent });
   }
   playAction(uid: string) { this.sendAction("game:playAction", { uid }); }
-  moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number }) {
+  moveCard(uid: string, to: GameZone, options?: { position?: "top" | "bottom"; slot?: number; slotPosition?: "main" | "sub" }) {
     this.sendAction("game:moveCard", { uid, to, ...options });
   }
   giveCardControl(uid: string) { this.sendAction("game:giveCardControl", { uid }); }

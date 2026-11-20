@@ -75,9 +75,14 @@ export function appendActivity(room, before, actorId, event, payload, now) {
     case "game:requestDeckAction": text = `requested that the opponent ${deckAction(after.request.action, after.request.count)}`; break;
     case "game:respondDeckAction": text = `${payload.accepted ? "accepted" : "declined"} ${request.fromName}'s request to ${deckAction(request.action, request.count)}`; break;
     case "game:cancelDeckAction": text = `cancelled the request to ${deckAction(request.action, request.count)}`; break;
-    case "game:moveCard":
-      text = `moved ${before.source.zone === "hand" || before.source.zone === "deck" ? visibleSource : source} from ${location(before.source)} to ${location(after.source)}${after.source.zone === "deck" ? payload.position === "bottom" ? " (bottom)" : " (top)" : ""}`;
+    case "game:moveCard": {
+      const label = before.source.zone === "hand" || before.source.zone === "deck" ? visibleSource : source;
+      const destination = payload.slotPosition ? `the ${payload.slotPosition} slot in ${location(after.source)}` : location(after.source);
+      const staysInSlot = payload.slotPosition && before.source.zone === after.source.zone && before.source.slot === after.source.slot;
+      const origin = staysInSlot ? "" : ` from ${location(before.source)}`;
+      text = `moved ${label}${origin} to ${destination}${after.source.zone === "deck" ? payload.position === "bottom" ? " (bottom)" : " (top)" : ""}`;
       break;
+    }
     case "game:playAction": text = `played ${visibleSource}`; break;
     case "game:giveCardControl": text = `gave control of ${source} to ${room[after.source.ownerRole].name}`; break;
     case "game:attachCard": text = `attached ${visibleSource} to ${target}`; break;

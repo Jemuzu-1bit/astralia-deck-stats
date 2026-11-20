@@ -61,6 +61,41 @@ test("dragging cards between main and sub slots preserves card state and synchro
   }
 });
 
+test("explicit slot drops insert the card and preserve the other cards' order", async () => {
+  const f = await fixture();
+  const [main, first, second, third, fourth] = (await f.read()).host.table.hand.map((card) => card.uid);
+  const move = (uid, to, slot, slotPosition) => f.command("host", "game:moveCard", { uid, to, slot, slotPosition });
+  const order = async (slot) => (await f.read()).host.table.battle[slot].map((card) => card.uid);
+
+  await move(first, "battle", 0, "sub");
+  assert.deepEqual(await order(0), [], "an empty stack cannot have a sub slot card");
+  await move(main, "battle", 0);
+  await move(main, "battle", 0, "sub");
+  assert.deepEqual(await order(0), [main], "the only card stays in the main slot");
+
+  await move(first, "battle", 0, "sub");
+  await move(second, "battle", 0, "main");
+  assert.deepEqual(await order(0), [second, main, first]);
+  await move(third, "battle", 0, "sub");
+  assert.deepEqual(await order(0), [second, third, main, first]);
+
+  await f.command("host", "game:setFrazzle", { uid: first, value: 2 });
+  await move(first, "battle", 0, "main");
+  assert.deepEqual(await order(0), [first, second, third, main]);
+  await move(first, "battle", 0, "sub");
+  assert.deepEqual(await order(0), [second, first, third, main]);
+  assert.equal((await f.read()).host.table.battle[0][1].frazzle, 2);
+
+  const protagonist = (await f.read()).host.table.protagonist[0].uid;
+  await move(fourth, "protagonist", undefined, "main");
+  assert.deepEqual((await f.read()).host.table.protagonist.map(({ uid }) => uid), [fourth, protagonist]);
+  await move(first, "protagonist", undefined, "sub");
+  const table = (await f.read()).host.table;
+  assert.deepEqual(table.protagonist.map(({ uid }) => uid), [fourth, first, protagonist]);
+  assert.equal(table.protagonist[1].frazzle, 2);
+  assert.deepEqual(await order(0), [second, third, main]);
+});
+
 test("only returning to the starting player adds and readies both players' fragments", async () => {
   const f = await fixture();
   const turnState = (room) => ({

@@ -1,7 +1,7 @@
 import { KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { gameConnection, type GameTable } from "../../services/gameConnection";
-import { getSlotPreview, type CardDragPreview, type DraggedGameCard, type GameDrop } from "./cardDrag";
+import { getSlotPreview, isSameSlotPreview, type CardDragPreview, type DraggedGameCard, type GameDrop } from "./cardDrag";
 import { findSlottedCard, tableCards } from "./model";
 import { useCardMotion, type DropOrigin } from "./useCardMotion";
 
@@ -47,7 +47,7 @@ export function useGameCardDrag(rootRef: RefObject<HTMLDivElement | null>, table
   const onDragOver = ({ over }: DragOverEvent) => {
     if (!source.current) return;
     const next = getSlotPreview(table, source.current.uid, over?.data.current?.target as GameDrop | undefined);
-    if (next?.targetUid === preview?.targetUid) return;
+    if (isSameSlotPreview(next, preview)) return;
     captureCards();
     setPreview(next);
   };
@@ -61,21 +61,24 @@ export function useGameCardDrag(rootRef: RefObject<HTMLDivElement | null>, table
     const sameSlot = slotted && slotted.zone === target?.zone && slotted.slot === target.slot;
     const slotPreview = getSlotPreview(table, card.uid, target);
     const entry = enabled && tableCards(table).find(({ uid }) => uid === card.uid);
-    const canMove = entry && target && !sameSlot && !(target.attachToCard && entry.isProtagonist);
-    if (entry && slotPreview) {
+    const unchanged = slotPreview?.kind === "placement" && sameSlot
+      && slotted.index === (slotPreview.slotPosition === "main" ? 0 : 1);
+    if (!entry || !target || unchanged || (!slotPreview && (sameSlot || target.slotPosition))) {
+      captureCards(origin);
+      setPreview(null);
+    } else if (slotPreview?.kind === "reorder") {
       captureCards(origin);
       setPreview(slotPreview);
+      pending.current = { timer: window.setTimeout(captureUpdate, 600) };
       gameConnection.swapSlotCard(card.uid, slotPreview.targetUid);
-    } else if (canMove) {
-      setPreview(null);
-      if (target.attachToCard && target.targetUid && (!slotted || slotted.index === 0)) gameConnection.attachCard(card.uid, target.targetUid);
-      else gameConnection.moveCard(card.uid, target.zone, { slot: target.slot, position: target.position });
     } else {
-      captureCards(origin);
-      setPreview(null);
-    }
-    if ((entry && slotPreview) || canMove) {
-      pending.current = { timer: window.setTimeout(captureUpdate, 600), origin: canMove ? origin : undefined };
+      setPreview(slotPreview);
+      pending.current = { timer: window.setTimeout(captureUpdate, 600), origin };
+      gameConnection.moveCard(card.uid, target.zone, {
+        slot: target.slot,
+        position: target.position,
+        slotPosition: slotPreview?.slotPosition,
+      });
     }
     source.current = null;
     setActive(null);
