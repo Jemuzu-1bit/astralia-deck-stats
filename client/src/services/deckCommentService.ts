@@ -47,3 +47,19 @@ export async function postDeckComment({ id, deckId, parentId, body, userId }: {
   if (!row) throw new Error("Could not confirm your comment.");
   return { ...mapRow(row), author: { id: userId, ...getPlayerProfile(auth.user) } };
 }
+
+export async function updateDeckComment({ id, deckId, authorId }: DeckComment, body: string): Promise<string> {
+  const text = commentBody(body);
+  const { data, error } = await client().from("deck_comments").update({ body: text })
+    .eq("id", id).eq("deck_id", deckId).eq("author_id", authorId).select("body").maybeSingle();
+  if (error) throw new Error("Could not save your changes. Please try again.");
+  if (!data) throw new Error("This comment is no longer available. Refresh the discussion.");
+  return data.body;
+}
+
+export async function deleteDeckComment({ id, deckId, authorId }: DeckComment): Promise<void> {
+  const { data, error } = await client().from("deck_comments").delete()
+    .eq("id", id).eq("deck_id", deckId).eq("author_id", authorId).select("id").maybeSingle();
+  if (error) throw new Error("Could not delete your comment. Please try again.");
+  if (!data) throw new Error("This comment is no longer available. Refresh the discussion.");
+}

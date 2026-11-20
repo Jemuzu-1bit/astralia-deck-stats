@@ -5,8 +5,10 @@
 1. Crea un progetto Supabase. In **SQL Editor**, esegui
    `supabase/migrations/202611170001_decks.sql` e poi
    `supabase/migrations/202611170002_public_profiles.sql` e
-   `supabase/migrations/202611170003_deck_discussions.sql`. La prima migrazione crea tabella,
-   indici, trigger, regole RLS e bucket privato per gli sfondi.
+   `supabase/migrations/202611170003_deck_discussions.sql`. Per abilitare modifica
+   ed eliminazione dei commenti, esegui anche
+   `supabase/migrations/202611200001_manage_deck_comments.sql`. La prima migrazione
+   crea tabella, indici, trigger, regole RLS e bucket privato per gli sfondi.
 2. In **Authentication → Sign In / Providers**, abilita Discord. Crea un'app
    nel Discord Developer Portal, aggiungi il Callback URL mostrato da Supabase
    fra i Redirects dell'app e copia Client ID e Client Secret nel provider
@@ -79,8 +81,7 @@ JSONB, senza modificare i record esistenti.
 ### Profili pubblici e aggiornamento di un database esistente
 
 Applica nel SQL Editor soltanto le migrazioni mancanti, in ordine numerico,
-prima di distribuire il nuovo frontend. Se le prime due sono già applicate,
-esegui solo `supabase/migrations/202611170003_deck_discussions.sql`.
+prima di distribuire il nuovo frontend.
 
 La seconda migrazione crea `player_profiles`, popola gli utenti esistenti e
 mantiene i campi sincronizzati con un trigger su `auth.users`. Espone soltanto
@@ -110,7 +111,7 @@ npm install --prefix $env:PUBLIC_DECKS_TEST_RUNTIME --no-save --ignore-scripts @
 node supabase/tests/publicDecks.test.mjs
 ```
 
-Il test esegue le tre migrazioni e verifica pubblicazione, visibilità dei
+Il test esegue le migrazioni di mazzi, profili e commenti e verifica pubblicazione, visibilità dei
 profili, sincronizzazione dei campi, accesso agli sfondi, proprietà dei mazzi,
 conflitti di revisione, commenti, risposte e conservazione delle copie dopo il ritiro.
 
@@ -126,8 +127,10 @@ descrizione; i link nel formato del sito ufficiale continuano a trasferire le ca
 server e riferimento opzionale al commento a cui si risponde. Tutti possono leggere
 le discussioni dei mazzi pubblici; solo gli utenti autenticati possono scrivere, con
 la propria identità. Le risposte devono riferirsi a un commento esistente dello
-stesso mazzo. Il browser non può modificare o cancellare commenti, alterarne le
-date o spostarli. Non viene interpretato HTML nei testi.
+stesso mazzo. Ogni autore può modificare il testo o eliminare i propri commenti
+e risposte sui mazzi pubblici. Se un commento viene eliminato, le sue risposte
+dirette restano nella discussione come commenti di primo livello. Il testo è
+sempre mostrato come testo semplice.
 
 I commenti mostrano nome e avatar aggiornati del giocatore e un collegamento al
 profilo. Il creatore del mazzo ha un'etichetta dedicata. Le discussioni vengono

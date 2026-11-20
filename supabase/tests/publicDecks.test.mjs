@@ -104,11 +104,23 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     }
     await assert.rejects(asRole("authenticated", reader,
       "insert into public.deck_comments(deck_id, author_id, body, created_at) values ($1, $2, 'Forged date', now())", [deckId, reader]), /permission denied/);
-    await assert.rejects(asRole("authenticated", reader,
-      "update public.deck_comments set body = 'Edited' where id = $1", [commentId]), /permission denied/);
-    await assert.rejects(asRole("authenticated", reader,
-      "delete from public.deck_comments where id = $1", [commentId]), /permission denied/);
     await assert.rejects(asRole("authenticated", reader, insertComment, [replyId, deckId, reader, commentId, "A player's question"]), /duplicate key/);
+    await db.exec(await readFile(new URL("../migrations/202611200001_manage_deck_comments.sql", import.meta.url), "utf8"));
+    const editComment = "update public.deck_comments set body = $2 where id = $1 returning *";
+    const deleteComment = "delete from public.deck_comments where id = $1 returning id";
+    await assert.rejects(asRole("anon", null, editComment, [commentId, "Anonymous edit"]), /permission denied/);
+    await assert.rejects(asRole("anon", null, deleteComment, [commentId]), /permission denied/);
+    assert.equal((await asRole("authenticated", reader, editComment, [commentId, "Another player's edit"])).length, 0);
+    assert.equal((await asRole("authenticated", reader, deleteComment, [commentId])).length, 0);
+    assert.equal((await asRole("authenticated", author, deleteComment, [replyId])).length, 0);
+    await assert.rejects(asRole("authenticated", reader,
+      "update public.deck_comments set parent_id = null where id = $1", [replyId]), /permission denied/);
+    for (const body of [" \n\t ", "x".repeat(2001)]) {
+      await assert.rejects(asRole("authenticated", reader, editComment, [replyId, body]), /check constraint/);
+    }
+    const [edited] = await asRole("authenticated", reader, editComment, [replyId, "Updated question"]);
+    assert.deepEqual(edited, { ...discussion[1], body: "Updated question" });
+    assert.equal((await asRole("anon", null, "select body from public.deck_comments where id = $1", [replyId]))[0].body, "Updated question");
     // An imported deck receives new ownership and the database's private default.
     await asRole("authenticated", reader, `insert into public.decks(id, owner_id, name, faction, content)
       select $1, $2, name, faction, content from public.decks where id = $3 and visibility = 'public'`, [copiedId, reader, deckId]);
@@ -132,13 +144,19 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("anon", null, "select * from public.deck_comments")).length, 0);
     await assert.rejects(asRole("authenticated", author,
       "insert into public.deck_comments(deck_id, author_id, body) values ($1, $2, 'Withdrawn deck comment')", [deckId, author]), /row-level security/);
+    assert.equal((await asRole("authenticated", author, editComment, [commentId, "Edit on a withdrawn deck"])).length, 0);
+    assert.equal((await asRole("authenticated", author, deleteComment, [commentId])).length, 0);
     assert.equal((await db.query("select * from public.deck_comments")).rows.length, 3);
     await asRole("authenticated", author, "update public.decks set visibility = 'public' where id = $1", [deckId]);
     assert.equal((await asRole("anon", null, "select * from public.deck_comments")).length, 3);
+    assert.deepEqual(await asRole("authenticated", author, deleteComment, [commentId]), [{ id: commentId }]);
+    const remaining = await asRole("anon", null, "select * from public.deck_comments order by created_at, id");
+    assert.deepEqual(remaining, [{ ...edited, parent_id: null }, discussion[2]]);
     await asRole("authenticated", author, "update public.decks set visibility = 'private' where id = $1", [deckId]);
     assert.equal((await asRole("authenticated", reader, "select * from public.decks where id = $1", [copiedId])).length, 1);
     await db.query("delete from auth.users where id = $1", [author]);
     assert.equal((await db.query("select * from public.player_profiles where id = $1", [author])).rows.length, 0);
+    assert.equal((await db.query("select * from public.deck_comments where deck_id = $1", [deckId])).rows.length, 0);
     assert.equal((await asRole("authenticated", reader, "select * from public.decks where id = $1", [copiedId])).length, 1);
     await db.query("insert into auth.users values ($1, 'new@example.com', '{}')", [author]);
     assert.equal((await asRole("authenticated", author, "select name from public.player_profiles"))[0].name, "Discord user");

@@ -11,6 +11,9 @@
 .creator { font-size: 10px; color: #ddbd7d; border: 1px solid #6a593b; border-radius: 4px; padding: 3px 6px; }
 .replyContext { display: block; margin-top: 12px; color: #9296a2; font-size: 11px; overflow-wrap: anywhere; }
 .discussion .body { color: #dbdde5; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.commentActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.discussion .delete { color: #f0acac; }
+.discussion .deletePrompt { margin-top: 0; }
 .discussion .error { color: #f0acac; }
 .discussion .success { color: #9ee6b4; }
 @media (max-width: 600px) { .comment { padding: 12px; } .commentHeader time { width: 100%; margin-left: 42px; } .composer { padding: 12px; } }
