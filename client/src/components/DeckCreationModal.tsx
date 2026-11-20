@@ -75,6 +75,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const deckTitle = deckName.trim() || "Untitled Deck";
   const { bodyRef, panelRef, deckWidth, resizing, separatorProps } = useDeckPanelResize(Boolean(selectedFaction));
   const modal = useRef<HTMLDivElement>(null);
+  const catalog = useRef<HTMLElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
   useModalFocus(modal, Boolean(detailCard) || dragging);
   const dragSensors = useSensors(
@@ -187,7 +188,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
           }}
         >
         <div ref={bodyRef} className={`${styles.body} ${resizing ? styles.resizing : ""} ${collectionDrag ? styles.collectionDragging : ""}`} style={deckWidth === null ? undefined : { "--deck-panel-width": `${deckWidth}px` } as CSSProperties}>
-          <section className={`${styles.catalog} ${mobileView === "deck" ? styles.mobileHidden : ""}`}>
+          <section ref={catalog} className={`${styles.catalog} ${mobileView === "deck" ? styles.mobileHidden : ""}`}>
             <div className={styles.catalogHeader}>
               <div><h3>{view === "overview" ? "Deck Overview" : view === "cards" ? "Card collection" : view === "stats" ? "Deck analysis" : "Test your opening hand"}</h3><span style={{ color: chronicle?.color }}>Chronicle of {chronicle?.name}</span></div>
               <div className={styles.viewTabs} role="group" aria-label="Deck builder views">
@@ -268,6 +269,8 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
               </div>
               <div role="tabpanel" id="builder-collection-panel" aria-labelledby={`builder-tab-${collectionTab}`}>
                 <CardBrowser key={collectionTab}
+                  autoLoadMore
+                  scrollRootRef={catalog}
                   viewMode={collectionView}
                   gridZoom={collectionZoom}
                   options={cardOptions[collectionTab]}

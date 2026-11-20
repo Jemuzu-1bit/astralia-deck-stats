@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Card } from "../types/Card";
 import { getAllCards } from "../services/cardDataService";
@@ -16,6 +16,7 @@ export default function CardLibraryPage() {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<Card | null>(null);
   const filters = useCardFilters();
+  const options = useMemo(() => faction ? cards.filter(card => card.faction.toLowerCase() === faction) : cards, [cards, faction]);
   useEffect(() => {
     let active = true;
     void getAllCards().then(cards => { if (active) setCards(cards); }).catch(() => { if (active) setError("Could not load the card library. Please reload to try again."); }).finally(() => { if (active) setLoading(false); });
@@ -24,7 +25,7 @@ export default function CardLibraryPage() {
   return <div className={styles.page}>
     <header className={styles.header}><div><span>EXPLORE ASTRALIA</span><h1>Card library</h1><p>Find the next piece of your strategy.</p></div><Link to="/my-decks?new=1">+ Build a deck</Link></header>
     <div className={styles.factions} aria-label="Filter by chronicle"><button aria-pressed={!faction} onClick={() => setFaction("")}>All chronicles</button>{FACTIONS.map(value => <button key={value} aria-pressed={faction === value} onClick={() => setFaction(value)}><span style={{ background: CHRONICLES[value].color }} />{CHRONICLES[value].name}</button>)}</div>
-    <CardBrowser options={cards.filter(card => !faction || card.faction.toLowerCase() === faction)} filters={filters} loading={loading} error={error} onOpenCard={setDetail} />
+    <CardBrowser options={options} filters={filters} loading={loading} error={error} onOpenCard={setDetail} autoLoadMore />
     {detail && <CardDetailsModal card={detail} onClose={() => setDetail(null)} />}
   </div>;
 }

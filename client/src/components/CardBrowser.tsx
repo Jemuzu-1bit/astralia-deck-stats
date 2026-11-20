@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
@@ -28,8 +28,11 @@ interface Props {
   error?: string | null;
   viewMode?: CardViewMode;
   gridZoom?: number;
+  autoLoadMore?: boolean;
+  scrollRootRef?: RefObject<HTMLElement | null>;
 }
 
+const CARD_PAGE_SIZE = 60;
 const quantityLabels: Record<DeckSection, string> = { protagonist: "selected", persona: "in Persona", deck: "in Main", sideboard: "in Side" };
 
 function CollectionCardArt({ card, destinations, quantities, viewMode, onOpenCard }: {
@@ -61,12 +64,13 @@ function CollectionCardArt({ card, destinations, quantities, viewMode, onOpenCar
   </div>;
 }
 
-export default function CardBrowser({ options, filters, onOpenCard, destinations, onAdd, onRemove, loading, error, viewMode = "grid", gridZoom }: Props) {
+export default function CardBrowser({ options, filters, onOpenCard, destinations, onAdd, onRemove, loading, error, viewMode = "grid", gridZoom, autoLoadMore = false, scrollRootRef }: Props) {
   const [sort, setSort] = useState("cost");
-  const [pageSize, setPageSize] = useState(60);
+  const [pageSize, setPageSize] = useState(CARD_PAGE_SIZE);
   const [advanced, setAdvanced] = useState(false);
   const [destinationMenu, setDestinationMenu] = useState<{ cardId: string; action: "add" | "remove" } | null>(null);
   const destinationTrigger = useRef<HTMLButtonElement>(null);
+  const loadMoreTrigger = useRef<HTMLDivElement>(null);
   const gridStyle = viewMode === "grid" && gridZoom !== undefined
     ? { "--card-grid-scale": gridZoom / 100 } as CSSProperties
     : undefined;
@@ -82,9 +86,32 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
     { label: "HP", values: values.hps, selected: filters.selectedHps, set: filters.setSelectedHps },
   ];
   const filterCount = filterGroups.reduce((sum, group) => sum + group.selected.length, 0);
+  const query = autoLoadMore ? JSON.stringify([filters.searchText, sort, ...filterGroups.map(group => group.selected)]) : null;
+  const [paginationResults, setPaginationResults] = useState({ options, query });
+  if (autoLoadMore && (paginationResults.options !== options || paginationResults.query !== query)) {
+    setPaginationResults({ options, query });
+    setPageSize(CARD_PAGE_SIZE);
+  }
+
+  const hasMore = filtered.length > pageSize;
+  const canAutoLoad = autoLoadMore && typeof IntersectionObserver !== "undefined";
+  const showLoadTrigger = canAutoLoad && hasMore && !loading && !error;
+  useEffect(() => {
+    const trigger = loadMoreTrigger.current;
+    if (!showLoadTrigger || !trigger) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      observer.disconnect();
+      setPageSize(size => size + CARD_PAGE_SIZE);
+    }, { root: scrollRootRef?.current, rootMargin: "0px 0px 400px 0px" });
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, [showLoadTrigger, pageSize, paginationResults, scrollRootRef]);
+
   return <div className={styles.browser}>
-    <div className={styles.searchRow}><label className={styles.search}><ArchiveIcon name="search" size={18} /><input aria-label="Search cards" placeholder="Search cards by name or ID…" value={filters.searchText} onChange={event => { filters.setSearchText(event.target.value); setPageSize(60); }} />{filters.searchText && <button aria-label="Clear card search" onClick={() => filters.setSearchText("")}><ArchiveIcon name="close" size={15} /></button>}</label><button className={styles.filterToggle} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>Filters{filterCount > 0 ? ` (${filterCount})` : ""}</button></div>
-    <div className={styles.filters}>{filterGroups.slice(0, 2).map(group => <label key={group.label}><span>{group.label}</span><select aria-label={`Filter by ${group.label.toLowerCase()}`} value={group.selected[0] ?? ""} onChange={event => { group.set(event.target.value ? [event.target.value] : []); setPageSize(60); }}><option value="">All {group.label.toLowerCase()}s</option>{group.values.map(value => <option key={value}>{value}</option>)}</select></label>)}<button className={styles.reset} onClick={() => { filters.clearFilters(); setPageSize(60); }}>Reset filters</button></div>
+    <div className={styles.searchRow}><label className={styles.search}><ArchiveIcon name="search" size={18} /><input aria-label="Search cards" placeholder="Search cards by name or ID…" value={filters.searchText} onChange={event => { filters.setSearchText(event.target.value); setPageSize(CARD_PAGE_SIZE); }} />{filters.searchText && <button aria-label="Clear card search" onClick={() => filters.setSearchText("")}><ArchiveIcon name="close" size={15} /></button>}</label><button className={styles.filterToggle} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>Filters{filterCount > 0 ? ` (${filterCount})` : ""}</button></div>
+    <div className={styles.filters}>{filterGroups.slice(0, 2).map(group => <label key={group.label}><span>{group.label}</span><select aria-label={`Filter by ${group.label.toLowerCase()}`} value={group.selected[0] ?? ""} onChange={event => { group.set(event.target.value ? [event.target.value] : []); setPageSize(CARD_PAGE_SIZE); }}><option value="">All {group.label.toLowerCase()}s</option>{group.values.map(value => <option key={value}>{value}</option>)}</select></label>)}<button className={styles.reset} onClick={() => { filters.clearFilters(); setPageSize(CARD_PAGE_SIZE); }}>Reset filters</button></div>
     {advanced && <div className={styles.advanced}>{filterGroups.slice(2).map(group => <div key={group.label}><span>{group.label}</span><div>{group.values.length === 0 ? <small>No options</small> : group.values.map(value => <button key={value} aria-pressed={group.selected.includes(value)} className={group.selected.includes(value) ? styles.activeChip : ""} onClick={() => group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value])}>{value}</button>)}</div></div>)}</div>}
     <div className={styles.results}><span aria-live="polite">{loading ? "Loading cards…" : `${filtered.length} cards`}</span><label>Sort by <select aria-label="Sort cards" value={sort} onChange={event => setSort(event.target.value)}><option value="cost">Cost, then name</option><option value="name">Name</option></select></label></div>
     {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3><p>Try a different search or reset your filters.</p><button onClick={filters.clearFilters}>Reset filters</button></div> : <div className={gridStyle ? `${resultsLayout} ${styles.zoomGrid}` : resultsLayout} style={gridStyle}>{filtered.slice(0, pageSize).map(card => {
@@ -144,6 +171,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
         </div>}
       </article>;
     })}</div>}
-    {filtered.length > pageSize && <button className={styles.loadMore} onClick={() => setPageSize(size => size + 60)}>Show more cards ({filtered.length - pageSize} remaining)</button>}
+    {showLoadTrigger && <div ref={loadMoreTrigger} className={styles.loadMoreTrigger} aria-hidden="true" />}
+    {hasMore && !canAutoLoad && <button className={styles.loadMore} onClick={() => setPageSize(size => size + CARD_PAGE_SIZE)}>Show more cards ({filtered.length - pageSize} remaining)</button>}
   </div>;
 }
