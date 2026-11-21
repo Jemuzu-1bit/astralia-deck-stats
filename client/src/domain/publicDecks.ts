@@ -1,5 +1,5 @@
 import type { Deck } from "../types/Deck.ts";
-import { profileWebsite } from "./playerProfile.ts";
+import { profileWebsite, type DiscordAppearance, type ProfileAppearance } from "./playerProfile.ts";
 
 export type PublicProfile = {
   id: string;
@@ -9,6 +9,8 @@ export type PublicProfile = {
   favoriteChronicle: string;
   website: string;
 };
+
+export type PublicPlayerProfile = PublicProfile & { appearance: ProfileAppearance; discord: DiscordAppearance };
 
 export type PublicDeckEngagement = {
   likeCount: number;

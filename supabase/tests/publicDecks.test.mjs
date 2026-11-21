@@ -97,15 +97,28 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     await db.exec(await readFile(new URL("../migrations/202611210002_exclude_sideboard_from_deck_imports.sql", import.meta.url), "utf8"));
     await db.exec(await readFile(new URL("../migrations/202611210003_keep_empty_sideboard_entries.sql", import.meta.url), "utf8"));
     await asRole("authenticated", author, "delete from public.decks where id in ($1, $2)", [legacyDeckId, legacyCopyId]);
+    await db.exec(await readFile(new URL("../migrations/202611210004_player_profile_appearance.sql", import.meta.url), "utf8"));
 
     const ownProfile = await asRole("authenticated", author, "select * from public.player_profiles");
     assert.equal(ownProfile.length, 1);
     assert.equal(ownProfile[0].name, "Deck author");
     assert.equal(ownProfile[0].bio, "My strategy");
+    assert.deepEqual(ownProfile[0].appearance, {});
     assert.ok(!("email" in ownProfile[0]));
     assert.equal((await asRole("anon", null, "select * from public.player_profiles")).length, 0);
     await asRole("authenticated", author, `insert into public.decks(id, owner_id, name, faction, background_image_path, description)
       values ($1, $2, 'Strategy', 'blue', $3, 'Private strategy notes')`, [deckId, author, background]);
+    const hash = "a_1234567890abcdef1234567890abcdef";
+    const saveAppearance = async (id, appearance) => db.query("update auth.users set raw_user_meta_data = raw_user_meta_data || $2::jsonb where id = $1", [
+      id, JSON.stringify({
+        player_profile: { bio: "My strategy", favoriteChronicle: "blue", appearance },
+        discord_profile: { id: "80351110224678912", banner: hash, accent: "#000000", decoration: hash,
+          guildTag: "HIDE", nameplate: "nameplates/test/example/", nameplatePalette: "cobalt", token: "private" },
+      }),
+    ]);
+    await saveAppearance(author, { cover: "discord", featuredDeckId: deckId, favoriteCardId: "test-card", effect: "chronicle", showNameplate: true });
+    const [privateAppearance] = await asRole("authenticated", author, "select appearance from public.player_profiles where id = $1", [author]);
+    assert.ok(!("featuredDeckId" in privateAppearance.appearance));
     await assert.rejects(asRole("authenticated", author, "update public.decks set content = $1 where id = $2", [
       JSON.stringify({ persona: ["persona-card"], deck: [], sideboard: [{ id: "PERSONA-CARD", qty: 1 }] }), deckId,
     ]), /decks_persona_sideboard_exclusive/);
@@ -127,6 +140,15 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("anon", null, "select * from public.decks")).length, 1);
     assert.equal((await asRole("anon", null, "select * from public.player_profiles")).length, 1);
     assert.equal((await asRole("anon", null, "select * from storage.objects")).length, 1);
+    await saveAppearance(reader, { featuredDeckId: deckId });
+    assert.ok(!("featuredDeckId" in (await asRole("authenticated", reader, "select appearance from public.player_profiles where id = $1", [reader]))[0].appearance));
+    await saveAppearance(author, { cover: "discord", featuredDeckId: deckId, favoriteCardId: "test-card", effect: "chronicle", showNameplate: true });
+    const [publicAppearance] = await asRole("anon", null, "select appearance, discord_appearance from public.player_profiles where id = $1", [author]);
+    assert.equal(publicAppearance.appearance.featuredDeckId, deckId);
+    assert.equal(publicAppearance.appearance.effect, "chronicle");
+    assert.equal(publicAppearance.appearance.favoriteCardId, "test-card");
+    assert.deepEqual(publicAppearance.discord_appearance, { id: "80351110224678912", banner: hash, accent: "#000000",
+      nameplate: "nameplates/test/example/", nameplatePalette: "cobalt" });
 
     const readMetrics = async (role = "anon", id = null) => (await asRole(role, id, `
       select like_count, view_count, import_count, liked_by_viewer from public.published_decks where id = $1`, [deckId]))[0];
@@ -258,6 +280,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
       "update public.decks set visibility = 'private' where id = $1 and revision = 2 returning *", [deckId]);
     assert.equal(withdrawn[0].published_at, null);
     assert.equal(withdrawn[0].revision, 3);
+    assert.ok(!("featuredDeckId" in (await asRole("authenticated", author, "select appearance from public.player_profiles where id = $1", [author]))[0].appearance));
     assert.equal(await readMetrics("authenticated", author), undefined);
     await assert.rejects(asRole("anon", null, "select public.record_public_deck_view($1)", [deckId]), /no longer public/);
     await assert.rejects(asRole("anon", null, localCopySql, [deckId, copiedId]), /no longer public/);
@@ -273,6 +296,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("authenticated", author, deleteComment, [commentId])).length, 0);
     assert.equal((await db.query("select * from public.deck_comments")).rows.length, 3);
     await asRole("authenticated", author, "update public.decks set visibility = 'public' where id = $1", [deckId]);
+    assert.equal((await asRole("anon", null, "select appearance from public.player_profiles where id = $1", [author]))[0].appearance.featuredDeckId, deckId);
     assert.deepEqual(await readMetrics("authenticated", reader), { like_count: 1, view_count: 2, import_count: 2, liked_by_viewer: true });
     assert.equal((await asRole("anon", null, "select * from public.deck_comments")).length, 3);
     assert.deepEqual(await asRole("authenticated", author, deleteComment, [commentId]), [{ id: commentId }]);

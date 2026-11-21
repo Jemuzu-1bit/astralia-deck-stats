@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useLocation, useOutletContext } from "react-router-dom";
 import type { AuthSession } from "../hooks/useAuthSession";
 import { PUBLIC_DECK_SORTS, type PublicDeck, type PublicDeckSort } from "../domain/publicDecks";
 import {
@@ -16,9 +16,11 @@ import PublicDeckPreview from "./PublicDeckPreview";
 import styles from "../pages/MyDecksPage.module.scss";
 import cards from "./DeckCard.module.scss";
 import community from "./PublicDeckCollection.module.scss";
+import profile from "../pages/ProfilePage.module.scss";
 
-export default function PublicDeckCollection({ ownerId }: { ownerId?: string }) {
+export default function PublicDeckCollection({ ownerId, featuredDeckId }: { ownerId?: string; featuredDeckId?: string }) {
   const { user, authReady } = useOutletContext<AuthSession>();
+  const { hash } = useLocation();
   const userId = user?.id;
   const [search, setSearch] = useState("");
   const [faction, setFaction] = useState("");
@@ -26,6 +28,7 @@ export default function PublicDeckCollection({ ownerId }: { ownerId?: string }) 
   const [page, setPage] = useState(0);
   const [reload, setReload] = useState(0);
   const [decks, setDecks] = useState<PublicDeck[]>([]);
+  const [featured, setFeatured] = useState<PublicDeck | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +43,21 @@ export default function PublicDeckCollection({ ownerId }: { ownerId?: string }) 
   const previousQuery = useRef("");
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   useEffect(() => { setSelected(null); setLikeError(null); }, [userId]);
+
+  useEffect(() => {
+    if (!ownerId || !featuredDeckId) return;
+    let current = true;
+    void listPublicDecks({ ownerId, deckId: featuredDeckId }).then(result => {
+      if (current) setFeatured(result.decks[0] ?? null);
+    }).catch(() => { if (current) setFeatured(null); });
+    return () => { current = false; };
+  }, [ownerId, featuredDeckId, userId, reload]);
+
+  const featuredDeck = featured?.id === featuredDeckId ? featured : null;
+  const hasFeaturedDeck = Boolean(featuredDeck);
+  useEffect(() => {
+    if (hasFeaturedDeck && hash === "#featured-deck") document.getElementById("featured-deck")?.scrollIntoView();
+  }, [hasFeaturedDeck, hash]);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -66,6 +84,7 @@ export default function PublicDeckCollection({ ownerId }: { ownerId?: string }) 
   const updateEngagement = (id: string, update: (deck: PublicDeck) => PublicDeck) => {
     if (!active.current) return;
     setDecks(items => items.map(deck => deck.id === id ? update(deck) : deck));
+    setFeatured(deck => deck?.id === id ? update(deck) : deck);
     setSelected(deck => deck?.id === id ? update(deck) : deck);
     setReload(value => value + 1);
   };
@@ -128,6 +147,10 @@ export default function PublicDeckCollection({ ownerId }: { ownerId?: string }) 
 
   if (!supabase) return <p className={styles.notice}>Public decks will be available when online storage is configured.</p>;
   return <section aria-label={ownerId ? "Published decks" : "Public deck collection"}>
+    {featuredDeck && <div id="featured-deck" className={`${profile.card} ${profile.featuredDeck}`}>
+      <div><small>Featured public deck</small><h2>{featuredDeck.name}</h2></div>
+      <button type="button" className={profile.secondary} onClick={() => viewDeck(featuredDeck)}>View deck</button>
+    </div>}
     {ownerId && <h2>Published decks</h2>}
     <div className={styles.libraryToolbar}>
       <label className={styles.deckSearch}><ArchiveIcon name="search" size={17} /><input aria-label="Search public decks" placeholder="Search public decks…" value={search} maxLength={100} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label>

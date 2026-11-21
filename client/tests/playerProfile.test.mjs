@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getPlayerProfile, profileWebsite } from "../src/domain/playerProfile.ts";
+import { discordAppearanceImages, getPlayerProfile, profileWebsite, readDiscordProfileResponse, readProfileAppearance } from "../src/domain/playerProfile.ts";
 
 test("Discord identity and editable profile fields stay separate", () => {
   const profile = getPlayerProfile({
@@ -30,4 +30,35 @@ test("profile links reject executable schemes and embedded credentials", () => {
     assert.throws(() => profileWebsite(url), /valid website/);
     assert.equal(getPlayerProfile({ user_metadata: { player_profile: { website: url } } }).website, "");
   }
+});
+
+test("legacy profiles keep their chronicle cover and start with Discord cosmetics hidden", () => {
+  const profile = getPlayerProfile({ user_metadata: { player_profile: { favoriteChronicle: "blue" } } });
+  assert.equal(profile.favoriteChronicle, "blue");
+  assert.deepEqual(profile.appearance, {
+    cover: "chronicle", coverColor: "#383027", showAvatarDecoration: false, showNameplate: false,
+    showGuildTag: false, featuredDeckId: "", favoriteCardId: "", effect: "none",
+  });
+  assert.deepEqual(readProfileAppearance({ cover: "solid", effect: "chronicle", coverColor: "url(https://example.test)", showGuildTag: "true" }), {
+    ...profile.appearance, cover: "solid", effect: "chronicle",
+  });
+});
+
+test("Discord assets use the linked account, keep black accents and honor disabled guild tags", () => {
+  const id = "80351110224678912";
+  const image = `a_${"a".repeat(32)}`;
+  const profile = readDiscordProfileResponse({
+    id, avatar: image, banner: image, accent_color: 0, avatar_decoration_data: { asset: image },
+    collectibles: { nameplate: { asset: "nameplates/nameplates/twilight/", palette: "cobalt" } },
+    primary_guild: { identity_enabled: false, tag: "HIDE", badge: image }, email: "ignored@example.test",
+  });
+  assert.equal(profile.accent, "#000000");
+  assert.equal(profile.guildTag, "");
+  assert.equal(profile.guildBadge, "");
+  assert.ok(!("email" in profile));
+  assert.equal(discordAppearanceImages(profile).banner, `https://cdn.discordapp.com/banners/${id}/${image}.webp?size=1024&animated=true`);
+  assert.equal(discordAppearanceImages(profile, false).avatar, `https://cdn.discordapp.com/avatars/${id}/${image}.webp?size=256`);
+  assert.match(discordAppearanceImages(profile).nameplate, /\/twilight\/asset\.webm$/);
+  assert.match(discordAppearanceImages(profile, false).nameplate, /\/twilight\/static\.png$/);
+  assert.equal(readDiscordProfileResponse({ banner: "../outside", collectibles: { nameplate: { asset: "nameplates/../outside/" } } }).nameplate, "");
 });

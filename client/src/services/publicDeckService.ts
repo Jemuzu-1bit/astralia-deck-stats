@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
-import { PUBLIC_DECK_SORTS, privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicDeckSort, type PublicProfile } from "../domain/publicDecks";
+import { PUBLIC_DECK_SORTS, privateDeckCopy, safeProfileUrl, type PublicDeck, type PublicDeckSort, type PublicPlayerProfile, type PublicProfile } from "../domain/publicDecks";
+import { readDiscordAppearance, readProfileAppearance } from "../domain/playerProfile";
 import type { Deck } from "../types/Deck";
 
 const PAGE_SIZE = 24;
@@ -24,11 +25,11 @@ function profile(row: ProfileRow): PublicProfile {
     favoriteChronicle: row.favorite_chronicle, website: safeProfileUrl(row.website) };
 }
 
-export async function getPublicProfile(id: string): Promise<PublicProfile | null> {
+export async function getPublicProfile(id: string): Promise<PublicPlayerProfile | null> {
   const { data, error } = await client().from("player_profiles")
-    .select("id, name, avatar, bio, favorite_chronicle, website").eq("id", id).maybeSingle();
+    .select("id, name, avatar, bio, favorite_chronicle, website, appearance, discord_appearance").eq("id", id).maybeSingle();
   if (error) throw error;
-  return data ? profile(data as ProfileRow) : null;
+  return data ? { ...profile(data), appearance: readProfileAppearance(data.appearance), discord: readDiscordAppearance(data.discord_appearance) } : null;
 }
 
 export async function getPublicProfiles(ids: string[]): Promise<Map<string, PublicProfile>> {
@@ -39,12 +40,13 @@ export async function getPublicProfiles(ids: string[]): Promise<Map<string, Publ
   return new Map((data as ProfileRow[]).map(row => [row.id, profile(row)]));
 }
 
-export async function listPublicDecks({ search = "", faction = "", ownerId, page = 0, sort = "newest" }: {
-  search?: string; faction?: string; ownerId?: string; page?: number; sort?: PublicDeckSort;
+export async function listPublicDecks({ search = "", faction = "", ownerId, deckId, page = 0, sort = "newest" }: {
+  search?: string; faction?: string; ownerId?: string; deckId?: string; page?: number; sort?: PublicDeckSort;
 } = {}): Promise<{ decks: PublicDeck[]; hasMore: boolean }> {
   let query = client().from("published_decks").select(`${COLUMNS}, like_count, view_count, import_count, liked_by_viewer`);
   if (faction) query = query.eq("faction", faction);
   if (ownerId) query = query.eq("owner_id", ownerId);
+  if (deckId) query = query.eq("id", deckId);
   if (search.trim()) query = query.ilike("name", `%${search.trim().replace(/[\\%_]/g, "\\$&")}%`);
   const { column, ascending } = PUBLIC_DECK_SORTS[sort];
   query = query.order(column, { ascending });
@@ -68,6 +70,19 @@ export async function listPublicDecks({ search = "", faction = "", ownerId, page
       likeCount: row.like_count, viewCount: row.view_count, importCount: row.import_count, likedByViewer: row.liked_by_viewer };
   }));
   return { decks, hasMore: data.length > PAGE_SIZE };
+}
+
+export async function getPublishedDeckOptions(ownerId: string, deckId?: string): Promise<{ id: string; name: string }[]> {
+  const options: { id: string; name: string }[] = [];
+  const limit = 100;
+  for (let offset = 0; ; offset += limit) {
+    let query = client().from("decks").select("id, name").eq("owner_id", ownerId).eq("visibility", "public");
+    if (deckId) query = query.eq("id", deckId);
+    const { data, error } = await query.order("name").order("id").range(offset, offset + limit - 1);
+    if (error) throw error;
+    options.push(...data);
+    if (data.length < limit) return options;
+  }
 }
 
 export async function fetchPublicDeckCopy(id: string) {

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ArchiveIcon from "./ArchiveIcon";
 import SettingsMenu from "./SettingsMenu";
 import ShortcutSettings from "./ShortcutSettings";
@@ -7,11 +7,19 @@ import FeedbackLink from "./FeedbackLink";
 import DiscordProfile from "./DiscordProfile";
 import useAuthSession from "../hooks/useAuthSession";
 import useAdminAccess from "../hooks/useAdminAccess";
+import { takeDiscordAppearanceDraft } from "../services/discordAppearanceService";
 import styles from "./ArchiveLayout.module.scss";
 
 export default function ArchiveLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const authSession = useAuthSession();
+  const userId = authSession.user?.id;
+  useEffect(() => {
+    if (!authSession.authReady || location.pathname !== "/my-decks") return;
+    const reconnect = takeDiscordAppearanceDraft(userId);
+    if (reconnect) navigate("/profile/edit", { replace: true, state: { ...reconnect, syncDiscord: true } });
+  }, [authSession.authReady, location.pathname, navigate, userId]);
   const adminAccess = useAdminAccess(authSession.user?.id);
   const [settings, setSettings] = useState(false);
   const [shortcuts, setShortcuts] = useState(false);

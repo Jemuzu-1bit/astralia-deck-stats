@@ -1,37 +1,120 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import type { AuthSession } from "../hooks/useAuthSession";
-import { getPlayerProfile, profileWebsite } from "../domain/playerProfile";
+import { getPlayerProfile, profileWebsite, readProfileAppearance, type ProfileAppearance } from "../domain/playerProfile";
+import { safeProfileUrl } from "../domain/publicDecks";
 import { CHRONICLES } from "../data/chronicles";
 import { FACTIONS } from "../domain/deckBuilder";
 import { supabase } from "../services/supabaseClient";
-import PlayerAvatar from "../components/PlayerAvatar";
+import { DiscordReconnectRequired, reconnectDiscordAppearance, syncDiscordAppearance } from "../services/discordAppearanceService";
+import { getPublishedDeckOptions } from "../services/publicDeckService";
+import { getAllCards } from "../services/cardDataService";
+import type { Card } from "../types/Card";
+import PlayerProfileCard from "../components/PlayerProfileCard";
 import ArchiveIcon from "../components/ArchiveIcon";
 import styles from "./ProfilePage.module.scss";
 
-function ProfileEditor({ user }: { user: User }) {
+type ProfileDraft = { bio: string; favoriteChronicle: string; website: string; appearance: ProfileAppearance };
+type ProfileEditorState = { draft?: ProfileDraft; syncDiscord?: boolean };
+
+function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEditorState | null }) {
   const profile = getPlayerProfile(user);
-  const [bio, setBio] = useState(profile.bio);
-  const [favoriteChronicle, setFavoriteChronicle] = useState(FACTIONS.some(faction => faction === profile.favoriteChronicle) ? profile.favoriteChronicle : "");
-  const [website, setWebsite] = useState(profile.website);
-  const [saving, setSaving] = useState(false);
+  const [bio, setBio] = useState(routeState?.draft?.bio ?? profile.bio);
+  const [favoriteChronicle, setFavoriteChronicle] = useState(() => {
+    const favorite = routeState?.draft?.favoriteChronicle ?? profile.favoriteChronicle;
+    return FACTIONS.some(faction => faction === favorite) ? favorite : "";
+  });
+  const [website, setWebsite] = useState(routeState?.draft?.website ?? profile.website);
+  const [appearance, setAppearance] = useState(() => routeState?.draft ? readProfileAppearance(routeState.draft.appearance) : profile.appearance);
+  const [discord, setDiscord] = useState(profile.discord);
+  const [busy, setBusy] = useState<"save" | "sync" | "reconnect" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [syncError, setSyncError] = useState("");
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [cards, setCards] = useState<Card[] | null>(null);
+  const [decks, setDecks] = useState<Awaited<ReturnType<typeof getPublishedDeckOptions>> | null>(null);
+  const [optionsError, setOptionsError] = useState({ cards: false, decks: false });
+  const [cardSearch, setCardSearch] = useState("");
   const navigate = useNavigate();
   const active = useRef(true);
   const pending = useRef(false);
+  const resumed = useRef(false);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => {
+    let current = true;
+    void getAllCards().then(result => {
+      if (current) setCards(result.sort((a, b) => a.name.localeCompare(b.name)));
+    }).catch(() => { if (current) setOptionsError(value => ({ ...value, cards: true })); });
+    void getPublishedDeckOptions(user.id).then(result => { if (current) setDecks(result); })
+      .catch(() => { if (current) setOptionsError(value => ({ ...value, decks: true })); });
+    return () => { current = false; };
+  }, [user.id]);
+
+  const sync = useCallback(async () => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy("sync");
+    setSyncError("");
+    setSyncMessage("");
+    try {
+      const result = await syncDiscordAppearance(user.id);
+      if (active.current) {
+        setDiscord(result);
+        setNeedsReconnect(false);
+        setSyncMessage("Discord profile synced.");
+      }
+    } catch (error) {
+      if (!active.current) return;
+      if (error instanceof DiscordReconnectRequired) {
+        setNeedsReconnect(true);
+        setSyncMessage("Reconnect Discord to sync your profile cosmetics.");
+      } else {
+        setSyncError(error instanceof Error ? error.message : "Could not sync your Discord profile.");
+      }
+    } finally {
+      pending.current = false;
+      if (active.current) setBusy(null);
+    }
+  }, [user.id]);
+
+  useEffect(() => {
+    if (!routeState?.syncDiscord || resumed.current) return;
+    resumed.current = true;
+    void sync();
+  }, [routeState?.syncDiscord, sync]);
+
+  const draft = { bio, favoriteChronicle, website, appearance };
+  const updateAppearance = <K extends keyof ProfileAppearance>(key: K, value: ProfileAppearance[K]) => {
+    setAppearance(current => ({ ...current, [key]: value }));
+  };
+
+  const reconnect = async () => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy("reconnect");
+    setSyncError("");
+    try {
+      await reconnectDiscordAppearance(user.id, draft);
+    } catch (error) {
+      if (active.current) setSyncError(error instanceof Error ? error.message : "Could not reconnect to Discord.");
+    } finally {
+      pending.current = false;
+      if (active.current) setBusy(null);
+    }
+  };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || pending.current) return;
     pending.current = true;
-    setSaving(true);
+    setBusy("save");
     setError(null);
     try {
       const { error } = await supabase.auth.updateUser({ data: {
-        player_profile: { bio: bio.trim(), favoriteChronicle, website: profileWebsite(website) },
+        player_profile: { ...draft, bio: bio.trim(), website: profileWebsite(website) },
       } });
       if (error) throw error;
       if (active.current) navigate("/profile", { replace: true, state: { profileSaved: true } });
@@ -39,16 +122,18 @@ function ProfileEditor({ user }: { user: User }) {
       if (active.current) setError(error instanceof Error ? error.message : "Could not save your profile. Please try again.");
     } finally {
       pending.current = false;
-      if (active.current) setSaving(false);
+      if (active.current) setBusy(null);
     }
   };
 
-  return <form className={styles.editor} onSubmit={event => void save(event)} aria-busy={saving}>
-    <div className={styles.discordIdentity}>
-      <PlayerAvatar name={profile.name} avatar={profile.avatar} className={styles.avatar} />
-      <div><strong>{profile.name}</strong><p>Your name and avatar come from Discord.</p></div>
-    </div>
-    <fieldset disabled={saving}>
+  const search = cardSearch.trim().toLowerCase();
+  const matchingCards = cards?.filter(card => !search || `${card.name} ${card.setId}`.toLowerCase().includes(search)).slice(0, 60) ?? [];
+  const chosenCard = cards?.find(card => card.id === appearance.favoriteCardId);
+  if (chosenCard && !matchingCards.some(card => card.id === chosenCard.id)) matchingCards.unshift(chosenCard);
+
+  return <><form className={styles.editor} onSubmit={event => void save(event)} aria-busy={Boolean(busy)}>
+    <fieldset disabled={Boolean(busy)}>
+      <legend>Player details</legend>
       <label htmlFor="profile-bio">Bio</label>
       <textarea id="profile-bio" rows={4} maxLength={300} value={bio} onChange={event => setBio(event.target.value)} placeholder="Tell other players about your play style and favorite strategies." aria-describedby="profile-bio-count" />
       <span id="profile-bio-count" className={styles.hint}>{bio.length}/300 characters</span>
@@ -60,12 +145,80 @@ function ProfileEditor({ user }: { user: User }) {
       <label htmlFor="profile-website">Website or social link</label>
       <input id="profile-website" type="url" maxLength={500} value={website} onChange={event => setWebsite(event.target.value)} placeholder="https://" />
     </fieldset>
+    <fieldset disabled={Boolean(busy)}>
+      <legend>Appearance</legend>
+      <label htmlFor="profile-cover">Profile cover</label>
+      <select id="profile-cover" value={appearance.cover} onChange={event => updateAppearance("cover", event.target.value as ProfileAppearance["cover"])}>
+        <option value="chronicle">Favorite chronicle</option>
+        <option value="discord">Discord banner or accent color</option>
+        <option value="solid">Solid color</option>
+      </select>
+      {appearance.cover === "solid" && <label className={styles.colorField}>Cover color<input type="color" value={appearance.coverColor} onChange={event => updateAppearance("coverColor", event.target.value)} /></label>}
+      <label htmlFor="profile-effect">Profile effect</label>
+      <select id="profile-effect" value={appearance.effect} onChange={event => updateAppearance("effect", event.target.value as ProfileAppearance["effect"])}>
+        <option value="none">None</option>
+        <option value="chronicle">Chronicle glow</option>
+      </select>
+      <div className={styles.discordControls}>
+        <button type="button" className={styles.secondary} onClick={() => void (needsReconnect ? reconnect() : sync())}>
+          {busy === "sync" ? "Syncing Discord..." : busy === "reconnect" ? "Connecting..." : needsReconnect ? "Reconnect Discord" : "Sync from Discord"}
+        </button>
+        {syncMessage && <p className={styles.hint} role="status">{syncMessage}</p>}
+        {syncError && <p className={styles.error} role="alert">{syncError}</p>}
+        <label className={styles.toggle}><input type="checkbox" checked={appearance.showAvatarDecoration} onChange={event => updateAppearance("showAvatarDecoration", event.target.checked)} /> Show Discord avatar decoration</label>
+        <label className={styles.toggle}><input type="checkbox" checked={appearance.showNameplate} onChange={event => updateAppearance("showNameplate", event.target.checked)} /> Show Discord nameplate</label>
+        <label className={styles.toggle}><input type="checkbox" checked={appearance.showGuildTag} onChange={event => updateAppearance("showGuildTag", event.target.checked)} /> Show primary Discord server tag</label>
+      </div>
+    </fieldset>
+    <fieldset disabled={Boolean(busy)}>
+      <legend>Highlights</legend>
+      <label htmlFor="profile-featured-deck">Featured public deck</label>
+      <select id="profile-featured-deck" value={appearance.featuredDeckId} disabled={!decks}
+        onChange={event => updateAppearance("featuredDeckId", event.target.value)}>
+        <option value="">{optionsError.decks ? "Could not load decks" : !decks ? "Loading decks..." : "None"}</option>
+        {appearance.featuredDeckId && !decks?.some(deck => deck.id === appearance.featuredDeckId) && <option value={appearance.featuredDeckId}>Selected deck unavailable</option>}
+        {decks?.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
+      </select>
+      <label htmlFor="profile-card-search">Find a favorite card</label>
+      <input id="profile-card-search" type="search" placeholder="Card name or set code" value={cardSearch} onChange={event => setCardSearch(event.target.value)} disabled={!cards} />
+      <select aria-label="Favorite card" value={appearance.favoriteCardId} disabled={!cards} onChange={event => updateAppearance("favoriteCardId", event.target.value)}>
+        <option value="">{optionsError.cards ? "Could not load cards" : !cards ? "Loading cards..." : search && !matchingCards.length ? "No matching cards" : "None"}</option>
+        {appearance.favoriteCardId && !chosenCard && <option value={appearance.favoriteCardId}>Selected card unavailable</option>}
+        {matchingCards.map(card => <option key={card.id} value={card.id}>{card.name} · {card.setId}</option>)}
+      </select>
+    </fieldset>
     {error && <p className={styles.error} role="alert">{error}</p>}
     <div className={styles.actions}>
-      <button type="button" className={styles.secondary} disabled={saving} onClick={() => navigate("/profile")}>Cancel</button>
-      <button type="submit" className={styles.primary} disabled={saving}>{saving ? "Saving..." : "Save profile"}</button>
+      <button type="button" className={styles.secondary} disabled={Boolean(busy)} onClick={() => navigate("/profile")}>Cancel</button>
+      <button type="submit" className={styles.primary} disabled={Boolean(busy)}>{busy === "save" ? "Saving..." : "Save profile"}</button>
     </div>
-  </form>;
+  </form>
+    <div className={styles.editorPreview}>
+      <h2>Profile preview</h2>
+      <PlayerProfileCard profile={{ ...profile, ...draft, website: safeProfileUrl(website), discord }} emptyBio="Your story starts here. Add a bio to introduce yourself.">
+        <FeaturedDeckLabel name={decks?.find(deck => deck.id === appearance.featuredDeckId)?.name} />
+      </PlayerProfileCard>
+    </div>
+  </>;
+}
+
+function FeaturedDeckLabel({ name, ownerId }: { name?: string; ownerId?: string }) {
+  if (!name) return null;
+  return <div className={styles.profileHighlight}>
+    <small>Featured public deck</small>
+    {ownerId ? <Link to={`/players/${ownerId}#featured-deck`}>{name}</Link> : <strong>{name}</strong>}
+  </div>;
+}
+
+function OwnFeaturedDeck({ id, ownerId }: { id: string; ownerId: string }) {
+  const [name, setName] = useState<string>();
+  useEffect(() => {
+    let active = true;
+    void getPublishedDeckOptions(ownerId, id).then(([deck]) => { if (active) setName(deck?.name); })
+      .catch(() => { /* Leave the rest of the profile available. */ });
+    return () => { active = false; };
+  }, [id, ownerId]);
+  return <FeaturedDeckLabel name={name} ownerId={ownerId} />;
 }
 
 export default function ProfilePage({ editing = false }: { editing?: boolean }) {
@@ -75,26 +228,16 @@ export default function ProfilePage({ editing = false }: { editing?: boolean }) 
   if (!user) return <div className={styles.page}><h1>Your player profile</h1><p className={styles.intro}>Sign in with Discord from the account section to view and edit your profile.</p><Link className={styles.secondary} to="/">Back to overview</Link></div>;
 
   const profile = getPlayerProfile(user);
-  const favorite = FACTIONS.some(faction => faction === profile.favoriteChronicle) ? CHRONICLES[profile.favoriteChronicle] : null;
   return <div className={styles.page}>
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>YOUR PLAYER PROFILE</span><h1>{editing ? "Edit profile" : "My profile"}</h1><p className={styles.intro}>{editing ? "Tell your story in Astralia." : "Your identity in the Deck Archive."}</p></div>
       {!editing && <Link className={styles.primary} to="/profile/edit"><ArchiveIcon name="edit" size={16} /> Edit profile</Link>}
     </header>
-    {editing ? <ProfileEditor key={user.id} user={user} /> : <>
+    {editing ? <ProfileEditor key={user.id} user={user} routeState={location.state} /> : <>
       {location.state?.profileSaved && <p className={styles.success} role="status">Profile saved.</p>}
-      <section className={styles.card} aria-label="Player profile">
-        <div className={styles.cover} style={favorite ? { backgroundImage: `linear-gradient(0deg, #18191d, #18191d30), url(${favorite.image})` } : undefined} />
-        <div className={styles.cardBody}>
-          <PlayerAvatar name={profile.name} avatar={profile.avatar} className={styles.heroAvatar} />
-          <span className={styles.eyebrow}>DISCORD PLAYER</span>
-          <h2>{profile.name}</h2>
-          <p className={styles.bio}>{profile.bio || "Your story starts here. Add a bio to introduce yourself."}</p>
-          <dl className={styles.facts}><div><dt>Favorite chronicle</dt><dd style={favorite ? { color: favorite.color } : undefined}>{favorite?.name || "No preference"}</dd></div>
-            {profile.website && <div><dt>Website / social</dt><dd><a href={profile.website} target="_blank" rel="noopener noreferrer">{new URL(profile.website).hostname}<ArchiveIcon name="arrow" size={14} /></a></dd></div>}
-          </dl>
-        </div>
-      </section>
+      <PlayerProfileCard profile={profile} emptyBio="Your story starts here. Add a bio to introduce yourself.">
+        {profile.appearance.featuredDeckId && <OwnFeaturedDeck key={profile.appearance.featuredDeckId} id={profile.appearance.featuredDeckId} ownerId={user.id} />}
+      </PlayerProfileCard>
       <p className={styles.hint}>When you publish a deck or comment on a public deck, other players can see this profile and your published decks. <Link to={`/players/${user.id}`}>View public profile →</Link></p>
     </>}
   </div>;
