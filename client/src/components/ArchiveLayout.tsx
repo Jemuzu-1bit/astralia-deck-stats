@@ -26,6 +26,7 @@ export default function ArchiveLayout() {
   const title = location.pathname === "/admin" ? "Admin dashboard" : location.pathname === "/multiplayer" ? "Multiplayer" : location.pathname.startsWith("/lobby") ? "Match lobby" : location.pathname === "/public-decks" ? "Public decks" : location.pathname.startsWith("/players/") ? "Player profile" : location.pathname === "/profile/edit" ? "Edit profile" : location.pathname === "/profile" ? "My profile" : location.pathname === "/my-decks" ? "My decks" : location.pathname === "/cards" ? "Card library" : location.pathname === "/help" ? "Getting started" : "Overview";
   return <div className={styles.layout}>
     <aside className={styles.sidebar}>
+      <div className={styles.sidebarNavigation}>
       <Link to="/" className={styles.brand}><span className={styles.brandMark}>A<span>✦</span></span><span>ASTRALIA<small>DECK ARCHIVE</small></span></Link>
       <Link to="/my-decks?new=1" className={styles.create}><ArchiveIcon name="plus" /> New deck</Link>
       <span className={styles.caption}>YOUR WORKSPACE</span>
@@ -37,6 +38,7 @@ export default function ArchiveLayout() {
         <NavLink to="/multiplayer" className={({ isActive }) => isActive || location.pathname.startsWith("/lobby") ? styles.active : undefined}><ArchiveIcon name="multiplayer" /><span>Multiplayer</span></NavLink>
         <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="book" /><span>Getting started</span></NavLink>
       </nav>
+      </div>
       <DiscordProfile {...authSession} isAdmin={adminAccess.isAdmin} onSettings={() => setSettings(true)} />
       <div className={styles.sidebarBottom}>
         {!authSession.user && <button onClick={() => setSettings(true)}><ArchiveIcon name="settings" /> Settings</button>}

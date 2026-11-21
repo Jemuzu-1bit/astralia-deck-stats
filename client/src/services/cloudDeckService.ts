@@ -20,7 +20,12 @@ type DeckRow = {
 };
 
 const BUCKET = "deck-backgrounds";
+export const CLOUD_DECK_CHANGED = "astralia:cloud-deck-changed";
 const imagePaths = new Map<string, string | null>();
+
+function notifyDeckChange(id: string) {
+  window.dispatchEvent(new CustomEvent<string>(CLOUD_DECK_CHANGED, { detail: id }));
+}
 
 function client() {
   if (!supabase) throw new Error("Supabase is not configured.");
@@ -149,6 +154,7 @@ export async function updateCloudDeck(deck: Deck): Promise<Deck> {
     if (error.code === "PGRST116") throw new Error("This deck changed on another device. Reload before saving again.");
     throw error;
   }
+  notifyDeckChange(deck.id);
   if (oldPath && oldPath !== newPath) await client().storage.from(BUCKET).remove([oldPath]);
   return mapRow(data as DeckRow);
 }
@@ -158,6 +164,7 @@ export async function deleteCloudDeck(id: string): Promise<void> {
   const path = imagePaths.get(id);
   const { error } = await client().from("decks").delete().eq("id", id).eq("owner_id", user.id);
   if (error) throw error;
+  notifyDeckChange(id);
   imagePaths.delete(id);
   if (path) await client().storage.from(BUCKET).remove([path]);
 }
@@ -172,5 +179,6 @@ export async function setDeckVisibility(deck: Deck, visibility: "private" | "pub
     if (error.code === "PGRST116") throw new Error("This deck changed on another device. Reload before changing its visibility.");
     throw error;
   }
+  notifyDeckChange(deck.id);
   return mapRow(data as DeckRow);
 }

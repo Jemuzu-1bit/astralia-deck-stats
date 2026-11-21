@@ -13,6 +13,7 @@ import { getPublishedDeckOptions } from "../services/publicDeckService";
 import { getAllCards } from "../services/cardDataService";
 import type { Card } from "../types/Card";
 import PlayerProfileCard from "../components/PlayerProfileCard";
+import { FeaturedDeckLabel, OwnFeaturedDeck } from "../components/PlayerProfileHighlights";
 import ArchiveIcon from "../components/ArchiveIcon";
 import styles from "./ProfilePage.module.scss";
 
@@ -205,25 +206,6 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
       </PlayerProfileCard>
     </div>
   </>;
-}
-
-function FeaturedDeckLabel({ name, ownerId }: { name?: string; ownerId?: string }) {
-  if (!name) return null;
-  return <div className={styles.profileHighlight}>
-    <small>Featured public deck</small>
-    {ownerId ? <Link to={`/players/${ownerId}#featured-deck`}>{name}</Link> : <strong>{name}</strong>}
-  </div>;
-}
-
-function OwnFeaturedDeck({ id, ownerId }: { id: string; ownerId: string }) {
-  const [name, setName] = useState<string>();
-  useEffect(() => {
-    let active = true;
-    void getPublishedDeckOptions(ownerId, id).then(([deck]) => { if (active) setName(deck?.name); })
-      .catch(() => { /* Leave the rest of the profile available. */ });
-    return () => { active = false; };
-  }, [id, ownerId]);
-  return <FeaturedDeckLabel name={name} ownerId={ownerId} />;
 }
 
 export default function ProfilePage({ editing = false }: { editing?: boolean }) {
