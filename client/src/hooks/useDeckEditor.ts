@@ -23,7 +23,7 @@ function loadSelection(section: DeckCardSection, entries: DeckEntry[], faces: { 
   return selection;
 }
 
-export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
+export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; sideboardEnabled: boolean; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
   const [loadingDeck, setLoadingDeck] = useState(Boolean(initialDeck));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -77,7 +77,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
       };
 
     const tryPrefill = async () => {
-      const sideboard = initialDeck.sideboard ?? [];
+      const sideboard = sideboardEnabled ? initialDeck.sideboard ?? [] : [];
       const [protagonistFaces, personaFaces, deckFaces, sideboardFaces] = await Promise.all([
         initialDeck.protagonist
           ? getCardFaces(initialDeck.protagonist)
@@ -107,7 +107,7 @@ export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, s
     return () => {
       active = false;
     };
-  }, [initialDeck, selectedFaction]);
+  }, [initialDeck, selectedFaction, sideboardEnabled]);
 
   const canAddCard = (section: DeckSection, card: Card) => {
     if (section === "protagonist") return getCardDeckSection(card) === "protagonist"

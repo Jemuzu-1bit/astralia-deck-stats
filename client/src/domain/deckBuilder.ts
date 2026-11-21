@@ -8,6 +8,12 @@ export const CARDS_PER_DECK = 45;
 export const PERSONA_LIMIT = 5;
 export const COPIES_PER_CARD = 4;
 
+export function withoutSideboard<T extends Pick<Deck, "sideboard">>(deck: T): Omit<T, "sideboard"> {
+  const copy = { ...deck };
+  delete copy.sideboard;
+  return copy;
+}
+
 export type DeckCardSection = "persona" | "deck" | "sideboard";
 export type DeckSection = "protagonist" | DeckCardSection;
 

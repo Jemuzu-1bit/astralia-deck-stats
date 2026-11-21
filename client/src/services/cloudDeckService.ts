@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { withoutSideboard } from "../domain/deckBuilder";
 import type { Deck } from "../types/Deck";
 import { supabase } from "./supabaseClient";
 
@@ -112,7 +113,7 @@ export async function importLocalDecks(decks: Deck[]): Promise<number> {
   for (const deck of decks) {
     if (imported.has(deck.id)) continue;
     try {
-      await createCloudDeck(deck, deck.id);
+      await createCloudDeck(withoutSideboard(deck), deck.id);
       imported.add(deck.id);
       count++;
     } catch (error) {

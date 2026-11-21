@@ -24,13 +24,14 @@ interface DeckCreationModalProps {
   onClose: () => void;
   initialDeck?: Deck;
   initialFaction?: string;
+  sideboardEnabled: boolean;
   onSaved?: (deck: Deck) => void;
   saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>;
 }
 
 const collectionTabs = ["protagonist", "persona", "deck"] as const;
 type CollectionTab = typeof collectionTabs[number];
-const sections: DeckSection[] = [...collectionTabs, "sideboard"];
+const sectionsWithSideboard = [...collectionTabs, "sideboard"] as const;
 
 const COLLECTION_ZOOM_KEY = "astralia.deckBuilderCollectionZoom.v1";
 const MIN_COLLECTION_ZOOM = 100;
@@ -56,12 +57,12 @@ function getSavedCollectionZoom() {
   return MIN_COLLECTION_ZOOM;
 }
 
-export default function DeckCreationModal({ onClose, initialDeck, initialFaction, onSaved, saveDeck }: DeckCreationModalProps) {
+export default function DeckCreationModal({ onClose, initialDeck, initialFaction, sideboardEnabled, onSaved, saveDeck }: DeckCreationModalProps) {
   const [activeDrag, setActiveDrag] = useState<CollectionCardDrag | DeckCardDrag | null>(null);
   const collectionDrag = activeDrag && "card" in activeDrag ? activeDrag : null;
   const deckDrag = activeDrag && "item" in activeDrag ? activeDrag : null;
   const dragging = activeDrag !== null;
-  const editor = useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape: dragging });
+  const editor = useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, onSaved, onClose, saveDeck, suppressEscape: dragging });
   const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
   const [collectionTab, setCollectionTab] = useState<CollectionTab>(initialDeck ? "deck" : "protagonist");
   const collectionFilters = { protagonist: useCardFilters(), persona: useCardFilters(), deck: useCardFilters() };
@@ -91,7 +92,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const getDestinations = (card: Card): CardDestination[] => {
     const home = getCardDeckSection(card);
     if (!home) return [];
-    const destinations: DeckSection[] = home === "protagonist" ? [home] : [home, "sideboard"];
+    const destinations: DeckSection[] = sideboardEnabled && home !== "protagonist" ? [home, "sideboard"] : [home];
     return destinations.map(section => {
       let disabledReason: string | undefined;
       if (!canEdit) disabledReason = "Unavailable";
@@ -106,7 +107,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   };
   const moveDestinations = (from: DeckCardSection, card: Card): DeckCardSection[] => {
     const to = otherDeckSection(from, card);
-    return canEdit && to && totals[to] < SECTION_LIMITS[to] ? [from, to] : [from];
+    return sideboardEnabled && canEdit && to && totals[to] < SECTION_LIMITS[to] ? [from, to] : [from];
   };
   const finishDrag = ({ active, collisions }: DragEndEvent) => {
     const collectionCard = getCollectionCardDrag(active);
@@ -134,7 +135,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     try { localStorage.setItem(COLLECTION_ZOOM_KEY, String(nextZoom)); } catch { /* Keep the in-memory preference. */ }
   };
   const renderDeckSections = (overview = false) => <div className={`${styles.deckSections} ${overview ? styles.overviewSections : ""}`}>
-    {sections.map(target => <div key={target} className={styles.deckSection} data-collection-destination={collectionDrag?.destinations.includes(target) || undefined}>
+    {(sideboardEnabled ? sectionsWithSideboard : collectionTabs).map(target => <div key={target} className={styles.deckSection} data-collection-destination={collectionDrag?.destinations.includes(target) || undefined}>
       <SortableDeckSection section={target} title={SECTION_LABELS[target]}
         selection={selections[target]} viewMode={overview ? "grid" : deckView} overview={overview} readOnly={isOverview}
         acceptsCollectionDrop={!overview && view === "cards"}
@@ -303,7 +304,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
             {(saveError || loadError) && <p className={styles.error} role="alert">{saveError || loadError}</p>}
             <div className={styles.deckToolbar}><span>Deck cards</span><CardViewToggle label="Deck cards view" value={deckView} onChange={setDeckView} /></div>
             {renderDeckSections()}
-            <div className={styles.deckFooter}><span>Up to {COPIES_PER_CARD} copies per Main Deck card and 1 per Persona across the deck and Sideboard</span><button className={styles.analysisLink} onClick={() => { setView("stats"); setMobileView("browse"); }}><ArchiveIcon name="chart" size={15} /> View deck statistics <ArchiveIcon name="arrow" size={14} /></button></div>
+            <div className={styles.deckFooter}><span>Up to {COPIES_PER_CARD} copies per Main Deck card and 1 per Persona{sideboardEnabled && " across the deck and Sideboard"}</span><button className={styles.analysisLink} onClick={() => { setView("stats"); setMobileView("browse"); }}><ArchiveIcon name="chart" size={15} /> View deck statistics <ArchiveIcon name="arrow" size={14} /></button></div>
           </aside>
         </div>
         <DragOverlay zIndex={10050} adjustScale={false} dropAnimation={null} style={{ pointerEvents: "none" }}>

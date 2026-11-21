@@ -44,6 +44,7 @@ test("existing official and compact links remain importable", async () => {
     deckCards: { AOR_05_037_N: 2 },
     personaDeck: { AOR_05_004_EX: 1 },
     protagonist: { AOR_05_001_EX: 1 },
+    sideboard: { UNKNOWN_SIDE_CARD: 1 },
     name: "Official deck",
   };
   const officialLink = `https://www.astraliachronicles.com/deck-import?deckData=${await deflateToBase64Url(JSON.stringify(official))}`;
@@ -51,6 +52,7 @@ test("existing official and compact links remain importable", async () => {
   assert.deepEqual(importedOfficial.deck, [{ id: "aor_05_037_n", qty: 2 }]);
   assert.deepEqual(importedOfficial.persona, ["aor_05_004_ex"]);
   assert.equal(importedOfficial.protagonist, "aor_05_001_ex");
+  assert.equal("sideboard" in importedOfficial, false);
 
   const compactCode = btoa(JSON.stringify({
     v: 1, n: "Old deck", f: "purple", p: "aor_05_001_ex",
@@ -73,10 +75,12 @@ test("local links generated before the format change remain importable", async (
   const local = {
     v: 2, n: "Variant deck", f: "purple", p: "aor_05_001_ex",
     pe: ["aor_05_004_ex"], d: [["dcs05015p", 1]],
+    sideboard: [{ id: "unknown_side_card", qty: 1 }],
   };
   const link = `https://decks.example/my-decks?deck=${await deflateToBase64Url(JSON.stringify(local))}`;
   const imported = await importDeck(link);
   assert.deepEqual(imported.deck, [{ id: "dcs05015p", qty: 1 }]);
+  assert.equal("sideboard" in imported, false);
 });
 
 test("shared links reject cards absent from the current catalog", async () => {

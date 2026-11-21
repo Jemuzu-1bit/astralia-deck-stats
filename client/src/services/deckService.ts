@@ -1,5 +1,6 @@
 import type { Deck, DeckEntry } from "../types/Deck";
 import { isAlternativeArt, readCardData } from "../data/cardDataReader.ts";
+import { withoutSideboard } from "../domain/deckBuilder.ts";
 import { deflateToBase64Url, inflateBase64Url, parseLocalSharePayload, type LocalSharePayloadV2 } from "./deckShareCodec.ts";
 
 const STORAGE_KEY = "astralia.decks";
@@ -37,7 +38,7 @@ export function mergeLocalDecks(imported: Deck[]): number {
   let added = 0;
   for (const deck of imported) {
     if (ids.has(deck.id)) continue;
-    decks.push(deck);
+    decks.push(withoutSideboard(deck));
     ids.add(deck.id);
     added++;
   }
@@ -51,7 +52,7 @@ export function getDeck(id: string): Deck | undefined {
 
 export function createDeck(input: Omit<Deck, "id" | "updatedAt">): Deck {
   const decks = loadAll();
-  const deck: Deck = { ...input, id: genId(), updatedAt: Date.now() };
+  const deck: Deck = { ...withoutSideboard(input), id: genId(), updatedAt: Date.now() };
   decks.push(deck);
   saveAll(decks);
   return deck;
@@ -60,7 +61,7 @@ export function createDeck(input: Omit<Deck, "id" | "updatedAt">): Deck {
 export function updateDeck(deck: Deck): Deck {
   const decks = loadAll();
   const idx = decks.findIndex((d) => d.id === deck.id);
-  const next = { ...deck, updatedAt: Date.now() };
+  const next = { ...withoutSideboard(deck), updatedAt: Date.now() };
   if (idx >= 0) decks[idx] = next; else decks.push(next);
   saveAll(decks);
   return next;

@@ -78,8 +78,7 @@ export async function fetchPublicDeckCopy(id: string) {
   if (!data) throw new Error("This deck is no longer public. Refresh the collection.");
   const row = data as PublicRow;
   return privateDeckCopy({ id: row.id, name: row.name, description: row.description, faction: row.faction,
-    protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck,
-    sideboard: row.content.sideboard, updatedAt: 0 });
+    protagonist: row.protagonist_id, persona: row.content.persona, deck: row.content.deck, updatedAt: 0 });
 }
 
 export async function setPublicDeckLike(id: string, liked: boolean): Promise<number> {

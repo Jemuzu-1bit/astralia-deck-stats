@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseDeckBackup, serializeDeckBackup } from "../src/services/deckBackup.ts";
-import { listDecks, mergeLocalDecks } from "../src/services/deckService.ts";
+import { createDeck, getDeck, listDecks, mergeLocalDecks, updateDeck } from "../src/services/deckService.ts";
 
 const oldDeck = {
   id: "6c5dc32b-1ae9-4ad6-996b-16f2412e2749",
@@ -50,22 +50,35 @@ test("invalid and duplicate backups are rejected before importing", () => {
   assert.throws(() => parseDeckBackup(JSON.stringify([{ ...oldDeck, deck: [{ id: "x", qty: 50 }] }])), /unsupported format/);
 });
 
-test("backups preserve large sideboards and enforce the combined copy limit", () => {
-  const deck = {
-    ...oldDeck,
-    deck: [{ id: "apx_01_001_a_n", qty: 1 }],
-    sideboard: [{ id: "apx_01_001_b_n", qty: 3 }, ...Array.from({ length: 50 }, (_, i) => ({ id: `card-${i}`, qty: 1 }))],
-  };
-  assert.deepEqual(parseDeckBackup(serializeDeckBackup([deck])), [deck]);
-  deck.sideboard[0].qty = 4;
-  assert.throws(() => parseDeckBackup(serializeDeckBackup([deck])), /unsupported format/);
+test("JSON exports omit the sideboard without changing the source deck", () => {
+  const sideboard = [{ id: "apx_01_001_b_n", qty: 3 }];
+  const deck = { ...oldDeck, sideboard };
+  const backup = serializeDeckBackup([deck]);
+  assert.deepEqual(JSON.parse(backup).decks, [oldDeck]);
+  assert.deepEqual(parseDeckBackup(backup), [oldDeck]);
+  assert.deepEqual(deck.sideboard, sideboard);
 });
 
-test("backup restore validates single-copy Persona placement using the catalog", () => {
-  const candidate = { id: "aor_05_005_ex", mainDeck: "Persona" };
-  const deck = { ...oldDeck, sideboard: [{ id: candidate.id, qty: 1 }] };
-  const restore = (value) => parseDeckBackup(serializeDeckBackup([value]), [candidate]);
-  assert.deepEqual(restore(deck), [deck]);
-  assert.throws(() => restore({ ...deck, persona: [candidate.id] }), /unsupported format/);
-  assert.throws(() => restore({ ...deck, sideboard: [{ id: candidate.id, qty: 2 }] }), /unsupported format/);
+test("JSON imports ignore sideboard fields in wrapped and legacy backups", () => {
+  const backup = JSON.parse(serializeDeckBackup([oldDeck]));
+  for (const sideboard of [null, {}, [{ id: oldDeck.persona[0], qty: 1 }]]) {
+    const decks = [{ ...oldDeck, sideboard }];
+    assert.deepEqual(parseDeckBackup(JSON.stringify({ ...backup, decks })), [oldDeck]);
+    assert.deepEqual(parseDeckBackup(JSON.stringify(decks)), [oldDeck]);
+  }
+});
+
+test("saving or importing a browser deck omits the sideboard", (t) => {
+  const original = globalThis.localStorage;
+  const storage = new Map();
+  globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) };
+  t.after(() => { globalThis.localStorage = original; });
+
+  const deck = { ...oldDeck, sideboard: [{ id: "side-card", qty: 1 }] };
+  const created = createDeck(deck);
+  assert.equal("sideboard" in created, false);
+  assert.equal("sideboard" in updateDeck({ ...created, sideboard: deck.sideboard }), false);
+  assert.equal(mergeLocalDecks([deck]), 1);
+  assert.deepEqual(getDeck(deck.id), oldDeck);
+  assert.equal("sideboard" in getDeck(created.id), false);
 });

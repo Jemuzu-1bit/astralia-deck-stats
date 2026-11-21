@@ -90,6 +90,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
       { like_count: 1, view_count: 1, import_count: 1, liked_by_viewer: true },
     ]);
     assert.deepEqual(await importLegacy(), legacyCopy);
+    await db.exec(await readFile(new URL("../migrations/202611210002_exclude_sideboard_from_deck_imports.sql", import.meta.url), "utf8"));
     await asRole("authenticated", author, "delete from public.decks where id in ($1, $2)", [legacyDeckId, legacyCopyId]);
 
     const ownProfile = await asRole("authenticated", author, "select * from public.player_profiles");
@@ -161,7 +162,8 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.deepEqual(await asRole("authenticated", reader, copySql, [deckId, cloudCopyId]), cloudCopy);
     assert.deepEqual(await asRole("authenticated", reader, `select owner_id, visibility, description, background_image_path, content
       from public.decks where id = $1`, [cloudCopyId]), [
-      { owner_id: reader, visibility: "private", description: "Public strategy notes", background_image_path: null, content: deckContent },
+      { owner_id: reader, visibility: "private", description: "Public strategy notes", background_image_path: null,
+        content: { persona: deckContent.persona, deck: deckContent.deck } },
     ]);
     assert.deepEqual(await asRole("anon", null, localCopySql, [deckId, copiedId]), [{ count: 2 }]);
     assert.deepEqual(await asRole("anon", null, localCopySql, [deckId, copiedId]), [{ count: 2 }]);
@@ -170,8 +172,8 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
       { id: secondAuthorCopyId, name: "Strategy", import_count: 2 },
     ]);
     assert.deepEqual(await readMetrics(), { like_count: 1, view_count: 2, import_count: 2, liked_by_viewer: false });
-    assert.deepEqual(await asRole("authenticated", author, "select revision, updated_at from public.decks where id = $1", [deckId]), [
-      { revision: published[0].revision, updated_at: published[0].updated_at },
+    assert.deepEqual(await asRole("authenticated", author, "select revision, updated_at, content from public.decks where id = $1", [deckId]), [
+      { revision: published[0].revision, updated_at: published[0].updated_at, content: deckContent },
     ]);
     const secondPublicId = "90000000-0000-4000-8000-000000000009";
     await asRole("authenticated", author, `insert into public.decks(id, owner_id, name, faction, visibility)

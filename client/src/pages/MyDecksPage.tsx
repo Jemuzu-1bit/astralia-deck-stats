@@ -23,7 +23,6 @@ import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, upd
 import ArchiveIcon from "../components/ArchiveIcon";
 import { FACTIONS } from "../domain/deckBuilder";
 import { CHRONICLES } from "../data/chronicles";
-import { readCardData } from "../data/cardDataReader";
 
 export default function MyDecksPage() {
   const location = useLocation();
@@ -173,8 +172,7 @@ export default function MyDecksPage() {
     setPageError(null);
     try {
       if (file.size > 25 * 1024 * 1024) throw new Error("Backup file is too large (maximum 25 MB).");
-      const [json, catalog] = await Promise.all([file.text(), readCardData()]);
-      const imported = parseDeckBackup(json, catalog.filter(card => card.face === 1));
+      const imported = parseDeckBackup(await file.text());
       const count = user ? await importLocalDecks(imported) : mergeLocalDecks(imported);
       setBackupMessage(`${count} deck${count === 1 ? "" : "s"} imported. Existing decks and the backup file were kept.`);
       refresh();
@@ -255,11 +253,12 @@ export default function MyDecksPage() {
         <button className={styles.createTile} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><span><ArchiveIcon name="plus" size={26} /></span><strong>Create a new deck</strong><small>Your next chapter awaits</small></button>
       </div>
 
-      {creatingDeck && authReady && <DeckCreationModal initialFaction={FACTIONS.includes(requestedFaction as typeof FACTIONS[number]) ? requestedFaction : undefined} saveDeck={saveDeck} onClose={() => navigate("/my-decks", { replace: true })} onSaved={() => refresh()} />}
+      {creatingDeck && authReady && <DeckCreationModal initialFaction={FACTIONS.includes(requestedFaction as typeof FACTIONS[number]) ? requestedFaction : undefined} sideboardEnabled={Boolean(user)} saveDeck={saveDeck} onClose={() => navigate("/my-decks", { replace: true })} onSaved={() => refresh()} />}
 
       {editingDeck && (
         <DeckCreationModal
           initialDeck={editingDeck.id === "temp" ? undefined : editingDeck}
+          sideboardEnabled={Boolean(user)}
           saveDeck={saveDeck}
           onClose={() => setEditingDeck(null)}
           onSaved={() => {
