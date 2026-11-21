@@ -30,6 +30,7 @@
 .editor input[type="color"] { width: 54px; height: 36px; padding: 3px; }
 .editor input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--archive-gold); }
 .discordControls { margin-top: 16px; }
+.discordControls .hint a { color: var(--archive-gold); }
 .editorPreview { margin-top: 24px; > h2 { margin-bottom: 12px; font-size: 1.1rem; } }
 .profileHighlight { margin-top: 16px; }
 .profileHighlight small, .featuredDeck small { display: block; margin-bottom: 4px; color: var(--archive-muted); font-size: .8rem; }

@@ -78,6 +78,26 @@ export function readDiscordProfileResponse(value: unknown): DiscordAppearance {
   });
 }
 
+export function availableDiscordCosmetics(discord: DiscordAppearance) {
+  return {
+    cover: discord.id && discord.banner ? "banner" : discord.accent ? "accent color" : "",
+    avatarDecoration: Boolean(discord.decoration),
+    nameplate: Boolean(discord.nameplate || discord.nameplatePalette),
+    guildTag: Boolean(discord.guildTag),
+  };
+}
+
+export function applyDiscordCosmetics(appearance: ProfileAppearance, discord: DiscordAppearance): ProfileAppearance {
+  const available = availableDiscordCosmetics(discord);
+  return {
+    ...appearance,
+    cover: available.cover ? "discord" : appearance.cover,
+    showAvatarDecoration: available.avatarDecoration || appearance.showAvatarDecoration,
+    showNameplate: available.nameplate || appearance.showNameplate,
+    showGuildTag: available.guildTag || appearance.showGuildTag,
+  };
+}
+
 function discordImage(path: string, hash: string, size: number, animated: boolean): string {
   return `${DISCORD_CDN}/${path}/${hash}.webp?size=${size}${animated && hash.startsWith("a_") ? "&animated=true" : ""}`;
 }

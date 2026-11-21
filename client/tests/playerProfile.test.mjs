@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { discordAppearanceImages, getPlayerProfile, profileWebsite, readDiscordProfileResponse, readProfileAppearance } from "../src/domain/playerProfile.ts";
+import { applyDiscordCosmetics, availableDiscordCosmetics, discordAppearanceImages, getPlayerProfile, profileWebsite, readDiscordProfileResponse, readProfileAppearance } from "../src/domain/playerProfile.ts";
 
 test("Discord identity and editable profile fields stay separate", () => {
   const profile = getPlayerProfile({
@@ -61,4 +61,12 @@ test("Discord assets use the linked account, keep black accents and honor disabl
   assert.match(discordAppearanceImages(profile).nameplate, /\/twilight\/asset\.webm$/);
   assert.match(discordAppearanceImages(profile, false).nameplate, /\/twilight\/static\.png$/);
   assert.equal(readDiscordProfileResponse({ banner: "../outside", collectibles: { nameplate: { asset: "nameplates/../outside/" } } }).nameplate, "");
+});
+
+test("applying a Discord look enables available cosmetics and preserves Astralia choices", () => {
+  const appearance = readProfileAppearance({ cover: "solid", coverColor: "#123456", effect: "chronicle", favoriteCardId: "card-123" });
+  const discord = readDiscordProfileResponse({ id: "80351110224678912", accent_color: 0, primary_guild: { identity_enabled: true, tag: "AST" } });
+  assert.deepEqual(availableDiscordCosmetics(discord), { cover: "accent color", avatarDecoration: false, nameplate: false, guildTag: true });
+  assert.deepEqual(applyDiscordCosmetics(appearance, discord), { ...appearance, cover: "discord", showGuildTag: true });
+  assert.deepEqual(applyDiscordCosmetics(appearance, readDiscordProfileResponse({})), appearance);
 });

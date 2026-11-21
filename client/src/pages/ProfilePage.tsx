@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Link, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import type { AuthSession } from "../hooks/useAuthSession";
-import { getPlayerProfile, profileWebsite, readProfileAppearance, type ProfileAppearance } from "../domain/playerProfile";
+import { applyDiscordCosmetics, availableDiscordCosmetics, getPlayerProfile, profileWebsite, readProfileAppearance, type ProfileAppearance } from "../domain/playerProfile";
 import { safeProfileUrl } from "../domain/publicDecks";
 import { CHRONICLES } from "../data/chronicles";
 import { FACTIONS } from "../domain/deckBuilder";
@@ -33,7 +33,6 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
   const [error, setError] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [syncError, setSyncError] = useState("");
-  const [needsReconnect, setNeedsReconnect] = useState(false);
   const [cards, setCards] = useState<Card[] | null>(null);
   const [decks, setDecks] = useState<Awaited<ReturnType<typeof getPublishedDeckOptions>> | null>(null);
   const [optionsError, setOptionsError] = useState({ cards: false, decks: false });
@@ -53,7 +52,7 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
     return () => { current = false; };
   }, [user.id]);
 
-  const sync = useCallback(async () => {
+  const sync = useCallback(async (draft?: ProfileDraft) => {
     if (pending.current) return;
     pending.current = true;
     setBusy("sync");
@@ -63,14 +62,25 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
       const result = await syncDiscordAppearance(user.id);
       if (active.current) {
         setDiscord(result);
-        setNeedsReconnect(false);
+        if (!discord.id) {
+          setAppearance(current => current.cover === "chronicle" && !current.showAvatarDecoration && !current.showNameplate && !current.showGuildTag
+            ? applyDiscordCosmetics(current, result) : current);
+        }
         setSyncMessage("Discord profile synced.");
       }
     } catch (error) {
       if (!active.current) return;
       if (error instanceof DiscordReconnectRequired) {
-        setNeedsReconnect(true);
-        setSyncMessage("Reconnect Discord to sync your profile cosmetics.");
+        if (draft) {
+          setBusy("reconnect");
+          try {
+            await reconnectDiscordAppearance(user.id, draft);
+          } catch (error) {
+            if (active.current) setSyncError(error instanceof Error ? error.message : "Could not reconnect to Discord.");
+          }
+        } else {
+          setSyncError("Discord did not return an active authorization. Try Sync from Discord again to reconnect.");
+        }
       } else {
         setSyncError(error instanceof Error ? error.message : "Could not sync your Discord profile.");
       }
@@ -78,7 +88,7 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
       pending.current = false;
       if (active.current) setBusy(null);
     }
-  }, [user.id]);
+  }, [discord.id, user.id]);
 
   useEffect(() => {
     if (!routeState?.syncDiscord || resumed.current) return;
@@ -89,21 +99,6 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
   const draft = { bio, favoriteChronicle, website, appearance };
   const updateAppearance = <K extends keyof ProfileAppearance>(key: K, value: ProfileAppearance[K]) => {
     setAppearance(current => ({ ...current, [key]: value }));
-  };
-
-  const reconnect = async () => {
-    if (pending.current) return;
-    pending.current = true;
-    setBusy("reconnect");
-    setSyncError("");
-    try {
-      await reconnectDiscordAppearance(user.id, draft);
-    } catch (error) {
-      if (active.current) setSyncError(error instanceof Error ? error.message : "Could not reconnect to Discord.");
-    } finally {
-      pending.current = false;
-      if (active.current) setBusy(null);
-    }
   };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
@@ -130,6 +125,10 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
   const matchingCards = cards?.filter(card => !search || `${card.name} ${card.setId}`.toLowerCase().includes(search)).slice(0, 60) ?? [];
   const chosenCard = cards?.find(card => card.id === appearance.favoriteCardId);
   if (chosenCard && !matchingCards.some(card => card.id === chosenCard.id)) matchingCards.unshift(chosenCard);
+  const available = availableDiscordCosmetics(discord);
+  const cosmeticNames = [available.cover, available.avatarDecoration && "avatar decoration", available.nameplate && "nameplate", available.guildTag && "server tag"].filter(Boolean);
+  const canApplyDiscord = (available.cover && appearance.cover !== "discord") || (available.avatarDecoration && !appearance.showAvatarDecoration)
+    || (available.nameplate && !appearance.showNameplate) || (available.guildTag && !appearance.showGuildTag);
 
   return <><form className={styles.editor} onSubmit={event => void save(event)} aria-busy={Boolean(busy)}>
     <fieldset disabled={Boolean(busy)}>
@@ -160,11 +159,17 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
         <option value="chronicle">Chronicle glow</option>
       </select>
       <div className={styles.discordControls}>
-        <button type="button" className={styles.secondary} onClick={() => void (needsReconnect ? reconnect() : sync())}>
-          {busy === "sync" ? "Syncing Discord..." : busy === "reconnect" ? "Connecting..." : needsReconnect ? "Reconnect Discord" : "Sync from Discord"}
+        <button type="button" className={styles.secondary} onClick={() => void sync(draft)}>
+          {busy === "sync" ? "Syncing Discord..." : busy === "reconnect" ? "Connecting to Discord..." : "Sync from Discord"}
         </button>
         {syncMessage && <p className={styles.hint} role="status">{syncMessage}</p>}
         {syncError && <p className={styles.error} role="alert">{syncError}</p>}
+        {discord.id && (cosmeticNames.length ? <p className={styles.hint}>
+          Discord returned {cosmeticNames.join(", ")}. <a href="#profile-preview">View preview</a> and save to publish your choices.
+        </p> : <p className={styles.hint}>Discord returned no supported cosmetics from your main profile.</p>)}
+        {canApplyDiscord && <button type="button" className={styles.secondary} onClick={() => setAppearance(current => applyDiscordCosmetics(current, discord))}>
+          Use Discord appearance
+        </button>}
         <label className={styles.toggle}><input type="checkbox" checked={appearance.showAvatarDecoration} onChange={event => updateAppearance("showAvatarDecoration", event.target.checked)} /> Show Discord avatar decoration</label>
         <label className={styles.toggle}><input type="checkbox" checked={appearance.showNameplate} onChange={event => updateAppearance("showNameplate", event.target.checked)} /> Show Discord nameplate</label>
         <label className={styles.toggle}><input type="checkbox" checked={appearance.showGuildTag} onChange={event => updateAppearance("showGuildTag", event.target.checked)} /> Show primary Discord server tag</label>
@@ -193,7 +198,7 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
       <button type="submit" className={styles.primary} disabled={Boolean(busy)}>{busy === "save" ? "Saving..." : "Save profile"}</button>
     </div>
   </form>
-    <div className={styles.editorPreview}>
+    <div className={styles.editorPreview} id="profile-preview">
       <h2>Profile preview</h2>
       <PlayerProfileCard profile={{ ...profile, ...draft, website: safeProfileUrl(website), discord }} emptyBio="Your story starts here. Add a bio to introduce yourself.">
         <FeaturedDeckLabel name={decks?.find(deck => deck.id === appearance.featuredDeckId)?.name} />
