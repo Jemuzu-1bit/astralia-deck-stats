@@ -17,7 +17,14 @@ function loadAll(): Deck[] {
 }
 
 function saveAll(decks: Deck[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error("Browser storage is full. Try a smaller cover or reset a cover on a saved deck.", { cause: error });
+    }
+    throw error;
+  }
 }
 
 function genId(): string {
@@ -65,6 +72,51 @@ export function updateDeck(deck: Deck): Deck {
   if (idx >= 0) decks[idx] = next; else decks.push(next);
   saveAll(decks);
   return next;
+}
+
+export async function saveLocalDeck(input: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck): Promise<Deck> {
+  const cover = input.backgroundImage;
+  const backgroundImage = cover && cover !== initialDeck?.backgroundImage ? await optimizeDeckCover(cover) : cover;
+  const deck = { ...input, backgroundImage };
+  return initialDeck ? updateDeck({ ...deck, id: initialDeck.id, updatedAt: initialDeck.updatedAt }) : createDeck(deck);
+}
+
+const COVER_MAX_LENGTH = 256 * 1024;
+const COVER_MAX_DIMENSION = 1200;
+
+async function isAnimatedPng(dataUrl: string): Promise<boolean> {
+  const png = new DataView(await (await fetch(dataUrl)).arrayBuffer());
+  for (let offset = 8; offset + 12 <= png.byteLength;) {
+    const chunkType = png.getUint32(offset + 4);
+    if (chunkType === 0x6163544c) return true; // acTL precedes the first IDAT chunk.
+    if (chunkType === 0x49444154) break; // IDAT
+    offset += png.getUint32(offset) + 12;
+  }
+  return false;
+}
+
+async function optimizeDeckCover(dataUrl: string): Promise<string> {
+  if (dataUrl.length <= COVER_MAX_LENGTH || !/^data:image\/(?:jpeg|png);base64,/i.test(dataUrl)) return dataUrl;
+  if (dataUrl.startsWith("data:image/png;") && await isAnimatedPng(dataUrl)) return dataUrl;
+
+  const image = new Image();
+  image.src = dataUrl;
+  try { await image.decode(); }
+  catch { throw new Error("Could not open this cover image. Try another image."); }
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (context) {
+    const originalDimension = Math.max(image.naturalWidth, image.naturalHeight);
+    for (let dimension = Math.min(COVER_MAX_DIMENSION, originalDimension); dimension > 0; dimension = Math.floor(dimension * 0.7)) {
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * dimension / originalDimension));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * dimension / originalDimension));
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const encoded = canvas.toDataURL("image/webp", 0.82);
+      if (encoded.startsWith("data:image/") && encoded.length <= COVER_MAX_LENGTH) return encoded;
+    }
+  }
+  throw new Error("Could not resize this cover image. Try a smaller image.");
 }
 
 export function deleteDeck(id: string): void {
@@ -271,11 +323,11 @@ export function clearDeckBackgroundImage(id: string): Deck | undefined {
   return updateDeck(deck);
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
+    reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
 }

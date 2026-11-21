@@ -7,8 +7,7 @@ import {
   deleteDeck,
   exportDeck,
   importDeck,
-  createDeck,
-  updateDeck,
+  saveLocalDeck,
   mergeLocalDecks,
 } from "../services/deckService";
 import { parseDeckBackup, serializeDeckBackup } from "../services/deckBackup";
@@ -94,9 +93,7 @@ export default function MyDecksPage() {
     if (user) return initialDeck
       ? updateCloudDeck({ ...input, id: initialDeck.id, updatedAt: initialDeck.updatedAt, revision: initialDeck.revision })
       : createCloudDeck(input);
-    return initialDeck
-      ? updateDeck({ ...input, id: initialDeck.id, updatedAt: initialDeck.updatedAt })
-      : createDeck(input);
+    return saveLocalDeck(input, initialDeck);
   };
 
   useEffect(() => {

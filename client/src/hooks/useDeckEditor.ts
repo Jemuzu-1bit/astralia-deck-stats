@@ -3,7 +3,7 @@ import { getCardIdentity } from "../data/cardDataReader";
 import { getCardFaces } from "../services/cardDataService";
 import type { Card } from "../types/Card";
 import type { Deck, DeckEntry } from "../types/Deck";
-import { createDeck, updateDeck } from "../services/deckService";
+import { saveLocalDeck } from "../services/deckService";
 import { addDeckCard, buildDeckPayload, canAddDeckCard, getCardDeckSection, getDeckCardCopyLimit, moveSelectedCard, otherDeckSection, removeFromSelection, transferDeckCard, type CardSelection, type DeckCardSection, type DeckCardSelections, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 
@@ -175,9 +175,7 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
     try {
       const saved = saveDeck
         ? await saveDeck(payload, initialDeck)
-        : initialDeck
-          ? updateDeck({ ...payload, id: initialDeck.id, updatedAt: Date.now() })
-          : createDeck(payload);
+        : await saveLocalDeck(payload, initialDeck);
       onSaved?.(saved);
       onClose();
     } catch (error) {

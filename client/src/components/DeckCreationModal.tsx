@@ -5,6 +5,7 @@ import type { Card } from "../types/Card";
 import { COPIES_PER_CARD, FACTIONS, SECTION_LABELS, SECTION_LIMITS, countSelectedCards, getCardDeckSection, otherDeckSection, type DeckCardSection, type DeckSection, type CardSelection } from "../domain/deckBuilder";
 import { CHRONICLES } from "../data/chronicles";
 import { getCardImagePath } from "../services/cardImageService";
+import { fileToDataUrl } from "../services/deckService";
 import { useDeckEditor } from "../hooks/useDeckEditor";
 import { useCardFilters } from "../hooks/useCardFilters";
 import { useDeckPanelResize } from "../hooks/useDeckPanelResize";
@@ -82,6 +83,8 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const modal = useRef<HTMLDivElement>(null);
   const catalog = useRef<HTMLElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
+  const [readingCover, setReadingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
   useModalFocus(modal, Boolean(detailCard) || dragging);
   const dragSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -93,6 +96,14 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const complete = collectionTabs.every(section => totals[section] === SECTION_LIMITS[section]);
   const chronicle = selectedFaction ? CHRONICLES[selectedFaction] : null;
   const canEdit = !isOverview && !saving && !loadingDeck && !cardOptions.loading && !loadError && !cardOptions.error;
+  const canSave = canEdit && !dragging && !readingCover;
+  const readCover = async (file: File) => {
+    setReadingCover(true);
+    setCoverError(null);
+    try { setBackgroundImage(await fileToDataUrl(file)); }
+    catch { setCoverError("Could not read this cover image. Try selecting it again."); }
+    finally { setReadingCover(false); }
+  };
   const getDestinations = (card: Card): CardDestination[] => {
     const home = getCardDeckSection(card);
     if (!home) return [];
@@ -156,7 +167,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     const onSaveKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (selectedFaction && !dragging && canEdit) void handleSave();
+        if (selectedFaction && canSave) void handleSave();
       }
     };
     document.addEventListener("keydown", onSaveKey);
@@ -171,7 +182,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
           {selectedFaction && <>
             <span className={styles.draftLabel}>{complete ? "Deck complete" : "Draft deck"}</span>
             {isOverview ? <button type="button" className={styles.save} onClick={() => browseCards()}>Edit deck</button>
-              : <button type="button" className={styles.save} onClick={() => void handleSave()} disabled={dragging || !canEdit}><ArchiveIcon name="check" size={16} />{saving ? "Saving…" : "Save deck"}</button>}
+              : <button type="button" className={styles.save} onClick={() => void handleSave()} disabled={!canSave}><ArchiveIcon name="check" size={16} />{saving ? "Saving…" : "Save deck"}</button>}
           </>}
           <button className={styles.close} onClick={onClose} aria-label="Close deck builder"><ArchiveIcon name="close" /></button>
         </div>
@@ -304,8 +315,16 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
                 : <label className={styles.nameLabel}>Deck name<input aria-label="Deck name" value={deckName} onChange={event => setDeckName(event.target.value)} placeholder="Name your deck" maxLength={120} /></label>}
               <span className={styles.chronicleLabel} style={{ color: chronicle?.color }}>Chronicle of {chronicle?.name}</span>
               {!isOverview && <>
-                <div className={styles.coverActions}><button onClick={() => backgroundInput.current?.click()}>Change cover</button>{backgroundImage && <button onClick={() => setBackgroundImage(null)}>Reset cover</button>}</div>
-                <input ref={backgroundInput} type="file" accept="image/*" hidden onChange={event => { const file = event.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = () => setBackgroundImage(String(reader.result)); reader.readAsDataURL(file); } event.currentTarget.value = ""; }} />
+                <div className={styles.coverActions}>
+                  <button type="button" disabled={!canEdit || readingCover} onClick={() => backgroundInput.current?.click()}>{readingCover ? "Reading cover…" : "Change cover"}</button>
+                  {backgroundImage && <button type="button" disabled={!canEdit || readingCover} onClick={() => { setBackgroundImage(null); setCoverError(null); }}>Reset cover</button>}
+                </div>
+                <input ref={backgroundInput} type="file" accept="image/*" hidden onChange={event => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) void readCover(file);
+                }} />
+                {coverError && <p className={styles.error} role="alert">{coverError}</p>}
               </>}
             </div>
             {isOverview ? (description.trim() && <div className={styles.descriptionField}><p>{description}</p></div>)
