@@ -14,6 +14,7 @@ import styles from "./CardBrowser.module.scss";
 export interface CardDestination {
   section: DeckSection;
   quantity: number;
+  full: boolean;
   disabledReason?: string;
 }
 
@@ -118,12 +119,15 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
       const cardDestinations = destinations?.(card) ?? [];
       const assigned = cardDestinations.filter(target => target.quantity > 0);
       const addable = cardDestinations.filter(target => !target.disabledReason);
+      const [home, sideboard] = cardDestinations;
+      const automaticDestination = home?.section === "deck";
       const openAction = destinationMenu?.cardId === card.id ? destinationMenu.action : undefined;
       const chooseDestination = (action: "add" | "remove", trigger: HTMLButtonElement) => {
         const available = action === "add" ? addable : assigned;
-        if (available.length === 1) {
+        if (automaticDestination || available.length === 1) {
+          const preferred = action === "remove" && home?.full && sideboard?.quantity ? sideboard : available[0];
           setDestinationMenu(null);
-          (action === "add" ? onAdd : onRemove)?.(available[0].section, card);
+          if (preferred) (action === "add" ? onAdd : onRemove)?.(preferred.section, card);
           return;
         }
         destinationTrigger.current = trigger;
@@ -148,13 +152,13 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
             setDestinationMenu(null);
           }}>
           <div className={styles.quantity}>
-            <button type="button" aria-label={`Remove ${card.name}`} aria-expanded={assigned.length > 1 ? openAction === "remove" : undefined}
+            <button type="button" aria-label={`Remove ${card.name}`} aria-expanded={!automaticDestination && assigned.length > 1 ? openAction === "remove" : undefined}
               disabled={!onRemove || assigned.length === 0} onClick={event => chooseDestination("remove", event.currentTarget)}>−</button>
             <span aria-live="polite" aria-label={assigned.map(target => `${target.quantity} ${quantityLabels[target.section]}`).join(", ") || "0 copies"}>
               {viewMode === "list" && assigned.length ? assigned.map(target => <span key={target.section}>{target.quantity} {quantityLabels[target.section]}</span>)
                 : assigned.reduce((total, target) => total + target.quantity, 0)}
             </span>
-            <button type="button" aria-label={`Add ${card.name}`} aria-expanded={addable.length > 1 ? openAction === "add" : undefined}
+            <button type="button" aria-label={`Add ${card.name}`} aria-expanded={!automaticDestination && addable.length > 1 ? openAction === "add" : undefined}
               disabled={addable.length === 0} title={addable.length === 0 ? cardDestinations[0].disabledReason : undefined}
               onClick={event => chooseDestination("add", event.currentTarget)}>+</button>
           </div>

@@ -16,7 +16,7 @@ function loadSelection(section: DeckCardSection, entries: DeckEntry[], faces: { 
     const identity = getCardIdentity(front);
     const copies = copiesByIdentity.get(identity) ?? 0;
     const qty = Math.min(getDeckCardCopyLimit(front) - copies, entries[index].qty);
-    if (qty <= 0) return;
+    if (qty <= 0 && (section !== "sideboard" || entries[index].qty !== 0)) return;
     selection[front.id] = { card: front, qty: (selection[front.id]?.qty ?? 0) + qty };
     copiesByIdentity.set(identity, copies + qty);
   });
@@ -133,7 +133,16 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
       return;
     }
 
-    setDeckSelections(current => ({ ...current, [section]: removeFromSelection(current[section], card) }));
+    setDeckSelections(current => {
+      const selection = removeFromSelection(current[section], card, section === "sideboard");
+      return selection === current[section] ? current : { ...current, [section]: selection };
+    });
+  };
+
+  const discardEmptySideboardCard = (card: Card) => {
+    setDeckSelections(current => current.sideboard[card.id]?.qty === 0
+      ? { ...current, sideboard: removeFromSelection(current.sideboard, card) }
+      : current);
   };
 
   const moveCard = (from: DeckCardSection, to: DeckCardSection, card: Card, insertionIndex: number) => {
@@ -178,5 +187,5 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
     }
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
 }

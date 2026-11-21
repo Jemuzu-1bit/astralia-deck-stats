@@ -61,12 +61,12 @@ function SortableCard({ item, draggableId, drag, ...props }: TileProps) {
       <button type="button" className={styles.name} onClick={() => props.onOpenCard(item.card)} title={item.card.name}>{item.card.name}</button>
       {!props.readOnly && <div className={styles.actions}>
         <div className={styles.quantity}>
-          <button type="button" disabled={props.disabled} aria-label={`Remove ${item.card.name} from ${props.title}`} onClick={() => props.onRemoveCard(item.card)}>−</button>
+          <button type="button" disabled={props.disabled || item.qty === 0} aria-label={`Remove ${item.card.name} from ${props.title}`} onClick={() => props.onRemoveCard(item.card)}>−</button>
           <span aria-label={`${item.qty} copies`}>{item.qty}</span>
           <button type="button" aria-label={`Add ${item.card.name} to ${props.title}`} disabled={!props.canAdd(item.card)} onClick={() => props.onAddCard(item.card)}>+</button>
         </div>
         {drag && <button type="button" ref={setActivatorNodeRef} disabled={props.disabled} className={styles.handle} {...attributes} {...listeners}
-          aria-label={`Reorder ${item.card.name}`} title="Drag to reorder or move between sections. You can also press Space and use the arrow keys.">
+          aria-label={`Reorder ${item.card.name}`} title={item.qty === 0 ? "Drag outside the Sideboard to remove this card." : "Drag to reorder or move between sections. You can also press Space and use the arrow keys."}>
           <ArchiveIcon name="grip" size={16} />
         </button>}
       </div>}
@@ -172,8 +172,9 @@ export default function SortableDeckSection({ section, title, selection, viewMod
           const preview = previewCard?.id === item.card.id;
           let drag: DeckCardDrag | undefined;
           if (!readOnly && section !== "protagonist") {
-            const destinations = moveDestinations(section, item.card);
-            if (entries.length > 1 || destinations.length > 1) drag = { item, section, destinations, surface, viewMode };
+            const emptySideboardEntry = section === "sideboard" && item.qty === 0;
+            const destinations = emptySideboardEntry ? [section] : moveDestinations(section, item.card);
+            if (emptySideboardEntry || entries.length > 1 || destinations.length > 1) drag = { item, section, destinations, surface, viewMode };
           }
           return <div key={item.card.id} data-deck-card-id={item.card.id} data-insertion-preview={preview || undefined}>
             {preview && !isSource ? <DeckDragPreview item={item} viewMode={viewMode} insertion />

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDeckCard, addToSelection, buildDeckPayload, countSelectedCards, moveSelectedCard, transferDeckCard } from "../src/domain/deckBuilder.ts";
+import { addDeckCard, addToSelection, buildDeckPayload, countSelectedCards, moveSelectedCard, removeFromSelection, transferDeckCard } from "../src/domain/deckBuilder.ts";
 import { createDeck, getDeck, updateDeck } from "../src/services/deckService.ts";
 
 const selection = (...ids) => Object.fromEntries(ids.map((id, index) => [id, {
@@ -79,7 +79,7 @@ test("a full main deck can send cards to the sideboard without losing a blocked 
   const payload = buildDeckPayload({ name: "Full deck", faction: "red", persona: {}, protagonist: null, ...cards, backgroundImage: null });
   assert.deepEqual(payload.deck.at(-1), { id: "card-45", qty: 1 });
   assert.deepEqual(payload.sideboard[0], { id: "card-0", qty: 2 });
-  assert.equal(payload.sideboard.some(({ id }) => id === extraCard.id), false);
+  assert.deepEqual(payload.sideboard.at(-1), { id: extraCard.id, qty: 0 });
 });
 
 test("a Persona can be placed once and moved between Persona Deck and Sideboard", () => {
@@ -93,12 +93,28 @@ test("a Persona can be placed once and moved between Persona Deck and Sideboard"
 
   const moved = transferDeckCard(cards, "sideboard", persona);
   assert.equal(moved.persona[persona.id].qty, 1);
-  assert.deepEqual(moved.sideboard, {});
+  assert.equal(moved.sideboard[persona.id].qty, 0);
   assert.equal(addDeckCard(moved, "sideboard", persona), moved);
   assert.deepEqual(transferDeckCard(moved, "persona", persona), cards);
 
   for (let i = 1; i <= 5; i++) cards = addDeckCard(cards, "persona", { id: `persona-${i}`, mainDeck: "Persona" });
   assert.equal(transferDeckCard(cards, "sideboard", persona), cards);
+});
+
+test("empty sideboard entries keep their place and can be restored or discarded", () => {
+  const original = selection("first", "last");
+  const { card } = original.first;
+  const sideboard = removeFromSelection(original, card, true);
+  assert.deepEqual(Object.keys(sideboard), ["first", "last"]);
+  assert.equal(sideboard.first.qty, 0);
+  assert.equal(countSelectedCards(sideboard), 2);
+  assert.equal(removeFromSelection(sideboard, card, true), sideboard);
+  assert.deepEqual(addToSelection(sideboard, card, Infinity, 4), original);
+  assert.deepEqual(removeFromSelection(sideboard, card), { last: original.last });
+
+  const deckCard = { ...card, mainDeck: "Deck" };
+  const cards = { persona: {}, deck: {}, sideboard: { first: { card: deckCard, qty: 0 } } };
+  assert.equal(transferDeckCard(cards, "sideboard", deckCard), cards);
 });
 
 test("moving a copy between sections inserts it at the previewed position", () => {

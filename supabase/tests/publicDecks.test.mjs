@@ -14,6 +14,7 @@ test("deck content validates all sideboard copies without capping its size", asy
   const db = new PGlite();
   try {
     await db.exec(await readFile(new URL("../migrations/202611200002_deck_sideboard.sql", import.meta.url), "utf8"));
+    await db.exec(await readFile(new URL("../migrations/202611210003_keep_empty_sideboard_entries.sql", import.meta.url), "utf8"));
     const valid = async (content) => (await db.query("select public.valid_deck_content($1) as valid", [JSON.stringify(content)])).rows[0].valid;
     const mainPrint = "apx_01_001_a_n";
     const sidePrint = "apx_01_001_b_n";
@@ -27,6 +28,9 @@ test("deck content validates all sideboard copies without capping its size", asy
     assert.equal(await valid({ ...content, sideboard: null }), false);
     assert.equal(await valid({ ...content, sideboard: [...sideboard, { id: mainPrint, qty: 1 }] }), false);
     assert.equal(await valid({ ...content, sideboard: [...sideboard, { id: sidePrint, qty: 1 }] }), false);
+    assert.equal(await valid({ ...content, sideboard: [...sideboard, { id: mainPrint, qty: 0 }] }), true);
+    assert.equal(await valid({ ...content, sideboard: [{ id: sidePrint, qty: -1 }] }), false);
+    assert.equal(await valid({ ...content, deck: [{ id: mainPrint, qty: 0 }], sideboard }), false);
     assert.equal(await valid({ persona: [], deck: Array.from({ length: 23 }, (_, i) => ({ id: `main-${i}`, qty: 2 })), sideboard }), false);
   } finally {
     await db.close();
@@ -91,6 +95,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     ]);
     assert.deepEqual(await importLegacy(), legacyCopy);
     await db.exec(await readFile(new URL("../migrations/202611210002_exclude_sideboard_from_deck_imports.sql", import.meta.url), "utf8"));
+    await db.exec(await readFile(new URL("../migrations/202611210003_keep_empty_sideboard_entries.sql", import.meta.url), "utf8"));
     await asRole("authenticated", author, "delete from public.decks where id in ($1, $2)", [legacyDeckId, legacyCopyId]);
 
     const ownProfile = await asRole("authenticated", author, "select * from public.player_profiles");
@@ -112,7 +117,7 @@ test("public deck and author lifecycle enforces ownership and privacy in Postgre
     assert.equal((await asRole("anon", null, "select * from storage.objects")).length, 0);
     await assert.rejects(asRole("authenticated", reader,
       "insert into public.decks(owner_id, name, faction) values ($1, 'Forged', 'blue')", [author]), /row-level security/);
-    const deckContent = { persona: ["persona-card"], deck: [{ id: "main-card", qty: 2 }], sideboard: [{ id: "side-card", qty: 1 }] };
+    const deckContent = { persona: ["persona-card"], deck: [{ id: "main-card", qty: 2 }], sideboard: [{ id: "side-card", qty: 1 }, { id: "PERSONA-CARD", qty: 0 }] };
     const published = await asRole("authenticated", author,
       `update public.decks set visibility = 'public', description = 'Public strategy notes', content = $2
       where id = $1 and revision = 1 returning *`, [deckId, JSON.stringify(deckContent)]);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { PublicDeck } from "../domain/publicDecks";
 import type { Card } from "../types/Card";
@@ -20,22 +20,23 @@ export default function PublicDeckPreview({ deck, onClose, onImport, importDisab
   const [loadError, setLoadError] = useState(false);
   const modal = useRef<HTMLDivElement>(null);
   const { protagonist, persona, deck: mainDeck, sideboard } = deck;
+  const sideboardEntries = useMemo(() => sideboard?.filter(entry => entry.qty > 0) ?? [], [sideboard]);
   useModalFocus(modal, Boolean(detail));
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError(false);
-    const ids = [...new Set([...(protagonist ? [protagonist] : []), ...persona, ...mainDeck.map(entry => entry.id), ...(sideboard ?? []).map(entry => entry.id)])];
+    const ids = [...new Set([...(protagonist ? [protagonist] : []), ...persona, ...mainDeck.map(entry => entry.id), ...sideboardEntries.map(entry => entry.id)])];
     void Promise.all(ids.map(async id => [id, (await getCardFaces(id)).front] as const)).then(entries => {
       if (active) setCatalog(new Map(entries.filter((entry): entry is readonly [string, Card] => Boolean(entry[1]))));
     }).catch(() => { if (active) setLoadError(true); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [protagonist, persona, mainDeck, sideboard]);
+  }, [protagonist, persona, mainDeck, sideboardEntries]);
   const sections = [
     { name: "Protagonist", entries: protagonist ? [{ id: protagonist, qty: 1 }] : [] },
     { name: "Persona", entries: persona.map(id => ({ id, qty: 1 })) },
     { name: "Main deck", entries: mainDeck },
-    ...(sideboard?.length ? [{ name: "Sideboard", entries: sideboard }] : []),
+    ...(sideboardEntries.length ? [{ name: "Sideboard", entries: sideboardEntries }] : []),
   ];
   return <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={modal} className={styles.preview} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>

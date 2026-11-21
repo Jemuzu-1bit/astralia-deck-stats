@@ -126,20 +126,22 @@ export function addDeckCard(
 
 export function transferDeckCard(selections: DeckCardSelections, from: DeckCardSection, card: Card, insertionIndex?: number): DeckCardSelections {
   const to = otherDeckSection(from, card);
-  if (!to || !selections[from][card.id]) return selections;
-  const removed = { ...selections, [from]: removeFromSelection(selections[from], card) };
+  if (!to || !selections[from][card.id]?.qty) return selections;
+  const removed = { ...selections, [from]: removeFromSelection(selections[from], card, from === "sideboard") };
   const moved = addDeckCard(removed, to, card, insertionIndex);
   return moved === removed ? selections : moved;
 }
 
 export function removeFromSelection(
   selection: CardSelection,
-  card: Card
+  card: Card,
+  keepEmpty = false,
 ): CardSelection {
   const existing = selection[card.id];
   if (!existing) return selection;
 
-  if (existing.qty > 1) {
+  if (keepEmpty && existing.qty === 0) return selection;
+  if (existing.qty > 1 || keepEmpty) {
     return {
       ...selection,
       [card.id]: { ...existing, qty: existing.qty - 1 },
@@ -251,7 +253,8 @@ export function buildDeckPayload({
   backgroundImage: string | null;
 }): Omit<Deck, "id" | "updatedAt"> {
   const remainingByIdentity = new Map(Object.values(persona).map(({ card }) => [getCardIdentity(card), 0]));
-  const toEntries = (selection: CardSelection) => Object.values(selection).flatMap((item) => {
+  const toEntries = (selection: CardSelection, keepEmpty = false) => Object.values(selection).flatMap((item) => {
+    if (keepEmpty && item.qty === 0) return [{ id: item.card.id, qty: 0 }];
     const identity = getCardIdentity(item.card);
     const remaining = remainingByIdentity.get(identity) ?? getDeckCardCopyLimit(item.card);
     const qty = Math.min(item.qty, remaining);
@@ -259,7 +262,7 @@ export function buildDeckPayload({
     return qty > 0 ? [{ id: item.card.id, qty }] : [];
   });
   const deckEntries = toEntries(deck);
-  const sideboardEntries = toEntries(sideboard);
+  const sideboardEntries = toEntries(sideboard, true);
 
   return {
     name: name.trim() || "New Deck",

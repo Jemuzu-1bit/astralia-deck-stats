@@ -47,6 +47,10 @@ function dropSectionName(over: Over): string {
   return target ? SECTION_LABELS[target.section] : "the selected section";
 }
 
+function isEmptySideboardDrag(drag: DeckCardDrag | undefined): drag is DeckCardDrag {
+  return drag?.section === "sideboard" && drag.item.qty === 0;
+}
+
 function getSavedCollectionZoom() {
   try {
     const zoom = Number(localStorage.getItem(COLLECTION_ZOOM_KEY));
@@ -63,7 +67,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const deckDrag = activeDrag && "item" in activeDrag ? activeDrag : null;
   const dragging = activeDrag !== null;
   const editor = useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, onSaved, onClose, saveDeck, suppressEscape: dragging });
-  const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
+  const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
   const [collectionTab, setCollectionTab] = useState<CollectionTab>(initialDeck ? "deck" : "protagonist");
   const collectionFilters = { protagonist: useCardFilters(), persona: useCardFilters(), deck: useCardFilters() };
   const [view, setView] = useState<"overview" | "cards" | "stats" | "hand">("overview");
@@ -94,15 +98,16 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     if (!home) return [];
     const destinations: DeckSection[] = sideboardEnabled && home !== "protagonist" ? [home, "sideboard"] : [home];
     return destinations.map(section => {
+      const full = totals[section] >= SECTION_LIMITS[section];
       let disabledReason: string | undefined;
       if (!canEdit) disabledReason = "Unavailable";
       else if (!canAddCard(section, card)) {
-        if (section !== "protagonist" && totals[section] >= SECTION_LIMITS[section]) disabledReason = "Section full";
+        if (section !== "protagonist" && full) disabledReason = "Section full";
         else if (home === "protagonist") disabledReason = "Already selected";
         else if (home === "persona") disabledReason = "One copy per Persona";
         else disabledReason = `${COPIES_PER_CARD} copies already assigned`;
       }
-      return { section, quantity: selections[section][card.id]?.qty ?? 0, disabledReason };
+      return { section, quantity: selections[section][card.id]?.qty ?? 0, full, disabledReason };
     });
   };
   const moveDestinations = (from: DeckCardSection, card: Card): DeckCardSection[] => {
@@ -113,10 +118,12 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     const collectionCard = getCollectionCardDrag(active);
     const deckCard = getDeckCardDrag(active);
     const drop = getDeckDrop(collisions);
-    if (drop && canEdit) {
-      if (collectionCard && canAddCard(drop.section, collectionCard.card)) {
+    if (canEdit) {
+      if (!drop && isEmptySideboardDrag(deckCard)) {
+        discardEmptySideboardCard(deckCard.item.card);
+      } else if (drop && collectionCard && canAddCard(drop.section, collectionCard.card)) {
         addCard(drop.section, collectionCard.card, drop.insertionIndex);
-      } else if (deckCard && drop.section !== "protagonist" && drop.insertionIndex !== undefined) {
+      } else if (drop && deckCard && drop.section !== "protagonist" && drop.insertionIndex !== undefined) {
         moveCard(deckCard.section, drop.section, deckCard.item.card, drop.insertionIndex);
       }
     }
@@ -183,7 +190,10 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
             announcements: {
               onDragStart: ({ active }) => `Picked up ${draggedCardName(active)}.`,
               onDragOver: ({ active, over }) => over ? `${draggedCardName(active)} is over ${dropSectionName(over)}.` : "Move over a valid section.",
-              onDragEnd: ({ active, over }) => over ? `${draggedCardName(active)} dropped in ${dropSectionName(over)}.` : "Move cancelled.",
+              onDragEnd: ({ active, over }) => {
+                if (over) return `${draggedCardName(active)} dropped in ${dropSectionName(over)}.`;
+                return isEmptySideboardDrag(getDeckCardDrag(active)) ? `${draggedCardName(active)} removed from Sideboard.` : "Move cancelled.";
+              },
               onDragCancel: () => "Move cancelled.",
             },
           }}
