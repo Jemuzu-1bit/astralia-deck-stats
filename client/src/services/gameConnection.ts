@@ -100,7 +100,6 @@ export interface PublicRoom {
   code: string;
   roomName: string;
   hostName: string;
-  hostProfile?: RoomPlayerProfile;
   playerCount: number;
   spectatorCount: number;
   started: boolean;

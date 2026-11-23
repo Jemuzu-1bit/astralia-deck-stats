@@ -81,7 +81,7 @@ test("the multiplayer client discovers public rooms, joins a seat and watches wi
   assert.equal(rooms[0].hostName, "Alice");
 });
 
-test("the room shares the verified Discord profile and excludes credentials and private profile fields", async (t) => {
+test("the verified Discord profile is shared only in the lobby and excludes private fields", async (t) => {
   const env = { VITE_SUPABASE_URL: "https://supabase.example.test", VITE_SUPABASE_PUBLISHABLE_KEY: "test-key" };
   for (const [key, value] of Object.entries(env)) {
     const previous = process.env[key];
@@ -113,7 +113,8 @@ test("the room shares the verified Discord profile and excludes credentials and 
   host.connect();
   host.runWhenConnected(() => host.host("Local alias", { visibility: "public", roomName: "Discord table", accessToken: "test-access-token" }));
   const { code, host: player } = await hosted;
-  assert.equal(player.name, "Discord name");
+  assert.equal(player.name, "Local alias");
+  assert.equal(player.profile.name, "Discord name");
   assert.equal(player.profile.avatar, avatar);
   assert.deepEqual(player.profile.discord, cosmetics);
   assert.equal(player.profile.appearance.featuredDeckId, undefined);
@@ -121,7 +122,9 @@ test("the room shares the verified Discord profile and excludes credentials and 
   assert.equal(requests[1].url.searchParams.get("id"), `eq.${id}`);
   assert.equal(requests[1].headers.apikey, "test-key");
   const [room] = await host.listPublicRooms();
-  assert.deepEqual(room.hostProfile, player.profile);
+  assert.equal(room.hostName, "Local alias");
+  assert.equal(room.hostProfile, undefined);
+  assert.doesNotMatch(JSON.stringify(room), /Discord name|cdn\.discordapp\.com/);
   assert.doesNotMatch(await backend.get(code), /test-access-token|private@example\.test|private-deck/);
 
   localStorage.removeItem(`astralia.gameSession.${code}`);
@@ -133,6 +136,17 @@ test("the room shares the verified Discord profile and excludes credentials and 
   assert.equal(state.guest.name, "Guest alias");
   assert.equal(state.guest.profile, undefined);
   assert.equal(requests.length, 3);
+
+  const ready = waitForState(host, (state) => state.host?.deckId && state.guest?.deckId);
+  const deck = [{ id: "test-card", qty: 40 }];
+  host.setDeck("host-deck", "Host deck", "blue", "dcs_02_002ex", [], deck);
+  guest.setDeck("guest-deck", "Guest deck", "red", "dcs_02_001ex", [], deck);
+  await ready;
+  const active = waitForState(guest, (state) => state.started);
+  host.startRequest();
+  const match = await active;
+  assert.equal(match.host.name, "Local alias");
+  assert.equal(match.host.profile, undefined);
 });
 
 test("a temporary resume failure retries and releases queued commands on the same open socket", async (t) => {

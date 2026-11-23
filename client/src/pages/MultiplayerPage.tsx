@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import ArchiveIcon from "../components/ArchiveIcon";
-import PlayerProfileIdentity from "../components/PlayerProfileIdentity";
 import type { AuthSession } from "../hooks/useAuthSession";
-import { getPlayerProfile, readRoomPlayerIdentity } from "../domain/playerProfile";
+import { getPlayerProfile } from "../domain/playerProfile";
 import { gameConnection, type PublicRoom } from "../services/gameConnection";
 import { supabase } from "../services/supabaseClient";
 import styles from "./MultiplayerPage.module.scss";
@@ -29,8 +28,8 @@ export default function MultiplayerPage() {
   const fetching = useRef(false);
   const pending = useRef(false);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const profile = user ? getPlayerProfile(user) : null;
-  const effectiveName = profile?.name || name.trim();
+  const defaultName = user ? getPlayerProfile(user).name : "";
+  const effectiveName = name.trim() || defaultName;
 
   const refresh = useCallback(async () => {
     if (fetching.current) return;
@@ -81,7 +80,7 @@ export default function MultiplayerPage() {
     if (asPlayer && !effectiveName) { setError("Enter your player name first."); return; }
     if (!gameConnection.isConnected()) { gameConnection.connect(); setError("Connecting to the game server. Please try again."); return; }
     if (activeRoom.code) { setError("Return to your current room and leave it before joining another."); return; }
-    if (asPlayer && !user) localStorage.setItem("astralia.playerName", effectiveName.slice(0, 24));
+    if (asPlayer) localStorage.setItem("astralia.playerName", effectiveName.slice(0, 24));
     pending.current = true;
     setBusy(true);
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
@@ -127,14 +126,11 @@ export default function MultiplayerPage() {
         )}
       </div>
     </header>
-    {profile ? <section className={styles.playerProfile} aria-label="Your Discord profile">
-      <div className={styles.profileHeader}><h2>Your Discord profile</h2><Link to="/profile/edit">Edit profile</Link></div>
-      <PlayerProfileIdentity profile={profile} />
-    </section> : <section className={styles.identity} aria-label="Player identity">
+    <section className={styles.identity} aria-label="Player identity">
       <span className={styles.identityIcon}><ArchiveIcon name="user" /></span>
-      <label htmlFor="multiplayer-name">Your player name<span>Shown to other players in the lobby.</span></label>
-      <input id="multiplayer-name" maxLength={24} placeholder="Enter your name" value={name} onChange={event => setName(event.target.value)} />
-    </section>}
+      <label htmlFor="multiplayer-name">Your player name<span>Used in the room list and during the match.</span></label>
+      <input id="multiplayer-name" maxLength={24} placeholder={defaultName || "Enter your name"} value={name} onChange={event => setName(event.target.value)} />
+    </section>
     {error && (!dialog || activeRoomPath) && <p className={styles.error} role="alert">{error}</p>}
     <div className={styles.columns}>
       <section className={styles.rooms} aria-labelledby="public-rooms-heading">
@@ -159,10 +155,7 @@ export default function MultiplayerPage() {
           <span className={styles.roomIcon}><ArchiveIcon name={room.started ? "play" : "multiplayer"} size={23} /></span>
           <div className={styles.roomInfo}>
             <div className={styles.roomTitle}><h3>{room.roomName}</h3><span className={room.started ? styles.live : styles.status}>{room.started ? "In progress" : room.playerCount === 2 ? "Full" : "Open seat"}</span></div>
-            {room.hostProfile && <div className={styles.roomHost} aria-label="Host profile" role="group">
-              <PlayerProfileIdentity profile={readRoomPlayerIdentity(room.hostProfile)} compact />
-            </div>}
-            <p>{!room.hostProfile && <>Hosted by <strong>{room.hostName}</strong><span>·</span></>}{room.playerCount}/2 players<span>·</span>{room.spectatorCount} watching</p>
+            <p>Hosted by <strong>{room.hostName}</strong><span>·</span>{room.playerCount}/2 players<span>·</span>{room.spectatorCount} watching</p>
           </div>
           {activeRoomPath ? (
             room.code === activeRoom.code && (
@@ -206,10 +199,8 @@ export default function MultiplayerPage() {
     }}>
       <button type="button" className={styles.close} aria-label="Close dialog" disabled={busy} onClick={() => setDialog(null)}><ArchiveIcon name="close" /></button><span className={styles.eyebrow}>{dialog === "create" ? "YOUR NEXT MATCH" : "INVITE ONLY"}</span><h2 id="room-dialog-title">{dialog === "create" ? "Create a room" : "Join a private room"}</h2>
       {error && <p className={styles.error} role="alert">{error}</p>}
-      {profile ? <p>Playing as <strong>{profile.name}</strong></p> : <>
-        <label htmlFor="dialog-name">Player name</label><input id="dialog-name" maxLength={24} value={name} placeholder="Enter your name" onChange={event => setName(event.target.value)} autoFocus />
-      </>}
-      {dialog === "create" ? <><label htmlFor="room-name">Room name</label><input id="room-name" maxLength={60} placeholder="Give your table a name" value={roomName} onChange={event => setRoomName(event.target.value)} autoFocus={Boolean(profile)} required /><fieldset className={styles.visibility}><legend>Visibility</legend>{(["public", "private"] as const).map(value => <label key={value}><input type="radio" name="visibility" value={value} checked={visibility === value} onChange={() => setVisibility(value)} /><strong>{value === "public" ? "Public" : "Private"}</strong><span>{value === "public" ? "Listed for everyone to join or watch." : "Only accessible with your room code."}</span></label>)}</fieldset><button className={styles.primary} disabled={busy || !authReady || !effectiveName || !roomName.trim()}>{busy ? "Creating room…" : "Create room"}</button></> : <><p>Use a code to take the second seat or watch the match.</p><label htmlFor="private-code">Room code</label><input id="private-code" className={styles.codeInput} placeholder="AB12CD" maxLength={6} pattern="[A-Fa-f0-9]{6}" value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-F0-9]/g, ""))} autoFocus={Boolean(profile)} /><div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy || !authReady || !effectiveName || !/^[A-F0-9]{6}$/.test(code)}>Join as player</button><button type="button" className={styles.secondary} disabled={busy || !/^[A-F0-9]{6}$/.test(code)} onClick={() => enter(() => gameConnection.watch(code), false)}><ArchiveIcon name="eye" size={17} /> Join as spectator</button></div></>}
+      <label htmlFor="dialog-name">Player name</label><input id="dialog-name" maxLength={24} value={name} placeholder={defaultName || "Enter your name"} onChange={event => setName(event.target.value)} autoFocus />
+      {dialog === "create" ? <><label htmlFor="room-name">Room name</label><input id="room-name" maxLength={60} placeholder="Give your table a name" value={roomName} onChange={event => setRoomName(event.target.value)} required /><fieldset className={styles.visibility}><legend>Visibility</legend>{(["public", "private"] as const).map(value => <label key={value}><input type="radio" name="visibility" value={value} checked={visibility === value} onChange={() => setVisibility(value)} /><strong>{value === "public" ? "Public" : "Private"}</strong><span>{value === "public" ? "Listed for everyone to join or watch." : "Only accessible with your room code."}</span></label>)}</fieldset><button className={styles.primary} disabled={busy || !authReady || !effectiveName || !roomName.trim()}>{busy ? "Creating room…" : "Create room"}</button></> : <><p>Use a code to take the second seat or watch the match.</p><label htmlFor="private-code">Room code</label><input id="private-code" className={styles.codeInput} placeholder="AB12CD" maxLength={6} pattern="[A-Fa-f0-9]{6}" value={code} onChange={event => setCode(event.target.value.toUpperCase().replace(/[^A-F0-9]/g, ""))} /><div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy || !authReady || !effectiveName || !/^[A-F0-9]{6}$/.test(code)}>Join as player</button><button type="button" className={styles.secondary} disabled={busy || !/^[A-F0-9]{6}$/.test(code)} onClick={() => enter(() => gameConnection.watch(code), false)}><ArchiveIcon name="eye" size={17} /> Join as spectator</button></div></>}
       {busy && <p role="status">Waiting for the server…</p>}
     </form></div>}
   </div>;

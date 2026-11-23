@@ -65,7 +65,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
   function currentRoom(socket) { return rooms.get(socket.data.roomCode); }
   function newPlayer(socket, name, role) {
     return {
-      socketId: socket.id, token: makeId(), name: actor.profile?.name ?? playerName(name, role === "host" ? "Host" : "Guest"),
+      socketId: socket.id, token: makeId(), name: playerName(name, role === "host" ? "Host" : "Guest"),
       ...(actor.profile ? { profile: actor.profile } : {}),
       role, deckId: null, faction: null, protagonistId: null, deckName: null,
       personaCards: null, mainDeckCards: null, handCards: [], deckCards: [],
@@ -98,7 +98,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     // Older clients send only a player name: their rooms remain private.
     const name = typeof options === "string" ? options : options?.name;
     const visibility = options?.visibility === "public" ? "public" : "private";
-    const roomName = String(typeof options === "object" ? options?.roomName || "" : "").trim().replace(/\s+/g, " ").slice(0, 60) || `${playerName(actor.profile?.name ?? name, "Host")}'s room`;
+    const roomName = String(typeof options === "object" ? options?.roomName || "" : "").trim().replace(/\s+/g, " ").slice(0, 60) || `${playerName(name, "Host")}'s room`;
     const room = { code, instanceId: makeId(), visibility, roomName, createdAt: now, host: newPlayer(socket, name, "host"), guest: null, spectators: new Set(), started: false, lastActivity: now };
     rooms.set(code, room);
     attachPlayer(socket, room, room.host);
@@ -191,7 +191,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
   });
   socket.on("lobby:setName", (name) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
-    if (!player || room.started || player.profile) return;
+    if (!player || room.started) return;
     player.name = playerName(name, player.role === "host" ? "Host" : "Guest"); room.lastActivity = now; emitState(room);
   });
   socket.on("lobby:setFaction", (faction) => {

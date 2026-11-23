@@ -1,5 +1,6 @@
-function publicPlayer(player, viewerId, isSpectator) {
+function publicPlayer(player, viewerId, isSpectator, showProfile) {
   const { token: _token, ...safe } = player;
+  if (!showProfile) delete safe.profile;
   const handCount = player.table?.hand.length ?? player.handCards.length;
   const deckCount = player.table?.deck.length ?? player.deckCards.length;
   if (player.socketId === viewerId) return { ...safe, handCount, deckCount };
@@ -37,8 +38,8 @@ export function publicState(room, viewerId) {
   return {
     instanceId: room.instanceId,
     revision: room.revision,
-    host: room.host ? publicPlayer(room.host, viewerId, isSpectator) : null,
-    guest: room.guest ? publicPlayer(room.guest, viewerId, isSpectator) : null,
+    host: room.host ? publicPlayer(room.host, viewerId, isSpectator, !room.started) : null,
+    guest: room.guest ? publicPlayer(room.guest, viewerId, isSpectator, !room.started) : null,
     started: room.started,
     turnRole: room.turnRole ?? null,
     turnNumber: room.turnNumber ?? 0,
