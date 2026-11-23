@@ -34,7 +34,70 @@ interface Props {
 }
 
 const CARD_PAGE_SIZE = 60;
+const setOptions = CARD_SETS.map(({ code, label }) => ({ value: code, label }));
 const quantityLabels: Record<DeckSection, string> = { protagonist: "selected", persona: "in Persona", deck: "in Main", sideboard: "in Side" };
+
+interface FilterDropdownProps<Value extends string> {
+  label: string;
+  options: readonly { value: Value; label: string }[];
+  selected: readonly Value[];
+  selectionLabel?: string;
+  onToggle: (value: Value) => void;
+  onClear: () => void;
+}
+
+function FilterDropdown<Value extends string>({ label, options, selected, selectionLabel, onToggle, onClear }: FilterDropdownProps<Value>) {
+  const allSelected = selected.length === 0;
+  const filterName = label.toLowerCase();
+  const allLabel = `All ${filterName}s`;
+  const selectedLabel = selectionLabel ?? (selected.length === 1 ? selected[0] : `${selected.length} ${filterName}s`);
+  const summary = allSelected ? allLabel : selectedLabel;
+
+  return <div className={styles.dropdownField}>
+    <span className={styles.dropdownLabel} aria-hidden="true">{label}</span>
+    <details
+      className={styles.filterDropdown}
+      onBlur={event => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          event.currentTarget.open = false;
+        }
+      }}
+      onKeyDown={event => {
+        const menu = event.currentTarget;
+        if (event.key !== "Escape" || !menu.open) return;
+        event.preventDefault();
+        event.stopPropagation();
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }}
+    >
+      <summary
+        className={`${styles.dropdownControl} ${styles.filterTrigger}`}
+        data-filtered={!allSelected || undefined}
+        aria-label={`Filter by ${filterName} (${summary})`}
+      >
+        {summary}
+      </summary>
+      <div className={styles.filterOptions} role="group" aria-label={`Card ${filterName}s`}>
+        <label>
+          <input
+            type="checkbox"
+            checked={allSelected}
+            aria-disabled={allSelected || undefined}
+            onChange={event => {
+              if (event.currentTarget.checked) onClear();
+            }}
+          />
+          {allLabel}
+        </label>
+        {options.map(option => <label key={option.value}>
+          <input type="checkbox" value={option.value} checked={selected.includes(option.value)} onChange={() => onToggle(option.value)} />
+          {option.label}
+        </label>)}
+      </div>
+    </details>
+  </div>;
+}
 
 function CollectionCardArt({ card, destinations, quantities, viewMode, onOpenCard }: {
   card: Card;
@@ -70,7 +133,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   const [pageSize, setPageSize] = useState(CARD_PAGE_SIZE);
   const [advanced, setAdvanced] = useState(false);
   const [destinationMenu, setDestinationMenu] = useState<{ cardId: string; action: "add" | "remove" } | null>(null);
-  const setMenu = useRef<HTMLDetailsElement>(null);
+  const filterBar = useRef<HTMLDivElement>(null);
   const destinationTrigger = useRef<HTMLButtonElement>(null);
   const loadMoreTrigger = useRef<HTMLDivElement>(null);
   const gridStyle = viewMode === "grid" && gridZoom !== undefined
@@ -87,8 +150,6 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
     { label: "ATK", values: values.atks, selected: filters.selectedAtks, set: filters.setSelectedAtks },
     { label: "HP", values: values.hps, selected: filters.selectedHps, set: filters.setSelectedHps },
   ];
-  const allSets = filters.selectedSets.length === 0;
-  const setSelectionLabel = allSets ? "All sets" : filters.selectedSets.join(", ");
   const filterCount = filterGroups.reduce((sum, group) => sum + group.selected.length, filters.selectedSets.length);
   const query = autoLoadMore ? JSON.stringify([filters.searchText, filters.selectedSets, sort, ...filterGroups.map(group => group.selected)]) : null;
   const [paginationResults, setPaginationResults] = useState({ options, query });
@@ -98,14 +159,16 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   }
 
   useEffect(() => {
-    const dismissSetMenu = (event: PointerEvent) => {
-      const menu = setMenu.current;
-      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
-        menu.open = false;
-      }
+    const dismissFilterMenus = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      const openMenus = filterBar.current?.querySelectorAll<HTMLDetailsElement>("details[open]");
+      openMenus?.forEach(menu => {
+        if (!menu.contains(target)) menu.open = false;
+      });
     };
-    document.addEventListener("pointerdown", dismissSetMenu);
-    return () => document.removeEventListener("pointerdown", dismissSetMenu);
+    document.addEventListener("pointerdown", dismissFilterMenus);
+    return () => document.removeEventListener("pointerdown", dismissFilterMenus);
   }, []);
 
   const hasMore = filtered.length > pageSize;
@@ -126,75 +189,35 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
 
   return <div className={styles.browser}>
     <div className={styles.searchRow}><label className={styles.search}><ArchiveIcon name="search" size={18} /><input aria-label="Search cards" placeholder="Search cards by name or ID…" value={filters.searchText} onChange={event => { filters.setSearchText(event.target.value); setPageSize(CARD_PAGE_SIZE); }} />{filters.searchText && <button aria-label="Clear card search" onClick={() => filters.setSearchText("")}><ArchiveIcon name="close" size={15} /></button>}</label><button className={styles.filterToggle} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>Filters{filterCount > 0 ? ` (${filterCount})` : ""}</button></div>
-    <div className={styles.filters}>
-      <div className={styles.dropdownField}>
-        <span className={styles.dropdownLabel} aria-hidden="true">Set</span>
-        <details
-          ref={setMenu}
-          className={styles.setDropdown}
-          onBlur={event => {
-            if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
-              event.currentTarget.open = false;
-            }
-          }}
-          onKeyDown={event => {
-            const menu = event.currentTarget;
-            if (event.key !== "Escape" || !menu.open) return;
-            event.preventDefault();
-            event.stopPropagation();
-            menu.open = false;
-            menu.querySelector("summary")?.focus();
-          }}
-        >
-          <summary
-            className={`${styles.dropdownControl} ${styles.setTrigger}`}
-            data-filtered={!allSets || undefined}
-            aria-label={`Filter by set (${setSelectionLabel})`}
-          >
-            {setSelectionLabel}
-          </summary>
-          <div className={styles.setOptions} role="group" aria-label="Card sets">
-            <label>
-              <input
-                type="checkbox"
-                checked={allSets}
-                aria-disabled={allSets || undefined}
-                onChange={event => {
-                  if (!event.currentTarget.checked) return;
-                  filters.clearSelectedSets();
-                  setPageSize(CARD_PAGE_SIZE);
-                }}
-              />
-              All sets
-            </label>
-            {CARD_SETS.map(({ code, label }) => <label key={code}>
-              <input type="checkbox" checked={filters.selectedSets.includes(code)} onChange={() => {
-                filters.toggleSelectedSet(code);
-                setPageSize(CARD_PAGE_SIZE);
-              }} />
-              {label}
-            </label>)}
-          </div>
-        </details>
-      </div>
-      {filterGroups.slice(0, 2).map(group => <label key={group.label} className={styles.dropdownField}>
-        <span className={styles.dropdownLabel}>{group.label}</span>
-        <span className={styles.selectShell}>
-          <select
-            className={`${styles.dropdownControl} ${styles.nativeSelect}`}
-            aria-label={`Filter by ${group.label.toLowerCase()}`}
-            data-filtered={group.selected.length > 0 || undefined}
-            value={group.selected[0] ?? ""}
-            onChange={event => {
-              group.set(event.target.value ? [event.target.value] : []);
-              setPageSize(CARD_PAGE_SIZE);
-            }}
-          >
-            <option value="">All {group.label.toLowerCase()}s</option>
-            {group.values.map(value => <option key={value}>{value}</option>)}
-          </select>
-        </span>
-      </label>)}
+    <div className={styles.filters} ref={filterBar}>
+      <FilterDropdown
+        label="Set"
+        options={setOptions}
+        selected={filters.selectedSets}
+        selectionLabel={filters.selectedSets.join(", ")}
+        onToggle={set => {
+          filters.toggleSelectedSet(set);
+          setPageSize(CARD_PAGE_SIZE);
+        }}
+        onClear={() => {
+          filters.clearSelectedSets();
+          setPageSize(CARD_PAGE_SIZE);
+        }}
+      />
+      {filterGroups.slice(0, 2).map(group => <FilterDropdown
+        key={group.label}
+        label={group.label}
+        options={[...new Set([...group.values, ...group.selected])].map(value => ({ value, label: value }))}
+        selected={group.selected}
+        onToggle={value => {
+          group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]);
+          setPageSize(CARD_PAGE_SIZE);
+        }}
+        onClear={() => {
+          group.set([]);
+          setPageSize(CARD_PAGE_SIZE);
+        }}
+      />)}
       <button className={styles.reset} onClick={() => { filters.clearFilters(); setPageSize(CARD_PAGE_SIZE); }}>Reset filters</button>
     </div>
     {advanced && <div className={styles.advanced}>{filterGroups.slice(2).map(group => <div key={group.label}><span>{group.label}</span><div>{group.values.length === 0 ? <small>No options</small> : group.values.map(value => <button key={value} aria-pressed={group.selected.includes(value)} className={group.selected.includes(value) ? styles.activeChip : ""} onClick={() => group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value])}>{value}</button>)}</div></div>)}</div>}
