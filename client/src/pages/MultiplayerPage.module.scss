@@ -8,6 +8,17 @@
 .textButton { background: none; border: 0; color: var(--archive-gold); }
 .iconButton { border: 1px solid var(--archive-line); background: transparent; color: var(--archive-muted); padding: 9px; &:hover { color: var(--archive-gold); } }
 .identity { display: flex; gap: 16px; align-items: center; padding: 18px 22px; margin-bottom: 30px; background: var(--archive-panel); border: 1px solid var(--archive-line); border-radius: 8px; label { font-size: 14px; font-weight: 600; span { display: block; margin-top: 4px; font-weight: 400; color: var(--archive-muted); } } input { margin-left: auto; width: 240px; max-width: 100%; } }
+.playerProfile { margin-bottom: 30px; border: 1px solid var(--archive-line); border-radius: 8px; background: var(--archive-panel); overflow: hidden; }
+.profileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 18px;
+  h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  a { color: var(--archive-gold); font-size: 14px; }
+}
 .identityIcon, .roomIcon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #ddbd7d24; background: #ddbd7d0a; border-radius: 7px; color: var(--archive-gold); }
 .page input { min-width: 0; font-size: 16px; color: #eeeef0; padding: 11px 13px; background: #111215; border: 1px solid #36383f; border-radius: 5px; &::placeholder { color: #7e818c; } }
 .columns { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 26px; align-items: start; }
@@ -22,6 +33,7 @@
 .room { padding: 22px 24px; display: flex; align-items: center; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--archive-line); &:last-child { border-bottom: 0; } }
 .roomInfo { flex: 1; min-width: 160px; h3 { font-weight: 600; font-size: 16px; margin: 0; overflow-wrap: anywhere; } p { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--archive-muted); font-size: 13px; margin: 9px 0 0; strong { color: #c7c8d0; font-weight: 500; overflow-wrap: anywhere; } } }
 .roomTitle { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.roomHost { width: min(100%, 240px); margin-top: 10px; overflow: hidden; border: 1px solid var(--archive-line); border-radius: 6px; background: #1c1d22; }
 .status, .live { font-size: 12px; white-space: nowrap; padding: 4px 7px; border-radius: 4px; background: #24252c; color: #b7b8c2; }
 .live { background: #ddbd7d15; color: var(--archive-gold); }
 .roomActions { display: flex; gap: 8px; flex-wrap: wrap; button, a { padding: 9px 12px; } }

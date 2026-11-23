@@ -127,3 +127,12 @@ export function getPlayerProfile(user: User) {
     discord: readDiscordAppearance(user.user_metadata?.discord_profile),
   };
 }
+
+export type RoomPlayerProfile = Pick<ReturnType<typeof getPlayerProfile>, "name" | "avatar" | "favoriteChronicle"> & {
+  appearance: unknown;
+  discord: unknown;
+};
+
+export function readRoomPlayerIdentity(profile: RoomPlayerProfile) {
+  return { ...profile, appearance: readProfileAppearance(profile.appearance), discord: readDiscordAppearance(profile.discord) };
+}

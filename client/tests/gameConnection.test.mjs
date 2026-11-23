@@ -81,6 +81,60 @@ test("the multiplayer client discovers public rooms, joins a seat and watches wi
   assert.equal(rooms[0].hostName, "Alice");
 });
 
+test("the room shares the verified Discord profile and excludes credentials and private profile fields", async (t) => {
+  const env = { VITE_SUPABASE_URL: "https://supabase.example.test", VITE_SUPABASE_PUBLISHABLE_KEY: "test-key" };
+  for (const [key, value] of Object.entries(env)) {
+    const previous = process.env[key];
+    process.env[key] = value;
+    t.after(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous; });
+  }
+  const id = "10000000-0000-4000-8000-000000000001";
+  const avatar = "https://cdn.discordapp.com/avatars/80351110224678912/avatar.png";
+  const cosmetics = { id: "80351110224678912", banner: "a".repeat(32), decoration: "b".repeat(32), guildTag: "AST" };
+  const requests = [];
+  t.mock.method(globalThis, "fetch", async (input, options) => {
+    const url = new URL(input);
+    requests.push({ url, headers: options.headers });
+    if (options.headers.Authorization !== "Bearer test-access-token") return new Response(null, { status: 401 });
+    if (url.pathname === "/auth/v1/user") return Response.json({ id, email: "private@example.test", identities: [{ provider: "discord" }] });
+    return Response.json([{
+      name: "Discord name", avatar, favorite_chronicle: "blue",
+      appearance: { cover: "discord", showAvatarDecoration: true, showGuildTag: true, featuredDeckId: "private-deck" },
+      discord_appearance: cosmetics,
+    }]);
+  });
+  const { app, backend } = await connectedHost(t);
+  const url = `http://127.0.0.1:${app.server.address().port}`;
+  const host = new GameConnection({ url });
+  const guest = new GameConnection({ url });
+  t.after(() => { host.leave(); guest.leave(); });
+
+  const hosted = waitForState(host, (state) => state.viewerRole === "host");
+  host.connect();
+  host.runWhenConnected(() => host.host("Local alias", { visibility: "public", roomName: "Discord table", accessToken: "test-access-token" }));
+  const { code, host: player } = await hosted;
+  assert.equal(player.name, "Discord name");
+  assert.equal(player.profile.avatar, avatar);
+  assert.deepEqual(player.profile.discord, cosmetics);
+  assert.equal(player.profile.appearance.featuredDeckId, undefined);
+  assert.equal(requests[1].url.pathname, "/rest/v1/player_profiles");
+  assert.equal(requests[1].url.searchParams.get("id"), `eq.${id}`);
+  assert.equal(requests[1].headers.apikey, "test-key");
+  const [room] = await host.listPublicRooms();
+  assert.deepEqual(room.hostProfile, player.profile);
+  assert.doesNotMatch(await backend.get(code), /test-access-token|private@example\.test|private-deck/);
+
+  localStorage.removeItem(`astralia.gameSession.${code}`);
+  const joined = waitForState(guest, (state) => state.viewerRole === "guest");
+  guest.connect();
+  guest.runWhenConnected(() => guest.join("Guest alias", code, "invalid-token"));
+  const state = await joined;
+  assert.deepEqual(state.host.profile, player.profile);
+  assert.equal(state.guest.name, "Guest alias");
+  assert.equal(state.guest.profile, undefined);
+  assert.equal(requests.length, 3);
+});
+
 test("a temporary resume failure retries and releases queued commands on the same open socket", async (t) => {
   const { app, host, code } = await connectedHost(t);
   const originalSocket = host.getSocketId();

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { MemoryBackend, RoomStore, decodeRoom } from "./roomStore.js";
 import { publicState } from "./roomState.js";
+import { getRoomPlayerProfile } from "./roomPlayerProfile.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const codePattern = /^[A-F0-9]{6}$/;
@@ -91,9 +92,14 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
         }
         return;
       }
+      const joining = event === "lobby:host" || event === "lobby:join";
+      const profile = joining && !socket.data.roomCode ? await getRoomPlayerProfile(payload?.accessToken) : null;
+      const roomPayload = joining && payload && typeof payload === "object"
+        ? { name: payload.name, code: payload.code, visibility: payload.visibility, roomName: payload.roomName }
+        : payload;
       let result;
       for (let attempt = 0; attempt < 5; attempt++) {
-        try { result = await store.execute(code, actor(), event, payload, commandId); break; }
+        try { result = await store.execute(code, { ...actor(), profile }, event, roomPayload, commandId); break; }
         catch (error) {
           if (event !== "lobby:host" || error.message !== "Room code collision") throw error;
           code = crypto.randomBytes(3).toString("hex").toUpperCase();

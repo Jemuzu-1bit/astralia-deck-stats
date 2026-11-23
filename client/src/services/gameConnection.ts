@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import type { RoomPlayerProfile } from "../domain/playerProfile";
 
 export interface GameCounter {
   kind: "emoji" | "name" | "customEmoji" | "status";
@@ -51,6 +52,7 @@ export interface GameTable {
 export interface LobbyPlayerState {
   socketId: string | null;
   name: string;
+  profile?: RoomPlayerProfile;
   role: "host" | "guest";
   connected?: boolean;
   deckId: string | null;
@@ -98,6 +100,7 @@ export interface PublicRoom {
   code: string;
   roomName: string;
   hostName: string;
+  hostProfile?: RoomPlayerProfile;
   playerCount: number;
   spectatorCount: number;
   started: boolean;
@@ -480,7 +483,7 @@ export class GameConnection {
     const unsubscribe = this.onConnect(() => { unsubscribe(); callback(); });
     return unsubscribe;
   }
-  host(name: string, options?: { visibility: "public" | "private"; roomName: string }) {
+  host(name: string, options?: { visibility: "public" | "private"; roomName: string; accessToken?: string }) {
     this.resumeCode = null; this.watchCode = null;
     this.socket?.emit("lobby:host", options ? { name, ...options } : name);
   }
@@ -493,14 +496,14 @@ export class GameConnection {
       });
     });
   }
-  join(name: string, code: string) {
+  join(name: string, code: string, accessToken?: string) {
     this.watchCode = null;
     const normalizedCode = normalizeCode(code);
     const session = loadSession(normalizedCode);
     if (session) {
       this.resumeCode = normalizedCode;
       this.emitResume();
-    } else this.socket?.emit("lobby:join", { name, code: normalizedCode });
+    } else this.socket?.emit("lobby:join", { name, code: normalizedCode, accessToken });
   }
   resume(code: string) { this.connect(code); }
   watch(code: string) {

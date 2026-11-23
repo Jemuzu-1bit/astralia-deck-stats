@@ -29,6 +29,7 @@ export class RoomStore {
       code: room.code,
       roomName: room.roomName,
       hostName: room.host.name,
+      ...(room.host.profile ? { hostProfile: room.host.profile } : {}),
       playerCount: Number(Boolean(room.host)) + Number(Boolean(room.guest)),
       spectatorCount: [...room.spectators].filter((id) => room.presence?.[id] > now).length,
       started: room.started,
