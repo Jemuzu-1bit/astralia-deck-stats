@@ -8,6 +8,14 @@ export const CARDS_PER_DECK = 45;
 export const PERSONA_LIMIT = 5;
 export const COPIES_PER_CARD = 4;
 
+export const CARD_SETS = [
+  { code: "DCS", label: "Dawn of the Celestial Shadows (DCS)" },
+  { code: "AOR", label: "Anthem of Rebellion (AOR)" },
+  { code: "KS", label: "Kickstarter Promos" },
+] as const;
+
+export type CardSet = (typeof CARD_SETS)[number]["code"];
+
 export function withoutSideboard<T extends Pick<Deck, "sideboard">>(deck: T): Omit<T, "sideboard"> {
   const copy = { ...deck };
   delete copy.sideboard;
@@ -27,6 +35,7 @@ export type DeckCardSelections = Record<DeckCardSection, CardSelection>;
 
 export interface CardFilterValues {
   searchText: string;
+  selectedSets: CardSet[];
   selectedCosts: string[];
   selectedTypes: string[];
   selectedSubtypes: string[];
@@ -175,6 +184,16 @@ function commaSeparatedValues(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function getCardSet(setId: string): CardSet | undefined {
+  const [prefix, deckNumber] = setId.trim().toUpperCase().split(/[-\s]+/, 2);
+  if (prefix === "DCS" || prefix === "APX") return "DCS";
+  if (prefix === "AOR" || prefix === "KS") return prefix;
+  if (prefix === "SD") {
+    if (/^0[1-5]$/.test(deckNumber)) return "DCS";
+    if (/^(0[6-9]|10)$/.test(deckNumber)) return "AOR";
+  }
+}
+
 export function filterCards(
   cards: AugCard[],
   filters: CardFilterValues
@@ -182,6 +201,11 @@ export function filterCards(
   const query = filters.searchText.trim().toLowerCase();
 
   return cards.filter((card) => {
+    if (filters.selectedSets.length > 0) {
+      const cardSet = getCardSet(card.setId);
+      if (!cardSet || !filters.selectedSets.includes(cardSet)) return false;
+    }
+
     if (
       query &&
       !card.name.toLowerCase().includes(query) &&

@@ -486,6 +486,9 @@ Whenever this card attacks, you can play a copy of any number of Dogmas with tot
 If this card was chosen as target three or more times this turn, it gets +1 ATK for every other Exorcist you control until end of turn.",aor_02_002_ex
 aor_03_002_ex,AOR-03-002 EX,"Ackermann, Computer Whiz",Blue,Protagonist,6,Protagonist,Programmer,"Anthem of Rebellion, Structure Deck: Ghost in the Machine",,18,turn start,FALSE,1,TRUE,"[TURN START]: If you control at least 2 overridden Characters, draw 1 card.
 Whenever you play an AI.doll, you may put an AI that costs equal to or less than it from your hand into play. If you do, recover 3 Fragments.",aor_03_002_ex
+aor_04_001_ex,AOR-04-001 EX,"Miyako, Collector of Tattoos",Pink,Protagonist,8,Protagonist,Assassin,Anthem of Rebellion,,18,"assault, summoning",FALSE,1,TRUE,"Summons get +1 ATK, +1 HP and [ASSAULT].
+Whenever a Character you control triggers its [SUMMONING] ability, obliviate it.
+FRAZZLE, FRAZZLE: Target Summon gets +2 ATK and +2 HP until end of turn.",aor_04_001_ex
 aor_04_002_ex,AOR-04-002 EX,"Kenji, Blade of the Rebellion",Pink,Protagonist,9,Protagonist,Rebel,"Anthem of Rebellion, Structure Deck: Streets of Honor",0,20,"explosion, turn start",FALSE,1,TRUE,"[EXPLOSION 1]
 This card gets +1 ATK for each Summon or Unique Character you control.
 [TURN START]: If the Turn Count is 6, put Aoryu, Azure Dragon from your Persona Deck into play.",aor_04_002_ex

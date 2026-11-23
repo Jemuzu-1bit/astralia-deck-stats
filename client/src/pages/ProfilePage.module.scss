@@ -62,37 +62,10 @@
   &:first-of-type { margin-top: 12px; }
   &:hover, &:has(:checked) { border-color: #7a6949; }
   &:has(:checked) { background: #ddbd7d10; }
-  &:has(:disabled) { opacity: .55; cursor: not-allowed; }
-  input {
-    appearance: none;
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    margin: 0;
-    border: 1px solid #777986;
-    border-radius: 4px;
-    background: #101113;
-    cursor: inherit;
-    &:checked {
-      border-color: var(--archive-gold);
-      background: var(--archive-gold);
-      &::after {
-        content: "";
-        width: 9px;
-        height: 5px;
-        border: solid #211d16;
-        border-width: 0 0 2px 2px;
-        transform: translateY(-1px) rotate(-45deg);
-      }
-    }
-  }
+  &:has(:disabled) { color: var(--archive-muted); cursor: not-allowed; }
 }
 @media (forced-colors: active) {
   .editor select { appearance: auto; background-image: none; }
-  .editor .toggle input { appearance: auto; display: inline-block; }
-  .editor .toggle input:checked::after { content: none; }
 }
 .discordControls { margin-top: 16px; }
 .discordControls .hint a { color: var(--archive-gold); }
