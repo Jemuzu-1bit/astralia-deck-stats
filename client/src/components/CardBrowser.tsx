@@ -3,7 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { CardFiltersState } from "../hooks/useCardFilters";
-import { CARD_SETS, filterCards, SECTION_LABELS, type DeckSection } from "../domain/deckBuilder";
+import { CARD_SETS, filterCards, type DeckSection } from "../domain/deckBuilder";
 import { getCardFilterValues } from "./cardFilterValues";
 import CardDisplay from "./CardDisplay";
 import type { CardViewMode } from "./CardViewToggle";
@@ -134,9 +134,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   const [sort, setSort] = useState("cost");
   const [pageSize, setPageSize] = useState(CARD_PAGE_SIZE);
   const [advanced, setAdvanced] = useState(false);
-  const [destinationMenu, setDestinationMenu] = useState<{ cardId: string; action: "add" | "remove" } | null>(null);
   const filterBar = useRef<HTMLDivElement>(null);
-  const destinationTrigger = useRef<HTMLButtonElement>(null);
   const loadMoreTrigger = useRef<HTMLDivElement>(null);
   const gridStyle = viewMode === "grid" && gridZoom !== undefined
     ? { "--card-grid-scale": gridZoom / 100 } as CSSProperties
@@ -241,19 +239,8 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
       const assigned = cardDestinations.filter(target => target.quantity > 0);
       const addable = cardDestinations.filter(target => !target.disabledReason);
       const [home, sideboard] = cardDestinations;
-      const automaticDestination = home?.section === "deck";
-      const openAction = destinationMenu?.cardId === card.id ? destinationMenu.action : undefined;
-      const chooseDestination = (action: "add" | "remove", trigger: HTMLButtonElement) => {
-        const available = action === "add" ? addable : assigned;
-        if (automaticDestination || available.length === 1) {
-          const preferred = action === "remove" && home?.full && sideboard?.quantity ? sideboard : available[0];
-          setDestinationMenu(null);
-          if (preferred) (action === "add" ? onAdd : onRemove)?.(preferred.section, card);
-          return;
-        }
-        destinationTrigger.current = trigger;
-        setDestinationMenu(openAction === action ? null : { cardId: card.id, action });
-      };
+      const addTarget = addable[0];
+      const removeTarget = home?.full && sideboard?.quantity ? sideboard : assigned[0];
       return <article
         className={`${styles.card} ${assigned.length ? styles.selected : ""}`}
         key={card.id}
@@ -262,37 +249,18 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
         <CollectionCardArt card={card} destinations={addable.map(target => target.section)} quantities={assigned} viewMode={viewMode} onOpenCard={onOpenCard} />
         <button className={styles.cardName} onClick={() => onOpenCard(card)} title={card.name}>{card.name}</button>
         <div className={styles.cardMeta}><span>{onAdd && cardDestinations[0]?.section === "persona" ? `${card.type} · Persona` : card.type}</span><span>{card.cost || "—"} cost</span></div>
-        {onAdd && cardDestinations.length > 0 && <div className={styles.cardActions}
-          onBlur={event => {
-            if (!event.currentTarget.contains(event.relatedTarget)) setDestinationMenu(current => current?.cardId === card.id ? null : current);
-          }}
-          onKeyDown={event => {
-            if (event.key !== "Escape" || !openAction) return;
-            event.stopPropagation();
-            destinationTrigger.current?.focus();
-            setDestinationMenu(null);
-          }}>
+        {onAdd && cardDestinations.length > 0 && <div className={styles.cardActions}>
           <div className={styles.quantity}>
-            <button type="button" aria-label={`Remove ${card.name}`} aria-expanded={!automaticDestination && assigned.length > 1 ? openAction === "remove" : undefined}
-              disabled={!onRemove || assigned.length === 0} onClick={event => chooseDestination("remove", event.currentTarget)}>−</button>
+            <button type="button" aria-label={`Remove ${card.name}`}
+              disabled={!onRemove || !removeTarget} onClick={() => { if (removeTarget) onRemove?.(removeTarget.section, card); }}>−</button>
             <span aria-live="polite" aria-label={assigned.map(target => `${target.quantity} ${quantityLabels[target.section]}`).join(", ") || "0 copies"}>
               {viewMode === "list" && assigned.length ? assigned.map(target => <span key={target.section}>{target.quantity} {quantityLabels[target.section]}</span>)
                 : assigned.reduce((total, target) => total + target.quantity, 0)}
             </span>
-            <button type="button" aria-label={`Add ${card.name}`} aria-expanded={!automaticDestination && addable.length > 1 ? openAction === "add" : undefined}
-              disabled={addable.length === 0} title={addable.length === 0 ? cardDestinations[0].disabledReason : undefined}
-              onClick={event => chooseDestination("add", event.currentTarget)}>+</button>
+            <button type="button" aria-label={`Add ${card.name}`}
+              disabled={!addTarget} title={addTarget ? undefined : home?.disabledReason}
+              onClick={() => { if (addTarget) onAdd(addTarget.section, card); }}>+</button>
           </div>
-          {openAction && <div className={styles.destinations} role="group" aria-label={openAction === "add" ? `Add ${card.name} to` : `Remove ${card.name} from`}>
-            {(openAction === "add" ? addable : assigned).map(target => <button key={target.section} type="button"
-              onClick={() => {
-                (openAction === "add" ? onAdd : onRemove)?.(target.section, card);
-                destinationTrigger.current?.focus();
-                setDestinationMenu(null);
-              }}>
-              {SECTION_LABELS[target.section]}
-            </button>)}
-          </div>}
         </div>}
       </article>;
     })}</div>}
