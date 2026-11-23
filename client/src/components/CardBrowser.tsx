@@ -35,6 +35,7 @@ interface Props {
 
 const CARD_PAGE_SIZE = 60;
 const setOptions = CARD_SETS.map(({ code, label }) => ({ value: code, label }));
+const costValues = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "X"];
 const quantityLabels: Record<DeckSection, string> = { protagonist: "selected", persona: "in Persona", deck: "in Main", sideboard: "in Side" };
 
 interface FilterDropdownProps<Value extends string> {
@@ -42,11 +43,12 @@ interface FilterDropdownProps<Value extends string> {
   options: readonly { value: Value; label: string }[];
   selected: readonly Value[];
   selectionLabel?: string;
+  optionsClassName?: string;
   onToggle: (value: Value) => void;
   onClear: () => void;
 }
 
-function FilterDropdown<Value extends string>({ label, options, selected, selectionLabel, onToggle, onClear }: FilterDropdownProps<Value>) {
+function FilterDropdown<Value extends string>({ label, options, selected, selectionLabel, optionsClassName, onToggle, onClear }: FilterDropdownProps<Value>) {
   const allSelected = selected.length === 0;
   const filterName = label.toLowerCase();
   const allLabel = `All ${filterName}s`;
@@ -78,7 +80,7 @@ function FilterDropdown<Value extends string>({ label, options, selected, select
       >
         {summary}
       </summary>
-      <div className={styles.filterOptions} role="group" aria-label={`Card ${filterName}s`}>
+      <div className={optionsClassName ? `${styles.filterOptions} ${optionsClassName}` : styles.filterOptions} role="group" aria-label={`Card ${filterName}s`}>
         <label>
           <input
             type="checkbox"
@@ -144,7 +146,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   const filtered = filterCards(options, filters).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : (Number(a.cost) || 0) - (Number(b.cost) || 0) || a.name.localeCompare(b.name));
   const filterGroups = [
     { label: "Type", values: values.types, selected: filters.selectedTypes, set: filters.setSelectedTypes },
-    { label: "Cost", values: values.costs, selected: filters.selectedCosts, set: filters.setSelectedCosts },
+    { label: "Cost", values: [...costValues, ...values.costs], selected: filters.selectedCosts, set: filters.setSelectedCosts, optionsClassName: styles.costOptions },
     { label: "Subtype", values: values.subtypes, selected: filters.selectedSubtypes, set: filters.setSelectedSubtypes },
     { label: "Keyword", values: values.keywords, selected: filters.selectedKeywords, set: filters.setSelectedKeywords },
     { label: "ATK", values: values.atks, selected: filters.selectedAtks, set: filters.setSelectedAtks },
@@ -209,6 +211,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
         label={group.label}
         options={[...new Set([...group.values, ...group.selected])].map(value => ({ value, label: value }))}
         selected={group.selected}
+        optionsClassName={group.optionsClassName}
         onToggle={value => {
           group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]);
           setPageSize(CARD_PAGE_SIZE);

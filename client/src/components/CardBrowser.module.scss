@@ -9,11 +9,15 @@
 .search { display: flex; align-items: center; gap: 10px; padding: 0 12px; flex: 1; min-width: 0; background: #111215; border: 1px solid #35363e; border-radius: 5px; color: #9497a3; input { padding: 12px 0; min-width: 0; width: 100%; color: #eee; background: transparent; border: 0; outline: none; font-size: 12px; } &:focus-within { border-color: #ddbd7d; } button { background: none; border: 0; padding: 4px; display: flex; } }
 .filterToggle { padding: 0 16px; background: #23242a; color: #ddd; border: 1px solid #383941; border-radius: 5px; font-size: 12px; &[aria-expanded=true] { color: #ddbd7d; border-color: #7a6949; } }
 .filters {
+  position: relative;
+  container-type: inline-size;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--archive-line, #2a2b30);
+
+  &:has(details[open]) { z-index: 6; }
 }
 .dropdownField { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .dropdownLabel { color: var(--archive-muted, #999ba5); font-size: 11px; }
@@ -83,7 +87,7 @@
   display: grid;
   gap: 2px;
   box-sizing: border-box;
-  width: max-content;
+  width: var(--filter-options-width, max-content);
   min-width: 100%;
   max-width: min(280px, calc(100vw - 48px));
   max-height: min(320px, 55vh);
@@ -126,6 +130,23 @@
     }
 
     &:has(input:checked)::after { visibility: visible; }
+  }
+}
+
+.dropdownField .costOptions {
+  --filter-options-width: 190px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  > label:first-child { grid-column: 1 / -1; }
+}
+
+@container (max-width: 480px) {
+  .filterDropdown:has(> .costOptions) { position: static; }
+  .dropdownField .costOptions {
+    inset: auto auto auto 0;
+    min-width: 0;
+    max-width: 100%;
+    margin-block-start: 5px;
   }
 }
 
@@ -205,12 +226,11 @@
 }
 @media (max-width: 500px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
-  .filters { position: relative; }
   .filters .dropdownLabel { display: none; }
   .filterDropdown { position: static; }
   .dropdownField .filterOptions {
     inset: auto auto auto 0;
-    width: min(280px, 100%);
+    width: min(var(--filter-options-width, 280px), 100%);
     min-width: 0;
     max-width: 100%;
     margin-block-start: 5px;
