@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { PublicDeck } from "../domain/publicDecks";
+import { getChronicle } from "../data/chronicles";
 import type { Card } from "../types/Card";
 import { getCardFaces } from "../services/cardDataService";
 import { useModalFocus } from "../hooks/useModalFocus";
@@ -20,6 +21,7 @@ export default function PublicDeckPreview({ deck, onClose, onImport, importDisab
   const [loadError, setLoadError] = useState(false);
   const modal = useRef<HTMLDivElement>(null);
   const { protagonist, persona, deck: mainDeck, sideboard } = deck;
+  const factionColor = getChronicle(deck.faction)?.color;
   const sideboardEntries = useMemo(() => sideboard?.filter(entry => entry.qty > 0) ?? [], [sideboard]);
   useModalFocus(modal, Boolean(detail));
   useEffect(() => {
@@ -39,8 +41,14 @@ export default function PublicDeckPreview({ deck, onClose, onImport, importDisab
     ...(sideboardEntries.length ? [{ name: "Sideboard", entries: sideboardEntries }] : []),
   ];
   return <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div ref={modal} className={styles.preview} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>
-      <header><div><h2 id="public-deck-title">{deck.name}</h2><Link className={styles.author} to={`/players/${deck.ownerId}`} onClick={onClose}>By {deck.author?.name || "Player"} →</Link></div><button onClick={onClose} aria-label="Close deck preview">Close</button></header>
+    <div ref={modal} className={styles.preview} style={{ borderTopColor: factionColor }} role="dialog" aria-modal="true" aria-labelledby="public-deck-title" tabIndex={-1} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (detail) setDetail(null); else onClose(); } }}>
+      <header>
+        <div>
+          <h2 id="public-deck-title" style={{ color: factionColor }}>{deck.name}</h2>
+          <Link className={styles.author} to={`/players/${deck.ownerId}`} onClick={onClose}>By {deck.author?.name || "Player"} →</Link>
+        </div>
+        <button onClick={onClose} aria-label="Close deck preview">Close</button>
+      </header>
       {children}
       <section className={styles.description} aria-label="Deck description"><h3>About this deck</h3><p>{deck.description || "The creator has not added a description yet."}</p></section>
       {loading && <p role="status">Loading cards...</p>}

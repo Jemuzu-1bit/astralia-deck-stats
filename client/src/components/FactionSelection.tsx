@@ -1,12 +1,5 @@
+import ChronicleLabel from "./ChronicleLabel";
 import styles from "./FactionSelection.module.scss";
-
-const CHRONICLE_NAMES: Record<string, string> = {
-  green: "Chronicle of Heroes",
-  red: "Chronicle of Twilight",
-  blue: "Chronicle of Progress",
-  pink: "Chronicle of Surveillance",
-  purple: "Chronicle of Catastrophe",
-};
 
 interface FactionSelectionProps {
   factions: string[];
@@ -35,17 +28,16 @@ export default function FactionSelection({
       <div className={styles.factionList}>
         {factions.map((f) => {
           const cap = f.charAt(0).toUpperCase() + f.slice(1);
-          const chronicleName = CHRONICLE_NAMES[f.toLowerCase()] ?? f;
           const factionClass =
             (styles[`faction${cap}` as keyof typeof styles] as string) || "";
           return (
             <button
+              type="button"
               key={f}
               onClick={() => onSelect(f)}
               className={`${styles.factionButton} ${factionClass}`}
-              aria-label={`Select ${chronicleName}`}
             >
-              <span className={styles.factionLabel}>{chronicleName}</span>
+              <span className={styles.factionLabel}><ChronicleLabel faction={f} fullName /></span>
             </button>
           );
         })}

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { CHRONICLES } from "../data/chronicles";
+import { getChronicle } from "../data/chronicles";
 import type { getPlayerProfile } from "../domain/playerProfile";
 import PlayerProfileIdentity from "./PlayerProfileIdentity";
+import ChronicleLabel from "./ChronicleLabel";
 import { FavoriteCard } from "./PlayerProfileHighlights";
 import styles from "../pages/ProfilePage.module.scss";
 
@@ -13,12 +14,12 @@ export function PlayerProfileDetails({ profile, emptyBio, compact = false }: {
   compact?: boolean;
 }) {
   const { bio, favoriteChronicle, website } = profile;
-  const chronicle = Object.hasOwn(CHRONICLES, favoriteChronicle) ? CHRONICLES[favoriteChronicle] : null;
+  const chronicle = getChronicle(favoriteChronicle);
   if (compact && !bio && !chronicle && !website) return null;
   return <div className={compact ? styles.compactDetails : undefined}>
     {(bio || emptyBio) && <p className={styles.bio}>{bio || emptyBio}</p>}
     {(!compact || chronicle || website) && <dl className={styles.facts}>
-      {(!compact || chronicle) && <div><dt>Favorite chronicle</dt><dd style={{ color: chronicle?.color }}>{chronicle?.name || "No preference"}</dd></div>}
+      {(!compact || chronicle) && <div><dt>Favorite chronicle</dt><dd>{chronicle ? <strong><ChronicleLabel faction={favoriteChronicle} /></strong> : "No preference"}</dd></div>}
       {website && <div><dt>Website / social</dt><dd><a href={website} target="_blank" rel="noopener noreferrer">{new URL(website).hostname}</a></dd></div>}
     </dl>}
   </div>;

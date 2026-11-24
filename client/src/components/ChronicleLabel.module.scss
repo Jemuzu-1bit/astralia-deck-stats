@@ -1,0 +1,34 @@
+.label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--faction-accent) 40%, #111215);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--faction-accent) 14%, #111215);
+  color: var(--faction-accent);
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+
+  &::before {
+    content: "";
+    flex: 0 0 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}

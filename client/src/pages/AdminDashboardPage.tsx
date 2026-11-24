@@ -4,8 +4,9 @@ import { Link, useOutletContext } from 'react-router-dom';
 import type { SiteSession } from '../hooks/useAdminAccess';
 import { loadAdminUsers, loadDashboard } from '../services/adminService';
 import type { AdminUser, Breakdown, DashboardData, PeriodMetrics } from '../services/adminService';
-import { CHRONICLES } from '../data/chronicles';
+import { getChronicle } from '../data/chronicles';
 import ArchiveIcon from '../components/ArchiveIcon';
+import ChronicleLabel from '../components/ChronicleLabel';
 import styles from './AdminDashboardPage.module.scss';
 
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
@@ -35,8 +36,8 @@ function BreakdownPanel({ title, rows, hint, chronicleNames = false }: { title: 
   const max = Math.max(1, ...rows.map(row => row.value));
   return <section className={styles.panel}><h2>{title}</h2><p className={styles.muted}>{hint}</p>
     {rows.length ? <ul className={styles.breakdown}>{rows.map(row => <li key={row.name}>
-      <div><span>{chronicleNames ? CHRONICLES[row.name]?.name ?? row.name : row.name}</span><strong>{number(row.value)}</strong></div>
-      <div className={styles.track} aria-hidden="true"><span style={{ width: `${row.value / max * 100}%` }} /></div>
+      <div>{chronicleNames ? <ChronicleLabel faction={row.name} /> : <span>{row.name}</span>}<strong>{number(row.value)}</strong></div>
+      <div className={styles.track} aria-hidden="true"><span style={{ width: `${row.value / max * 100}%`, backgroundColor: chronicleNames ? getChronicle(row.name)?.color : undefined }} /></div>
     </li>)}</ul> : <p className={styles.empty}>No activity in this period.</p>}
   </section>;
 }

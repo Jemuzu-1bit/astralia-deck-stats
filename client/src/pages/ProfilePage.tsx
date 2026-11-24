@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate, useOutletContext } from "react-router-d
 import type { AuthSession } from "../hooks/useAuthSession";
 import { applyDiscordCosmetics, availableDiscordCosmetics, getPlayerProfile, profileWebsite, readProfileAppearance, type ProfileAppearance } from "../domain/playerProfile";
 import { safeProfileUrl } from "../domain/publicDecks";
-import { CHRONICLES } from "../data/chronicles";
+import { ChronicleSelect } from "../components/ChronicleLabel";
 import { FACTIONS } from "../domain/deckBuilder";
 import { supabase } from "../services/supabaseClient";
 import { DiscordReconnectRequired, reconnectDiscordAppearance, syncDiscordAppearance } from "../services/discordAppearanceService";
@@ -138,10 +138,7 @@ function ProfileEditor({ user, routeState }: { user: User; routeState: ProfileEd
       <textarea id="profile-bio" rows={4} maxLength={300} value={bio} onChange={event => setBio(event.target.value)} placeholder="Tell other players about your play style and favorite strategies." aria-describedby="profile-bio-count" />
       <span id="profile-bio-count" className={styles.hint}>{bio.length}/300 characters</span>
       <label htmlFor="profile-chronicle">Favorite chronicle</label>
-      <select id="profile-chronicle" value={favoriteChronicle} onChange={event => setFavoriteChronicle(event.target.value)}>
-        <option value="">No preference</option>
-        {FACTIONS.map(faction => <option key={faction} value={faction}>{CHRONICLES[faction].name}</option>)}
-      </select>
+      <ChronicleSelect id="profile-chronicle" value={favoriteChronicle} emptyLabel="No preference" onChange={event => setFavoriteChronicle(event.target.value)} />
       <label htmlFor="profile-website">Website or social link</label>
       <input id="profile-website" type="url" maxLength={500} value={website} onChange={event => setWebsite(event.target.value)} placeholder="https://" />
     </fieldset>

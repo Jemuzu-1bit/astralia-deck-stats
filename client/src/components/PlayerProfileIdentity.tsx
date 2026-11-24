@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { CHRONICLES } from "../data/chronicles";
+import { getChronicle } from "../data/chronicles";
 import { discordAppearanceImages, type getPlayerProfile } from "../domain/playerProfile";
 import PlayerAvatar from "./PlayerAvatar";
 import styles from "./PlayerProfileIdentity.module.scss";
@@ -13,7 +13,7 @@ type ProfileIdentity = Pick<ReturnType<typeof getPlayerProfile>, "name" | "avata
 
 export default function PlayerProfileIdentity({ profile, compact = false }: { profile: ProfileIdentity; compact?: boolean }) {
   const { name, avatar, favoriteChronicle, appearance, discord } = profile;
-  const chronicle = Object.hasOwn(CHRONICLES, favoriteChronicle) ? CHRONICLES[favoriteChronicle] : null;
+  const chronicle = getChronicle(favoriteChronicle);
   const images = discordAppearanceImages(discord);
   const still = discordAppearanceImages(discord, false);
   const [failedBanner, setFailedBanner] = useState("");

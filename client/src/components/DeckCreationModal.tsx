@@ -4,7 +4,7 @@ import type { Deck } from "../types/Deck";
 import type { Card } from "../types/Card";
 import { COPIES_PER_CARD, FACTIONS, SECTION_LABELS, SECTION_LIMITS, countSelectedCards, getCardDeckSection, otherDeckSection, type DeckCardSection, type DeckSection, type CardSelection } from "../domain/deckBuilder";
 import { getCardPrintingGroup } from "../data/cardDataReader";
-import { CHRONICLES } from "../data/chronicles";
+import { CHRONICLES, getChronicle } from "../data/chronicles";
 import { getCardImagePath } from "../services/cardImageService";
 import { fileToDataUrl } from "../services/deckService";
 import { useDeckEditor } from "../hooks/useDeckEditor";
@@ -18,6 +18,7 @@ import CardViewToggle, { type CardViewMode } from "./CardViewToggle";
 import DeckStats from "./DeckStats";
 import OpeningHandSimulator from "./OpeningHandSimulator";
 import ArchiveIcon from "./ArchiveIcon";
+import ChronicleLabel from "./ChronicleLabel";
 import { deckCollisionDetection, deckKeyboardCoordinates, getCollectionCardDrag, getDeckCardDrag, getDeckDrop, type CollectionCardDrag, type DeckCardDrag, type DeckDropTarget } from "./deckCollectionDrag";
 import viewControlStyles from "./CardViewToggle.module.scss";
 import styles from "./DeckWorkspace.module.scss";
@@ -94,7 +95,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const selections: Record<DeckSection, CardSelection> = { protagonist: protagonistSelection ? { [protagonistSelection.card.id]: protagonistSelection } : {}, ...deckSelections };
   const totals = { protagonist: protagonistSelection ? 1 : 0, persona: countSelectedCards(deckSelections.persona), deck: countSelectedCards(deckSelections.deck), sideboard: countSelectedCards(deckSelections.sideboard) };
   const complete = collectionTabs.every(section => totals[section] === SECTION_LIMITS[section]);
-  const chronicle = selectedFaction ? CHRONICLES[selectedFaction] : null;
+  const chronicle = selectedFaction ? getChronicle(selectedFaction) : undefined;
   const canEdit = !isOverview && !saving && !loadingDeck && !cardOptions.loading && !loadError && !cardOptions.error;
   const canSave = canEdit && !dragging && !readingCover;
   const getPrintings = (card: Card) => cardOptions.printings.get(getCardPrintingGroup(card)) ?? [];
@@ -201,7 +202,32 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
           <button className={styles.close} onClick={onClose} aria-label="Close deck builder"><ArchiveIcon name="close" /></button>
         </div>
       </header>
-      {!selectedFaction ? <section className={styles.factionPicker}><span className={styles.eyebrow}>A NEW CHAPTER</span><h1>Choose your chronicle.</h1><p>Every strategy starts somewhere. Which story will you tell?</p><div className={styles.factionGrid}>{FACTIONS.map((faction, index) => <button key={faction} aria-label={`Select Chronicle of ${CHRONICLES[faction].name}`} onClick={() => setSelectedFaction(faction)} style={{ backgroundImage: `linear-gradient(0deg, #111215 2%, #11121500 90%), url(${CHRONICLES[faction].image})` }}><span className={styles.factionNumber}>0{index + 1}</span><div><span style={{ color: CHRONICLES[faction].color }}>CHRONICLE OF</span><h3>{CHRONICLES[faction].name}</h3><ArchiveIcon name="arrow" /></div></button>)}</div><p className={styles.rules}>1 protagonist <span>·</span> 5 persona cards <span>·</span> 45 main deck cards</p></section> : <>
+      {!selectedFaction ? <section className={styles.factionPicker}>
+        <span className={styles.eyebrow}>A NEW CHAPTER</span>
+        <h1>Choose your chronicle.</h1>
+        <p>Every strategy starts somewhere. Which story will you tell?</p>
+        <div className={styles.factionGrid}>
+          {FACTIONS.map(faction => {
+            const chronicle = CHRONICLES[faction];
+            return <button
+              key={faction}
+              type="button"
+              onClick={() => setSelectedFaction(faction)}
+              style={{
+                "--faction-accent": chronicle.color,
+                "--faction-image": `url(${chronicle.image})`,
+              } as CSSProperties}
+            >
+              <span className={styles.factionCaption}>
+                <span className={styles.factionPrefix}>Chronicle of</span>
+                <span className={styles.factionTitle}>{chronicle.name}</span>
+                <ArchiveIcon name="arrow" />
+              </span>
+            </button>;
+          })}
+        </div>
+        <p className={styles.rules}>1 protagonist <span>·</span> 5 persona cards <span>·</span> 45 main deck cards</p>
+      </section> : <>
         <div className={styles.mobileTabs}><button aria-pressed={mobileView === "browse"} onClick={() => setMobileView("browse")}>{isOverview ? "Overview" : "Browse cards"}</button><button aria-pressed={mobileView === "deck"} onClick={() => setMobileView("deck")}>Your deck · {totals.deck}/{SECTION_LIMITS.deck}</button></div>
         <DndContext
           sensors={dragSensors}
@@ -226,7 +252,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
         <div ref={bodyRef} className={`${styles.body} ${resizing ? styles.resizing : ""} ${collectionDrag ? styles.collectionDragging : ""}`} style={deckWidth === null ? undefined : { "--deck-panel-width": `${deckWidth}px` } as CSSProperties}>
           <section ref={catalog} className={`${styles.catalog} ${mobileView === "deck" ? styles.mobileHidden : ""}`}>
             <div className={styles.catalogHeader}>
-              <div><h3>{view === "overview" ? "Deck Overview" : view === "cards" ? "Card collection" : view === "stats" ? "Deck analysis" : "Test your opening hand"}</h3><span style={{ color: chronicle?.color }}>Chronicle of {chronicle?.name}</span></div>
+              <div><h3>{view === "overview" ? "Deck Overview" : view === "cards" ? "Card collection" : view === "stats" ? "Deck analysis" : "Test your opening hand"}</h3><ChronicleLabel faction={selectedFaction} fullName className={styles.chronicleLabel} /></div>
               <div className={styles.viewTabs} role="group" aria-label="Deck builder views">
                 <button type="button" aria-pressed={view === "overview"} onClick={() => setView("overview")} aria-label="Deck Overview" title="Deck Overview"><ArchiveIcon name="decks" size={17} /></button>
                 <button type="button" aria-pressed={view === "cards"} onClick={() => setView("cards")} aria-label="Card collection" title="Card collection"><ArchiveIcon name="cards" size={17} /></button>
@@ -330,7 +356,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
               <span className={styles.eyebrow}>YOUR DECK</span>
               {isOverview ? <h3 className={styles.deckSummaryName}>{deckTitle}</h3>
                 : <label className={styles.nameLabel}>Deck name<input aria-label="Deck name" value={deckName} onChange={event => setDeckName(event.target.value)} placeholder="Name your deck" maxLength={120} /></label>}
-              <span className={styles.chronicleLabel} style={{ color: chronicle?.color }}>Chronicle of {chronicle?.name}</span>
+              <ChronicleLabel faction={selectedFaction} fullName className={styles.chronicleLabel} />
               {!isOverview && <>
                 <div className={styles.coverActions}>
                   <button type="button" disabled={!canEdit || readingCover} onClick={() => backgroundInput.current?.click()}>{readingCover ? "Reading cover…" : "Change cover"}</button>

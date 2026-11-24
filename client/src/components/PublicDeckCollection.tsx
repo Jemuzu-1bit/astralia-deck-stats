@@ -7,8 +7,8 @@ import {
   recordPublicDeckView, setPublicDeckLike,
 } from "../services/publicDeckService";
 import { createDeck } from "../services/deckService";
-import { CHRONICLES } from "../data/chronicles";
-import { FACTIONS } from "../domain/deckBuilder";
+import { getChronicle } from "../data/chronicles";
+import ChronicleLabel, { ChronicleSelect } from "./ChronicleLabel";
 import { supabase } from "../services/supabaseClient";
 import ArchiveIcon from "./ArchiveIcon";
 import PublicDeckMetrics from "./PublicDeckMetrics";
@@ -154,7 +154,7 @@ export default function PublicDeckCollection({ ownerId, featuredDeckId }: { owne
     {ownerId && <h2>Published decks</h2>}
     <div className={styles.libraryToolbar}>
       <label className={styles.deckSearch}><ArchiveIcon name="search" size={17} /><input aria-label="Search public decks" placeholder="Search public decks…" value={search} maxLength={100} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label>
-      <select aria-label="Filter public decks by chronicle" value={faction} onChange={event => { setFaction(event.target.value); setPage(0); }}><option value="">All chronicles</option>{FACTIONS.map(value => <option key={value} value={value}>{CHRONICLES[value].name}</option>)}</select>
+      <ChronicleSelect aria-label="Filter public decks by chronicle" value={faction} emptyLabel="All chronicles" onChange={event => { setFaction(event.target.value); setPage(0); }} />
       <select aria-label="Sort public decks" value={sort} onChange={event => { setSort(event.target.value as PublicDeckSort); setPage(0); }}>
         {Object.entries(PUBLIC_DECK_SORTS).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}
       </select>
@@ -167,9 +167,12 @@ export default function PublicDeckCollection({ ownerId, featuredDeckId }: { owne
     {!loading && !error && decks.length === 0 && <div className={styles.empty}><ArchiveIcon name="decks" size={34} /><h2>{search || faction ? "No matching decks" : "No published decks yet"}</h2><p>{search || faction ? "Try a different name or chronicle." : "Published strategies will appear here."}</p>{(search || faction) && <button onClick={() => { setSearch(""); setFaction(""); setPage(0); }}>Reset filters</button>}</div>}
     <div className={styles.deckSlots}>
       {decks.map(deck => {
-        const chronicle = CHRONICLES[deck.faction];
+        const chronicle = getChronicle(deck.faction);
         return <article key={deck.id} className={cards.card}>
-          <button className={cards.cover} onClick={() => viewDeck(deck)} aria-label={`View ${deck.name}`} style={{ backgroundImage: `linear-gradient(0deg, #1b1c21, #1b1c2110), url(${deck.backgroundImage || chronicle?.image || ""})` }}><span className={cards.status}>Public</span><span className={cards.faction} style={{ color: chronicle?.color }}>CHRONICLE OF {chronicle?.name.toUpperCase() ?? deck.faction.toUpperCase()}</span></button>
+          <button className={cards.cover} onClick={() => viewDeck(deck)} aria-label={`View ${deck.name}`} aria-description={chronicle ? `Chronicle of ${chronicle.name}` : undefined} style={{ backgroundImage: `linear-gradient(0deg, #1b1c21 6%, #1b1c21db 26%, #1b1c2110 85%), url(${deck.backgroundImage || chronicle?.image || ""})` }}>
+            <span className={cards.status}>Public</span>
+            <ChronicleLabel faction={deck.faction} fullName className={cards.faction} />
+          </button>
           <div className={cards.info}>
             <button className={cards.title} onClick={() => viewDeck(deck)}>{deck.name}</button>
             <Link className={community.author} to={`/players/${deck.ownerId}`}>By {deck.author?.name || "Player"} <ArchiveIcon name="arrow" size={13} /></Link>

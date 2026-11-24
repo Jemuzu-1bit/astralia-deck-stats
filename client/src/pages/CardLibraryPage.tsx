@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import type { Card } from "../types/Card";
 import { getAllCards } from "../services/cardDataService";
@@ -24,7 +24,21 @@ export default function CardLibraryPage() {
   }, []);
   return <div className={styles.page}>
     <header className={styles.header}><div><span>EXPLORE ASTRALIA</span><h1>Card library</h1><p>Find the next piece of your strategy.</p></div><Link to="/my-decks?new=1">+ Build a deck</Link></header>
-    <div className={styles.factions} aria-label="Filter by chronicle"><button aria-pressed={!faction} onClick={() => setFaction("")}>All chronicles</button>{FACTIONS.map(value => <button key={value} aria-pressed={faction === value} onClick={() => setFaction(value)}><span style={{ background: CHRONICLES[value].color }} />{CHRONICLES[value].name}</button>)}</div>
+    <div className={styles.factions} aria-label="Filter by chronicle">
+      <button aria-pressed={!faction} onClick={() => setFaction("")}>All chronicles</button>
+      {FACTIONS.map(value => {
+        const chronicle = CHRONICLES[value];
+        return <button
+          key={value}
+          aria-pressed={faction === value}
+          onClick={() => setFaction(value)}
+          style={{ "--faction-accent": chronicle.color } as CSSProperties}
+        >
+          <span className={styles.factionDot} aria-hidden="true" />
+          {chronicle.name}
+        </button>;
+      })}
+    </div>
     <CardBrowser options={options} filters={filters} loading={loading} error={error} onOpenCard={setDetail} autoLoadMore />
     {detail && <CardDetailsModal card={detail} onClose={() => setDetail(null)} />}
   </div>;

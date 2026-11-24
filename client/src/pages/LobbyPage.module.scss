@@ -14,7 +14,7 @@
 .avatar { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #ddbd7d24; background: #ddbd7d0a; color: var(--archive-gold); border-radius: 7px; }
 .role { font-size: 12px; letter-spacing: 1.6px; color: var(--archive-muted); }
 .status { margin-left: auto; padding: 5px 9px; border-radius: 4px; background: #ddbd7d12; color: var(--archive-gold); font-size: 12px; }
-.deck { display: flex; align-items: center; gap: 13px; padding: 22px 0; margin-top: 16px; color: var(--archive-muted); svg { color: #777a85; } span { display: block; font-size: 12px; letter-spacing: 1.3px; margin-bottom: 7px; } strong { display: block; font-size: 16px; font-weight: 500; color: #cfd0d7; overflow-wrap: anywhere; } }
+.deck { display: flex; align-items: center; gap: 13px; padding: 22px 0; margin-top: 16px; color: var(--archive-muted); svg { color: #777a85; flex-shrink: 0; } > div { min-width: 0; } span { display: block; font-size: 12px; letter-spacing: 1.3px; margin-bottom: 7px; } strong { display: block; font-size: 16px; font-weight: 500; color: #cfd0d7; overflow-wrap: anywhere; } }
 .deckLabel { display: block; font-size: 14px; color: var(--archive-muted); margin-bottom: 8px; }
 .fragmentField {
   min-width: 0;

@@ -21,7 +21,7 @@ import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, upd
 
 import ArchiveIcon from "../components/ArchiveIcon";
 import { FACTIONS } from "../domain/deckBuilder";
-import { CHRONICLES } from "../data/chronicles";
+import { ChronicleSelect } from "../components/ChronicleLabel";
 
 export default function MyDecksPage() {
   const location = useLocation();
@@ -229,7 +229,7 @@ export default function MyDecksPage() {
       {loading && <p className={styles.notice}>Loading decks...</p>}
       <div className={styles.libraryToolbar}>
         <label className={styles.deckSearch}><ArchiveIcon name="search" size={17} /><input aria-label="Search decks" placeholder="Search your decks…" value={search} onChange={event => setSearch(event.target.value)} /></label>
-        <select aria-label="Filter decks by chronicle" value={faction} onChange={event => setFaction(event.target.value)}><option value="">All chronicles</option>{FACTIONS.map(value => <option key={value} value={value}>{CHRONICLES[value].name}</option>)}</select>
+        <ChronicleSelect aria-label="Filter decks by chronicle" value={faction} emptyLabel="All chronicles" onChange={event => setFaction(event.target.value)} />
         <select aria-label="Sort decks" value={sort} onChange={event => setSort(event.target.value)}><option value="recent">Recently updated</option><option value="name">Name</option></select>
       </div>
       {!loading && visibleDecks.length === 0 && <div className={styles.empty}><ArchiveIcon name="decks" size={34} /><h2>{decks.length ? "No matching decks" : "Your next great deck starts here."}</h2><p>{decks.length ? "Try a different name or chronicle." : "Choose your chronicle, discover your cards, and start building."}</p>{decks.length > 0 && <button onClick={() => { setSearch(""); setFaction(""); }}>Reset filters</button>}</div>}
