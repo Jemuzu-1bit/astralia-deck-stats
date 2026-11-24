@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useDndContext, useDraggable, useDroppable } from "@dnd-kit/core";
 import type { Coordinates } from "@dnd-kit/utilities";
 import { countSelectedCards, SECTION_LIMITS, type CardSelection, type DeckCardSection, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
+import { getCardPrintingGroup } from "../data/cardDataReader";
 import type { Card } from "../types/Card";
 import { getCardImagePath } from "../services/cardImageService";
 import type { CardViewMode } from "./CardViewToggle";
@@ -20,6 +21,7 @@ interface Props {
   disabled?: boolean;
   acceptsCollectionDrop?: boolean;
   onBrowse: () => void;
+  hasPrintings: (card: Card) => boolean;
   onOpenCard: (card: Card) => void;
   onAddCard: (card: Card) => void;
   onRemoveCard: (card: Card) => void;
@@ -27,7 +29,7 @@ interface Props {
   moveDestinations: (from: DeckCardSection, card: Card) => DeckCardSection[];
 }
 
-type TileProps = Pick<Props, "title" | "viewMode" | "onOpenCard" | "onAddCard" | "onRemoveCard" | "canAdd" | "disabled" | "readOnly"> & {
+type TileProps = Pick<Props, "title" | "viewMode" | "hasPrintings" | "onOpenCard" | "onAddCard" | "onRemoveCard" | "canAdd" | "disabled" | "readOnly"> & {
   item: SelectedCard;
   draggableId: string;
   drag?: DeckCardDrag;
@@ -38,6 +40,8 @@ const insertionAnimationId = "deck-card-insertion";
 
 function SortableCard({ item, draggableId, drag, ...props }: TileProps) {
   const copiesLabel = `${item.qty} ${item.qty === 1 ? "copy" : "copies"}`;
+  const canChoosePrinting = !props.readOnly && !props.disabled && props.hasPrintings(item.card);
+  const apxVersion = /^APX-\d+-\d+([AB])\b/.exec(item.card.setId)?.[1];
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: draggableId,
     disabled: !drag || props.disabled,
@@ -53,12 +57,19 @@ function SortableCard({ item, draggableId, drag, ...props }: TileProps) {
       {props.viewMode === "grid"
         ? <div className={styles.art} {...(drag && !props.disabled ? listeners : {})} onKeyDown={undefined} data-sortable={Boolean(drag && !props.disabled) || undefined}>
           <CardDisplay card={item.card} onClick={props.onOpenCard} />
+          {canChoosePrinting && <span className={styles.printingBadge}><ArchiveIcon name="cards" size={14} /></span>}
         </div>
         : <img className={styles.rowArt} src={getCardImagePath(item.card, "thumb")} alt="" loading="lazy" draggable={false} />}
       <span className={`${styles.cardBadge} ${props.readOnly ? styles.copyBadge : ""}`} aria-label={props.readOnly ? copiesLabel : undefined}>
         {props.readOnly ? `×${item.qty}` : item.card.cost || "—"}
       </span>
-      <button type="button" className={styles.name} onClick={() => props.onOpenCard(item.card)} title={item.card.name}>{item.card.name}</button>
+      <button type="button" className={styles.name} onClick={() => props.onOpenCard(item.card)}
+        title={apxVersion ? `${item.card.name} (${item.card.setId})` : item.card.name}
+        aria-label={canChoosePrinting ? `Choose printing for ${item.card.name}` : undefined}>
+        {canChoosePrinting && props.viewMode === "list" && <span className={styles.printingMark}><ArchiveIcon name="cards" size={14} /></span>}
+        {apxVersion && <span className={styles.apxVersion}>{apxVersion}</span>}
+        {item.card.name}
+      </button>
       {!props.readOnly && <div className={styles.actions}>
         <div className={styles.quantity}>
           <button type="button" disabled={props.disabled || item.qty === 0} aria-label={`Remove ${item.card.name} from ${props.title}`} onClick={() => props.onRemoveCard(item.card)}>−</button>
@@ -159,6 +170,7 @@ export default function SortableDeckSection({ section, title, selection, viewMod
   }, [dropCard, dropIndex, previewCard, selection, viewMode]);
 
   const total = countSelectedCards(selection);
+  const renderedIdentities = new Set<string>();
   return <section ref={setNodeRef} className={`${styles.section} ${overview ? styles.overview : ""}`} aria-label={title} data-deck-drop-target={dropCard ? true : undefined} data-deck-drop-over={dropIndex !== undefined || undefined}>
     <div className={styles.heading}>
       <h4>{title}<span>{section === "sideboard" ? total : `${total} / ${SECTION_LIMITS[section]}`}</span></h4>
@@ -169,6 +181,9 @@ export default function SortableDeckSection({ section, title, selection, viewMod
         : <button type="button" className={styles.empty} onClick={onBrowse}><ArchiveIcon name="plus" size={17} />{section === "protagonist" ? "Choose your protagonist" : `Add ${title.toLowerCase()} cards`}</button>)
       : <div ref={grid} data-deck-slots="" className={viewMode === "grid" ? styles.grid : styles.list}>
         {displayEntries.map(item => {
+          const groupId = getCardPrintingGroup(item.card);
+          const key = renderedIdentities.has(groupId) ? `printing:${item.card.id}` : groupId;
+          renderedIdentities.add(groupId);
           const preview = previewCard?.id === item.card.id;
           let drag: DeckCardDrag | undefined;
           if (!readOnly && section !== "protagonist") {
@@ -176,7 +191,7 @@ export default function SortableDeckSection({ section, title, selection, viewMod
             const destinations = emptySideboardEntry ? [section] : moveDestinations(section, item.card);
             if (emptySideboardEntry || entries.length > 1 || destinations.length > 1) drag = { item, section, destinations, surface, viewMode };
           }
-          return <div key={item.card.id} data-deck-card-id={item.card.id} data-insertion-preview={preview || undefined}>
+          return <div key={key} data-deck-card-id={item.card.id} data-insertion-preview={preview || undefined}>
             {preview && !isSource ? <DeckDragPreview item={item} viewMode={viewMode} insertion />
               : <SortableCard item={item} title={title} viewMode={viewMode} draggableId={`${targetId}:card:${item.card.id}`}
                 readOnly={readOnly} disabled={disabled} drag={drag} {...tileProps} />}

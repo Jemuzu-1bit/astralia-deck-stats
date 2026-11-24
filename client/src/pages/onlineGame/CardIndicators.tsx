@@ -1,13 +1,20 @@
 import { gameConnection, type GameCounter } from "../../services/gameConnection";
+import { getImagePath } from "../../services/cardImageService";
+import { DEFAULT_FRAGMENT_IMAGE_ID } from "../../services/fragmentAppearance";
 import { normalizeShortcut, useGameShortcuts } from "../gameShortcuts";
 import fragmentCard from "../../assets/fragment.png";
 import { STATUS_COUNTERS, type CardStat } from "./model";
 import styles from "../OnlineGamePage.module.scss";
 
-export function FragmentDock({ fragments, readOnly = false }: { fragments: boolean[]; readOnly?: boolean }) {
+export function FragmentDock({ fragments, imageId, readOnly = false }: {
+  fragments: boolean[];
+  imageId?: string | null;
+  readOnly?: boolean;
+}) {
   const FRAGMENT_KEYS = useGameShortcuts().fragment;
   const available = fragments.filter((spent) => !spent).length;
   const spent = fragments.length - available;
+  const artwork = getImagePath("", imageId ?? DEFAULT_FRAGMENT_IMAGE_ID);
 
   return <section className={styles.fragmentDock} data-fragment-dock aria-label={`Fragments, ${available} available and ${spent} spent`}>
     <div className={styles.fragmentHeader}>
@@ -34,7 +41,9 @@ export function FragmentDock({ fragments, readOnly = false }: { fragments: boole
         aria-label={`Fragment ${index + 1}, ${isSpent ? "spent" : "available"}${readOnly ? "" : isSpent ? ". Recover it" : ". Spend it"}`}
         title={isSpent ? readOnly ? "Spent" : `Spent · ${FRAGMENT_KEYS[`toggle${index + 1}` as keyof typeof FRAGMENT_KEYS]} to recover` : readOnly ? "Available" : `Available · ${FRAGMENT_KEYS[`toggle${index + 1}` as keyof typeof FRAGMENT_KEYS]} to spend`}
       >
-        <img src={fragmentCard} alt="" draggable={false} />
+        <img src={artwork} alt="" draggable={false} onError={event => {
+          if (event.currentTarget.getAttribute("src") !== fragmentCard) event.currentTarget.src = fragmentCard;
+        }} />
       </button>)}
       {fragments.length === 0 && <span className={styles.fragmentEmpty}>{readOnly ? "No fragments" : "Add a Fragment"}</span>}
     </div>

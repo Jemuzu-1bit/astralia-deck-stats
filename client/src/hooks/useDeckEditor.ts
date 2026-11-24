@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { getCardIdentity } from "../data/cardDataReader";
+import { getCardIdentity, getCardPrintingGroup } from "../data/cardDataReader";
 import { getCardFaces } from "../services/cardDataService";
 import type { Card } from "../types/Card";
 import type { Deck, DeckEntry } from "../types/Deck";
 import { saveLocalDeck } from "../services/deckService";
-import { addDeckCard, buildDeckPayload, canAddDeckCard, getCardDeckSection, getDeckCardCopyLimit, moveSelectedCard, otherDeckSection, removeFromSelection, transferDeckCard, type CardSelection, type DeckCardSection, type DeckCardSelections, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
+import { addDeckCard, buildDeckPayload, canAddDeckCard, changeSelectionPrinting, getCardDeckSection, getDeckCardCopyLimit, moveSelectedCard, otherDeckSection, removeFromSelection, transferDeckCard, type CardSelection, type DeckCardSection, type DeckCardSelections, type DeckSection, type SelectedCard } from "../domain/deckBuilder";
 import { useDeckCardOptions } from "../hooks/useDeckCardOptions";
 
 function loadSelection(section: DeckCardSection, entries: DeckEntry[], faces: { front?: Card }[], copiesByIdentity: Map<string, number>): CardSelection {
@@ -23,7 +23,7 @@ function loadSelection(section: DeckCardSection, entries: DeckEntry[], faces: { 
   return selection;
 }
 
-export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; sideboardEnabled: boolean; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
+export function useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape = false }: { initialDeck?: Deck; initialFaction?: string; onSaved?: (deck: Deck) => void; onClose: () => void; saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>; suppressEscape?: boolean }) {
   const [loadingDeck, setLoadingDeck] = useState(Boolean(initialDeck));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -46,8 +46,22 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
   const [deckSelections, setDeckSelections] = useState<DeckCardSelections>({ persona: {}, deck: {}, sideboard: {} });
 
   const [detailCard, setDetailCard] = useState<Card | null>(null);
+  const [preferredPrintings, setPreferredPrintings] = useState<Record<string, Card>>({});
   const openCardDetails = (card: Card) => setDetailCard(card);
   const closeCardDetails = () => setDetailCard(null);
+  const choosePrinting = (card: Card) => {
+    const groupId = getCardPrintingGroup(card);
+    setPreferredPrintings(current => ({ ...current, [groupId]: card }));
+    setDetailCard(card);
+    setProtagonistSelection(current => current && getCardPrintingGroup(current.card) === groupId
+      ? { ...current, card }
+      : current);
+    setDeckSelections(current => ({
+      persona: changeSelectionPrinting(current.persona, card),
+      deck: changeSelectionPrinting(current.deck, card),
+      sideboard: changeSelectionPrinting(current.sideboard, card),
+    }));
+  };
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -77,7 +91,7 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
       };
 
     const tryPrefill = async () => {
-      const sideboard = sideboardEnabled ? initialDeck.sideboard ?? [] : [];
+      const sideboard = initialDeck.sideboard ?? [];
       const [protagonistFaces, personaFaces, deckFaces, sideboardFaces] = await Promise.all([
         initialDeck.protagonist
           ? getCardFaces(initialDeck.protagonist)
@@ -107,7 +121,7 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
     return () => {
       active = false;
     };
-  }, [initialDeck, selectedFaction, sideboardEnabled]);
+  }, [initialDeck, selectedFaction]);
 
   const canAddCard = (section: DeckSection, card: Card) => {
     if (section === "protagonist") return getCardDeckSection(card) === "protagonist"
@@ -134,7 +148,12 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
     }
 
     setDeckSelections(current => {
-      const selection = removeFromSelection(current[section], card, section === "sideboard");
+      const entries = current[section];
+      const groupId = getCardPrintingGroup(card);
+      const printing = entries[card.id]?.qty ? card : Object.values(entries)
+        .find(item => item.qty > 0 && getCardPrintingGroup(item.card) === groupId)?.card;
+      if (!printing) return current;
+      const selection = removeFromSelection(entries, printing, section === "sideboard");
       return selection === current[section] ? current : { ...current, [section]: selection };
     });
   };
@@ -185,5 +204,5 @@ export function useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, o
     }
   };
 
-  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
+  return { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, preferredPrintings, choosePrinting, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError };
 }

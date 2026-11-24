@@ -1,14 +1,14 @@
 import { isAlternativeArt, readCardData } from "../data/cardDataReader.ts";
 import type { Card } from "../types/Card.ts";
 
-export async function getAllCards(): Promise<Card[]> {
+export async function getAllCards({ includePrintings = false, includeFragments = false } = {}): Promise<Card[]> {
   const cards = await readCardData();
 
   return cards.filter(
     (card) =>
       card.face === 1 &&
-      !isAlternativeArt(card) &&
-      card.type.trim().toLowerCase() !== "fragment"
+      (includePrintings || !isAlternativeArt(card)) &&
+      (includeFragments || card.type.trim().toLowerCase() !== "fragment")
   );
 }
 

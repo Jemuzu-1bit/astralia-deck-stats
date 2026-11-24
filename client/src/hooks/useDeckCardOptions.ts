@@ -1,62 +1,42 @@
 import { useEffect, useState } from "react";
-import { getCardFaces, getCardsByField } from "../services/cardDataService";
-import type { AugCard } from "../types/AugCard";
+import { getCardPrintingGroup } from "../data/cardDataReader";
+import { getCardDeckSection } from "../domain/deckBuilder";
+import { getAllCards } from "../services/cardDataService";
 import type { Card } from "../types/Card";
 
 interface DeckCardOptions {
-  protagonist: AugCard[];
-  persona: AugCard[];
-  deck: AugCard[];
+  protagonist: Card[];
+  persona: Card[];
+  deck: Card[];
+  printings: ReadonlyMap<string, readonly Card[]>;
 }
 
 const EMPTY_OPTIONS: DeckCardOptions = {
   protagonist: [],
   persona: [],
   deck: [],
+  printings: new Map(),
 };
 
-function uniqueValues(values: Array<string | undefined>): string {
-  const normalizedValues = values
-    .flatMap((value) => (value ?? "").split(","))
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return [...new Set(normalizedValues)].join(",");
-}
-
-async function augmentCard(card: Card): Promise<AugCard> {
-  try {
-    const { back } = await getCardFaces(card.id);
-    return {
-      ...card,
-      mergedKeywords: uniqueValues([card.keywords, back?.keywords]),
-      mergedAtk: uniqueValues([card.atk, back?.atk]),
-      mergedHp: uniqueValues([card.hp, back?.hp]),
-    };
-  } catch {
-    return card;
-  }
-}
-
 async function loadOptions(faction: string): Promise<DeckCardOptions> {
-  const [protagonists, personas, deckCards] = await Promise.all([
-    getCardsByField("mainDeck", "Protagonist"),
-    getCardsByField("mainDeck", "Persona"),
-    getCardsByField("mainDeck", "Deck"),
-  ]);
+  const cards = await getAllCards({ includePrintings: true });
   const targetFaction = faction.toLowerCase();
-  const augmentFactionCards = (cards: Card[]) =>
-    Promise.all(
-      cards
-        .filter((card) => card.faction.toLowerCase() === targetFaction)
-        .map(augmentCard)
-    );
+  const printings = new Map<string, Card[]>();
+  for (const card of cards) {
+    if (card.faction.toLowerCase() !== targetFaction) continue;
+    const groupId = getCardPrintingGroup(card);
+    const group = printings.get(groupId) ?? [];
+    if (card.id.toLowerCase() === groupId) group.unshift(card);
+    else group.push(card);
+    printings.set(groupId, group);
+  }
 
-  const [protagonist, persona, deck] = await Promise.all([
-    augmentFactionCards(protagonists),
-    augmentFactionCards(personas),
-    augmentFactionCards(deckCards),
-  ]);
-  return { protagonist, persona, deck };
+  const options: DeckCardOptions = { protagonist: [], persona: [], deck: [], printings };
+  for (const [card] of printings.values()) {
+    const section = getCardDeckSection(card);
+    if (section) options[section].push(card);
+  }
+  return options;
 }
 
 export function useDeckCardOptions(faction: string | null): DeckCardOptions & { loading: boolean; error: string | null } {

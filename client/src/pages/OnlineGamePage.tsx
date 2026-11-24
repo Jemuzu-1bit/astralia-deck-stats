@@ -404,7 +404,7 @@ export default function OnlineGamePage() {
           <div className={styles.handDockPanelInner}>
             <div className={styles.handDockContent}>
               <CardRail items={opponentTable.hand} label={`${ownerLabel("opponent")} ${isSpectator ? "hand" : "revealed cards"}`} onInspect={inspectOpponentHandCard} />
-              <FragmentDock fragments={opponentTable.fragments} readOnly />
+              <FragmentDock fragments={opponentTable.fragments} imageId={opponent?.fragmentImageId} readOnly />
             </div>
           </div>
         </div>
@@ -526,7 +526,7 @@ export default function OnlineGamePage() {
           movable={railMovable}
           onMenu={railMovable ? showMenu : undefined}
         />
-        {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} readOnly={isSpectator} />}
+        {peekedUids === null && deckSearchQuery === null && <FragmentDock fragments={myTable.fragments} imageId={me?.fragmentImageId} readOnly={isSpectator} />}
             </div>
           </div>
         </div>

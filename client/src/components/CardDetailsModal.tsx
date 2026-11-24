@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { getCardRarity } from "../data/cardDataReader";
 import { useModalFocus } from "../hooks/useModalFocus";
 import type { Card } from "../types/Card";
 import { getCardImagePath } from "../services/cardImageService";
@@ -7,18 +8,35 @@ import styles from "./CardDetailsModal.module.scss";
 interface Props {
   card: Card;
   onClose: () => void;
+  printings?: readonly Card[];
+  onChoosePrinting?: (card: Card) => void;
 }
 
-export default function CardDetailsModal({ card, onClose }: Props) {
+const printingSetLabels: Readonly<Record<string, string>> = {
+  KS: "Kickstarter promo",
+  LS: "Legacy Art",
+  SD: "Structure Deck",
+  SG: "Stained Glass",
+  SP: "Seasonal promo",
+};
+
+function CardArtwork({ source, name }: { source: string; name: string }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  return <div className={styles.artwork}>
+    {!imageLoaded && !imageError && <p className={styles.loading} role="status">Loading…</p>}
+    {imageError && <p className={styles.loading} role="status">Card artwork is unavailable.</p>}
+    <img src={source} alt={name} className={styles.image}
+      onLoad={() => setImageLoaded(true)}
+      onError={() => setImageError(true)}
+      style={{ opacity: imageLoaded ? 1 : 0 }} />
+  </div>;
+}
+
+export default function CardDetailsModal({ card, onClose, printings = [], onChoosePrinting }: Props) {
   const modal = useRef<HTMLDivElement>(null);
   useModalFocus(modal);
-
-  useEffect(() => {
-    setImageLoaded(false);
-    setImageError(false);
-  }, [card.id]);
+  const source = getCardImagePath(card, "full");
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -41,19 +59,28 @@ export default function CardDetailsModal({ card, onClose }: Props) {
         </button>
 
         <div className={styles.content}>
-          {!imageLoaded && !imageError && <div className={styles.loading}>Loading...</div>}
-          {imageError && <p role="status">Card artwork is unavailable.</p>}
-          <img
-            src={getCardImagePath(card, "full")}
-            alt={card.name}
-            className={styles.image}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => setImageError(true)}
-            style={{ opacity: imageLoaded ? 1 : 0 }}
-          />
+          <CardArtwork key={source} source={source} name={card.name} />
 
           <div className={styles.info}>
             <h2 className={styles.name}>{card.name}</h2>
+            {onChoosePrinting && printings.length > 1 ? (
+              <fieldset className={styles.printings}>
+                <legend>Card printing</legend>
+                <p>Applies to every copy of this card in the deck.</p>
+                <div className={styles.printingChoices}>
+                  {printings.map(printing => (
+                    <button key={printing.id} type="button" aria-pressed={printing.id === card.id}
+                      onClick={() => onChoosePrinting(printing)}>
+                      <img src={getCardImagePath(printing)} alt="" width={42} height={59} />
+                      <span>
+                        <strong>{printingSetLabels[printing.setId.split("-")[0]] ?? getCardRarity(printing)}</strong>
+                        <small>{printing.setId}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ) : <p className={styles.setId}>{card.setId}</p>}
             <div className={styles.meta}>
               {card.cost !== undefined && <span>Cost: {card.cost}</span>}
               {card.type && <span>Type: {card.type}</span>}

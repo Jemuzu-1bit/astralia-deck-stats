@@ -225,7 +225,7 @@ dcs_03_038n,DCS-03-038 N,Barrage Fire,Blue,Deck,6,Action,Action,"Dawn of the Cel
 dcs01015sr,DCS 01 015 SR,"Julia, Scarlet Swordwoman",Green,Deck,2,Character,Adventurer,"Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey",1,1,"assault, enter, quest",FALSE,1,FALSE,"[ASSAULT]
 [ENTER]: [QUEST 1]
 This card gets +1 ATK and +1 HP for each Quest counter on your Protagonist, up to a maximum of +3.",dcs_01_015_sr
-dcs01017p,DCS 01 017 P,"Oriana, Brash Mercenary",Green,Deck,3,Character,Adventurer,"Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey",3,3,"rapid_recovery, regeneration, quest",FALSE,1,FALSE,"[RAPID RECOVERY] [REGENERATION 1]
+dcs01017p,DCS 01 017 P,"Oriana, Brash Mercenary",Green,Deck,2,Character,Adventurer,"Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey",3,3,"rapid_recovery, regeneration, quest",FALSE,1,FALSE,"[RAPID RECOVERY] [REGENERATION 1]
 Whenever this card shatters an opposing Character while attacking, [QUEST 1].",dcs_01_017_p
 dcs01036p,DCS 01 036 P,Heroic Destinies,Green,Deck,3,Action,,Dawn of the Celestial Shadow,,,"quest, barrier",FALSE,1,FALSE,"Choose 1:
 • [QUEST 1], then draw 1 card.
@@ -895,3 +895,99 @@ aor_05_033_n,AOR-05-033 N,Wanderer Intervention,Purple,Deck,3,Scenography,Recoll
 aor_05_037_n,AOR-05-037 N,"Astralia Gear, Prototype",Purple,Deck,7,Scenography,Gear,"Anthem of Rebellion, Structure Deck: Echoes of Time",,7,,FALSE,1,TRUE,"Whenever you remove counters of any type from your Protagonist, you may place half as many of the same counters on your Protagonist rounded up.
 FRAZZLE: Place 1 counter of any type on your Protagonist.",aor_05_037_n
 aor_05_039_n,AOR-05-039 N,Split Open,Purple,Deck,1,Action,Action,Anthem of Rebellion,,,,FALSE,1,FALSE,Deal 3 damage to target Character that costs 2 or less and is attacking your Protagonist.,aor_05_039_n
+ls_01_001_ssr,LS-01-001 SSR,"Daryl, Guardian of the Sanctuary",Green,Deck,3,Character,Elf,"Dawn of the Celestial Shadow, Structure Deck: the Hero's Journey",2,3,"quest, enter, preemptive defense, deal",FALSE,1,TRUE,"[PREEMPTIVE DEFENSE]
+[ENTER]: [QUEST 1], then deal up to X damage to target Scenography, where X is 2 plus the number of Quest counters on your Protagonist.",ls_01_001_ssr
+ls_01_002_ssr,LS-01-002 SSR,Knight on Patrol,Green,Deck,3,Character,Soldier,Dawn of the Celestial Shadow,3,2,"assault, shield",FALSE,1,FALSE,[ASSAULT] [SHIELD 1],ls_01_002_ssr
+ls_01_003_ssr,LS-01-003 SSR,Vigor of Nourishment,Red,Deck,0,Action,Action,Dawn of the Celestial Shadow,,,buff,FALSE,1,FALSE,Target Vampire gets +1 ATK until end of turn.,ls_01_003_ssr
+ls_01_004_ssr,LS-01-004 SSR,Drone Under Construction,Blue,Deck,2,Character,Drone,Dawn of the Celestial Shadow,0,2,"frazzle, put into play, shatter",FALSE,1,FALSE,"FRAZZLE: Look at the top card of your deck. If it’s a Drone, put it into play, then shatter this card. Otherwise, put it on the top of your deck.",ls_01_004_ssr
+ls_01_005_ssr,LS-01-005 SSR,Seraph Warriors in Action!,Pink,Deck,7,Scenography,Enchantment,Dawn of the Celestial Shadow,,5,rapid_recovery,FALSE,1,FALSE,"Mages you control get [RAPID RECOVERY].
+Whenever a Mage you control attacks, it deals 1 damage to target card.",ls_01_005_ssr
+ls_01_006_ssr,LS-01-006 SSR,Acolyte of the End,Purple,Deck,2,Character,Fanatic,"Dawn of the Celestial Shadow, Structure Deck: Beginning of the End",1,2,heal,FALSE,1,FALSE,"FRAZZLE, discard 1 card: [HEAL 1] target card.",ls_01_006_ssr
+ls_01_007_ssr,LS-01-007 SSR,"Shenlou, Palace of the Prophet",Purple,Deck,2,Scenography,Building,Dawn of the Celestial Shadow,,4,,FALSE,1,FALSE,"Whenever a card you control is obliviated, look at the top card of your deck. You may put it at the bottom of your deck.
+PAY 4: Draw 1 card, then discard 1 card.",ls_01_007_ssr
+gf_01_001_pr,GF-01-001 PR,Fragment,,,,Fragment,,Gamefound Promos,,,,FALSE,1,FALSE,,gf_01_001_pr
+ks_01_001_pr,KS-01-001 PR,"Athrias, the Chosen One",Green,Protagonist,7,Protagonist,Hero,Kickstarter Promos,0,20,"buff, quest, put into play",FALSE,1,TRUE,"This card gets +1 ATK for each Relic you control.
+Remove X Quest counters: Put target Relic that costs X from your Persona Deck into play. Activate this ability only during your main phase and only once per turn.",ks_01_001_pr
+ks_01_002_pr,KS-01-002 PR,"Lucrezia, Progenitor of Vampires",Red,Protagonist,8,Protagonist,Vampire,Kickstarter Promos,0,20,"flip, turn end, add",TRUE,1,TRUE,"[TURN END]: Add a Blood Tithe from your Persona Deck to your hand. Otherwise, if your Persona Deck is empty, flip this card.",ks_01_002_f_pr
+ks_01_002_pr,KS-01-002 PR,"Lucrezia, Progenitor of Vampires",Red,Protagonist,8,Protagonist,Vampire,Kickstarter Promos,3,20,"alter ego, breakthrough, enter, deal, heal",TRUE,2,TRUE,"[ALTER EGO 5] [BREAKTHROUGH]
+[ENTER]: Deal 2 damage to target Character, then [HEAL 2] target Vampire.",ks_01_002_r_pr
+ks_01_003_pr,KS-01-003 PR,"Morgan Takehashi, Blue Bolt",Blue,Protagonist,7,Protagonist,Pilot,Kickstarter Promos,,20,"pilot, pay, put into play",FALSE,1,TRUE,"[PILOT]: Piloted Mecha can attack the turn it comes into play.
+Whenever the Mecha assigned to this card is obliviated or retired, this card takes damage equal to its cost.
+PAY X: Put target Mecha that costs X from your Persona Deck into play.",ks_01_003_pr
+ks_01_004_pr,KS-01-004 PR,"Satsuki, Ordinary Student",Pink,Protagonist,2,Protagonist,Student,Kickstarter Promos,,10,turn_start,FALSE,1,FALSE,"You cannot play Spells and/or Enchantments.
+[TURN START]: Look at the top 3 cards of your deck. Put any number of them on the top of your deck in any order, then put the rest on the bottom of your deck.",ks_01_004_pr
+ks_01_005_pr,KS-01-005 PR,"Jianyi, Prophet of the End",Purple,Protagonist,3,Protagonist,Herald,Kickstarter Promos,,18,,FALSE,1,FALSE,"Whenever you discard a card to pay a cost or as part of the effect of a card you control, place 1 Omen counter on this card.
+Remove 5 Omen counters: Put target Herald from your Persona Deck into play, then replace this card with it.",ks_01_005_pr
+ks_01_006_pr,KS-01-006 PR,"Eleanor, Guildmaster",Green,Protagonist,8,Protagonist,Adventurer,Kickstarter Promos,,18,"quest, cost reduction, put into play",FALSE,1,TRUE,"Remove 1 Quest counter: The next card you play this turn costs 1 less. Activate this ability only once per turn.
+Remove X Quest counters: Put target Relic that costs X from your Persona Deck into play. Activate this ability only during your main phase and only once per turn.",ks_01_006_pr
+ks_01_007_pr,KS-01-007 PR,"Ivo, Head of the Secret Police",Red,Protagonist,6,Protagonist,Supporter,Kickstarter Promos,,18,"frazzle, blood tithe",FALSE,1,TRUE,"FRAZZLE: Play a Blood Tithe from your Persona Deck. Activate this ability only during your main phase and only once per turn.
+Whenever a Character you control would take damage to pay a [BLOOD TITHE], put that many cards from the top of your deck into your graveyard instead.",ks_01_007_pr
+ks_01_008_pr,KS-01-008 PR,"Meika, Mecha Engineer",Blue,Protagonist,4,Protagonist,Engineer,Kickstarter Promos,,18,"game start, search, graveyard, put into play, obliviate",FALSE,1,TRUE,"[GAME START]: Search your deck for a Pilot that costs 2, reveal it, and add it to your hand.
+Obliviate X Drone from your graveyard: Put target Mecha that costs equal or less than the sum of the costs of the Drones obliviated this way from your Persona Deck into play, then assign it to target Pilot you control. Activate this ability only during your main phase. The opponent cannot Respond.",ks_01_008_pr
+ks_01_009_pr,KS-01-009 PR,"Rin, Gloomy Hikikomori",Pink,Protagonist,5,Protagonist,Student,Kickstarter Promos,,11,shield,FALSE,1,FALSE,"You cannot play Spells and/or Enchantments.
+If you don’t control a Character, this card gets [SHIELD 1].
+Discard 1 Character or Scenography: Look at the top 2 cards of your deck. Add one to your hand, then put the other into your graveyard. Activate this ability only once per turn.",ks_01_009_pr
+ks_01_010_pr,KS-01-010 PR,"Kadatha, Dimensional Wanderer",Purple,Protagonist,5,Protagonist,Cosmic Deity,Kickstarter Promos,,20,shield,FALSE,1,FALSE,"If you control a Ritual, this card gets [SHIELD 1].
+PAY X: Put target Ritual that costs X from your Persona Deck into play.",ks_01_010_pr
+ks_01_011_pr,KS-01-011 PR,Fragment,,,,Fragment,,Kickstarter Promos,,,,FALSE,1,FALSE,,ks_01_011_pr
+ks_02_001_pr,KS-02-001 PR,"Hamza, Marshal of Al-Shamal",Green,Protagonist,5,Protagonist,Soldier,Kickstarter Promos,0,18,turn start,TRUE,1,TRUE,"Other Soldiers you control get +1 ATK.
+[TURN START]: If there is 10 or more damage on this card or if the Turn Count is 5 or more, flip this card.",ks_02_001_f_pr
+ks_02_001_pr,KS-02-001 PR,"Hamza, Relentless Occultist",Green,Protagonist,5,Protagonist,Soldier Warlock,Kickstarter Promos,0,18,alter ego,TRUE,2,TRUE,"[ALTER EGO 4]
+Other Soldiers you control get +1 ATK.
+FRAZZLE: If you don’t control a Scroll, put target Scroll from your Persona Deck into play.",ks_02_001_r_pr
+ks_02_002_pr,KS-02-002 PR,"Daryl, Vampire Hunter",Red,Protagonist,7,Protagonist,Exorcist,Kickstarter Promos,0,20,assault,FALSE,1,TRUE,"[ASSAULT]
+Whenever this card attacks, you can play a copy of any number of Dogmas with total cost equal to or less than the Turn Count from your Persona Deck. This card must be chosen as target of the copies.
+If this card was chosen as target three or more times this turn, it gets +1 ATK for every other Exorcist you control until end of turn.",ks_02_002_pr
+ks_02_003_pr,KS-02-003 PR,"Ackermann, Computer Whiz",Blue,Protagonist,6,Protagonist,Programmer,Kickstarter Promos,,18,turn start,FALSE,1,TRUE,"[TURN START]: If you control at least 2 overridden Characters, draw 1 card.
+Whenever you play an AI.doll, you may put an AI that costs equal to or less than it from your hand into play. If you do, recover 3 Fragments.",ks_02_003_pr
+ks_02_004_pr,KS-02-004 PR,"Kenji, Blade of the Rebellion",Pink,Protagonist,9,Protagonist,Rebel,Kickstarter Promos,0,20,"explosion, turn start",FALSE,1,TRUE,"[EXPLOSION 1]
+This card gets +1 ATK for each Summon or Unique Character you control.
+[TURN START]: If the Turn Count is 6, put Aoryu, Azure Dragon from your Persona Deck into play.",ks_02_004_pr
+ks_02_005_pr,KS-02-005 PR,"Hajime, the First Machinist",Purple,Protagonist,6,Protagonist,Machinist,Kickstarter Promos,,20,,FALSE,1,TRUE,"Whenever you spend Fragments to activate a Recollection’s ability, place that many Astralia Gear counters on this card.
+Remove X Astralia Gear counters: Put target Reflection that costs X from your Persona Deck into play.
+Whenever a Reflection is put in your graveyard or oblivion, return it to your Persona Deck instead.",ks_02_005_pr
+ks_02_006_pr,KS-02-006 PR,"Nevi, Warden of Magisterium",Green,Protagonist,3,Protagonist,Scholar,Kickstarter Promos,,18,"turn start, heal",FALSE,1,TRUE,"[TURN START]: Put target Scroll that costs equal to or less than the Turn Count from your Persona Deck into play.
+FRAZZLE: [HEAL 1] target Scroll.
+FRAZZLE, FRAZZLE: Return target Scroll from your graveyard to your Persona Deck.",ks_02_006_pr
+ks_02_007_pr,KS-02-007 PR,"Innocenzio II, Holy Pontiff",Red,Protagonist,4,Protagonist,Pontiff,Kickstarter Promos,,18,"shield, heal",FALSE,1,TRUE,"Whenever you play a card by paying less than its cost, choose 1:
+• Target Character gets [SHIELD 2] against the next source of damage this turn.
+• [HEAL 2] target Character.
+Whenever you play a Vestige by paying its full cost, add two Dogmas from your Persona Deck to your hand. Otherwise, add one.",ks_02_007_pr
+ks_02_008_pr,KS-02-008 PR,"Yaoichi Yuki, Producer",Blue,Protagonist,5,Protagonist,AI,Kickstarter Promos,,18,"turn start, override",FALSE,1,TRUE,"[TURN START]: Place 1 Renown counter on this card for each face down card in its subslots.
+Whenever a card with [OVERRIDE] would be put in your graveyard from play, put it into this card’s subslots face down instead.
+Remove X Renown counters: Shatter target Character that costs X.
+Remove 20 Renown counters: You win the game.",ks_02_008_pr
+ks_02_010_pr,KS-02-010 PR,"Tianxiao, Genius Inventor",Purple,Protagonist,2,Protagonist,Engineer,Kickstarter Promos,,18,,FALSE,1,TRUE,"Whenever you activate a Recollection’s ability, you may spend additional Fragments equal to the cost of that card. If you do, copy that ability for every legal target.
+PAY 2: Put target Reflection from your Persona Deck into play. Its ATK and HP become 1.",ks_02_010_pr
+sd_06_014_n,SD-06-014 N,Capital Duelist,Green,Deck,3,Character,Soldier,Structure Deck: Army of Al-Shamal,3,2,"preemptive strike, preemptive defense",FALSE,1,FALSE,[PREEMPTIVE STRIKE] [PREEMPTIVE DEFENSE],sd_06_014_n
+sd_07_020_n,SD-07-020 N,Curse of the Occult Arts,Red,Deck,2,Action,Action,Structure Deck: Holy Verdict,,,"deal, debuff",FALSE,1,FALSE,"Deal 2 damage to target Character. If it didn’t shatter, it gets -1 ATK until end of turn.",sd_07_020_n
+sd_08_009_n,SD-08-009 N,Holographic Projection Unit,Blue,Deck,2,Character,Drone,Structure Deck: Ghost in the Machine,0,2,"frazzle, redirect",FALSE,1,FALSE,"FRAZZLE, FRAZZLE: This card must be chosen as target of the next opposing Action or ability.",sd_08_009_n
+sd_09_018_n,SD-09-018 N,Light Saber,Pink,Deck,2,Scenography,Enchantment,Structure Deck: Streets of Honor,,3,worn,FALSE,1,FALSE,[WORN Mage or Rebel]: The wearer of this card gets +1 ATK.,sd_09_018_n
+sd_10_022_n,SD-10-022 N,Shattering the Moment,Purple,Deck,1,Action,,Structure Deck: Echoes of Time,,,,FALSE,1,FALSE,Remove up to 2 counters from your Protagonist: Deal 2 damage to target opposing Character for every counter removed this way.,sd_10_022_n
+sg_01_001_ssr,SG-01-001 SSR,"Athrias, the Chosen One",Green,Protagonist,7,Protagonist,Hero,Stained Glass,0,20,"buff, quest, put into play",FALSE,1,TRUE,"This card gets +1 ATK for each Relic you control.
+Remove X Quest counters: Put target Relic that costs X from your Persona Deck into play. Activate this ability only during your main phase and only once per turn.",sg_01_001_ssr
+sg_01_002_ssr,SG-01-002 SSR,Villager in Peril,Green,Deck,1,Character,Commoner,Stained Glass,1,1,"quest, enter, shatter",FALSE,1,FALSE,"[ENTER]: [QUEST 1]
+[SHATTER]: [QUEST 1]",sg_01_002_ssr
+sg_01_003_ssr,SG-01-003 SSR,"Julia, Flame Paladin",Green,Deck,7,Character,Adventurer,Stained Glass,4,4,"assault, buff, quest",FALSE,1,TRUE,"[ASSAULT]
+This card gets +1 ATK and +1 HP for each Relic you control.
+Whenever this card shatters an opposing Character while attacking, [QUEST 1], then remove 1 Frazzle counter from this card.",sg_01_003_ssr
+sg_01_004_ssr,SG-01-004 SSR,"Seraph Azalea, Magical Girl",Pink,Persona,2,Protagonist,Mage,Stained Glass,0,13,"alter_ego, barrier, enter, heal",FALSE,1,FALSE,"[ALTER EGO 3] [BARRIER]
+[ENTER]: [HEAL 3] target card, then draw 1 card.
+Whenever you play a Spell, increase each numeric instance in its effect by 1.",sg_01_004_ssr
+sg_01_005_ssr,SG-01-005 SSR,Enchanted Arrow,Pink,Deck,1,Action,Spell,Stained Glass,,,,FALSE,1,FALSE,Deal 1 damage to target Character.,sg_01_005_ssr
+sg_01_006_ssr,SG-01-006 SSR,Mystic Reflection,Pink,Deck,1,Action,Spell,Stained Glass,,,,FALSE,1,FALSE,"Look at the top 2 cards of your deck. Add one to your hand, then put the other on the top or bottom of your deck.",sg_01_006_ssr
+sp_01_001_pr,SP-01-001 PR,Seeking Refuge in the Distortion,Purple,Deck,3,Action,,Seasonal Promos,,,enter,FALSE,1,FALSE,"Turn target card you control face down, keeping all counters and damage on it. As long as it remains face down, it’s not considered in play.
+If your opponent declares a move, turn it face up. It does not trigger its [ENTER] ability.",sp_01_001_pr
+sp_01_002_pr,SP-01-002 PR,"Seraph Iris, Magical Girl",Pink,Deck,5,Character,Mage,Seasonal Promos,4,4,"barrier, shield, enter",FALSE,1,FALSE,"[BARRIER] [SHIELD 1]
+[ENTER]: Look at the top 2 cards of your deck. Add one to your hand, then put the other on the top or bottom of your deck.",sp_01_002_pr
+sp_01_003_pr,SP-01-003 PR,"Julia, Scarlet Swordwoman",Green,Deck,2,Character,Adventurer,Seasonal Promos,1,1,"quest, enter, assault, buff",FALSE,1,TRUE,"[ASSAULT]
+[ENTER]: [QUEST 1]
+This card gets +1 ATK and +1 HP for each Quest counter on your Protagonist, up to a maximum of +3.",sp_01_003_pr
+sp_01_004_pr,SP-01-004 PR,Young Vampire,Red,Deck,1,Character,Vampire,Seasonal Promos,1,1,"preemptive strike, buff, blood tithe, graveyard",FALSE,1,FALSE,"If there is a Blood Tithe in your graveyard, this card gets +1 ATK and [PREEMPTIVE STRIKE].",sp_01_004_pr
+sp_01_005_pr,SP-01-005 PR,Rapid Response Sentinel,Blue,Deck,1,Character,Drone,Seasonal Promos,2,1,assault,FALSE,1,FALSE,[ASSAULT],sp_01_005_pr
+sp_01_006_pr,SP-01-006 PR,Rest by Campfire,Green,Deck,7,Action,Action,Seasonal Promos,,,"heal, frazzle",FALSE,1,FALSE,"Remove X Frazzle counters from any number of target cards, then [HEAL X] divided as you choose among any number of target cards, where X is the number of Relic you control.",sp_01_006_pr
+sp_01_007_pr,SP-01-007 PR,First Aid Team,Blue,Deck,2,Character,Medic,Seasonal Promos,1,3,"enter, heal, graveyard",FALSE,1,FALSE,"[ENTER]: Choose 1:
+• [HEAL 2] target non-Drone non-Mecha card.
+• Return target Pilot from your graveyard to your hand.",sp_01_007_pr
+sp_01_008_pr,SP-01-008 PR,Vision of Catastrophe,Purple,Deck,1,Action,,Seasonal Promos,,,advent,FALSE,1,FALSE,"[ADVENT]
+Look at the top 4 cards of your deck. If there is an Aberration, reveal it, and add it to your hand. Then put the rest of the cards on the bottom of your deck.",sp_01_008_pr

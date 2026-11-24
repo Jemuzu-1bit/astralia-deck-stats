@@ -19,7 +19,7 @@ export default function CardLibraryPage() {
   const options = useMemo(() => faction ? cards.filter(card => card.faction.toLowerCase() === faction) : cards, [cards, faction]);
   useEffect(() => {
     let active = true;
-    void getAllCards().then(cards => { if (active) setCards(cards); }).catch(() => { if (active) setError("Could not load the card library. Please reload to try again."); }).finally(() => { if (active) setLoading(false); });
+    void getAllCards({ includePrintings: true }).then(cards => { if (active) setCards(cards); }).catch(() => { if (active) setError("Could not load the card library. Please reload to try again."); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
   return <div className={styles.page}>

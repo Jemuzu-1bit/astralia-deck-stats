@@ -188,13 +188,17 @@
   &[data-dragging] { opacity: .4; transform: none; }
 }
 .selected .art { border-color: #b79a62; background: #ddbd7d12; }
-.badge { position: absolute; inset: 8px 8px auto auto; display: grid; gap: 1px; max-width: calc(100% - 16px); padding: 2px 6px; border: 1px solid #f7dda7; border-radius: 3px; background: #ddbd7d; color: #242014; font-size: 9px; font-weight: 700; line-height: 1.3; pointer-events: none; }
-.badge > span + span { border-top: 1px solid #79612d; padding-top: 2px; }
+.badgeStack { position: absolute; top: 7px; right: 7px; display: grid; justify-items: end; gap: 4px; pointer-events: none; }
+.printingBadge { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #ddbd7d; border-radius: 4px; background: #16171bea; color: #f7dda7; }
+.assignedBadge { display: grid; gap: 2px; padding: 3px 6px; border: 1px solid #f7dda7; border-radius: 4px; background: #ddbd7d; color: #242014; font-size: 9px; font-weight: 700; line-height: 1.3; text-align: end; }
+.assignedBadge > span + span { border-top: 1px solid #79612d; padding-top: 2px; }
 .cardName { display: block; padding: 9px 2px 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px !important; text-align: left; font-weight: 550 !important; color: #e2e2e7; border: 0; background: none; }
 .cardMeta { display: flex; justify-content: space-between; gap: 5px; padding: 3px 2px 8px; font-size: 9px; color: #858995; }
 .cardActions { min-width: 0; }
-.quantity { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; height: 30px; border: 1px solid #36373f; border-radius: 4px; background: #1f2025; text-align: center; font-size: 11px; > span > span { display: block; white-space: nowrap; font-size: 9px; line-height: 1.25; } button { align-self: stretch; padding: 0; border: 0; background: #292a31; color: #ddbd7d; font-size: 17px; &:hover:not(:disabled) { background: #3b382f; } } }
+.quantity { display: grid; grid-template-columns: minmax(20px, 1fr) minmax(56px, 1fr) minmax(20px, 1fr); align-items: center; height: 30px; border: 1px solid #36373f; border-radius: 4px; background: #1f2025; text-align: center; font-size: 11px; > span > span { display: block; white-space: nowrap; font-size: 9px; line-height: 1.25; } button { align-self: stretch; padding: 0; border: 0; background: #292a31; color: #ddbd7d; font-size: 17px; &:hover:not(:disabled) { background: #3b382f; } } }
+.selected .quantity > span { color: #f7dda7; }
 .quantity > span > span + span { border-top: 1px solid #777063; padding-top: 1px; }
+.grid .quantity { grid-template-columns: repeat(2, minmax(0, 1fr)); button + button { border-inline-start: 1px solid #36373f; } }
 .empty { text-align: center; padding: 64px 16px; color: #9699a4; h3 { color: #e1e1e6; font-weight: 500; } p { font-size: 12px; } button { color: #ddbd7d; background: none; border: 1px solid #776443; border-radius: 4px; padding: 8px 16px; } }
 .loadMore { display: block; margin: 30px auto 10px; padding: 12px 24px; background: #24252b; border: 1px solid #3a3b43; color: #ddbd7d; border-radius: 5px; }
 .loadMoreTrigger { height: 1px; }
@@ -215,6 +219,8 @@
 
   .selected { border-color: #b79a62; }
   .art { grid-column: 1; grid-row: 1 / 3; padding: 0; }
+  .badgeStack { top: 3px; right: 3px; }
+  .printingBadge { width: 20px; height: 20px; }
   .cardName { grid-column: 2; grid-row: 1; padding: 0; font-size: .875rem !important; white-space: normal; }
   .cardMeta { grid-column: 2; grid-row: 2; justify-content: flex-start; flex-wrap: wrap; gap: 4px 12px; padding: 0; font-size: .75rem; }
   .cardActions { grid-column: 3; grid-row: 1 / 3; }

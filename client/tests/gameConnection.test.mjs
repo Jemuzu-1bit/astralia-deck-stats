@@ -51,6 +51,21 @@ async function connectedHost(t, backend = new MemoryBackend(), options = {}) {
   return { app, host, code, backend };
 }
 
+test("the game client remembers Fragment artwork when creating another room", async (t) => {
+  const { app, host } = await connectedHost(t);
+  const imageId = "ks_01_011_pr";
+  const changed = waitForState(host, state => state.host?.fragmentImageId === imageId);
+  host.setFragmentImage(imageId);
+  await changed;
+
+  const next = new GameConnection({ url: `http://127.0.0.1:${app.server.address().port}` });
+  t.after(() => next.leave());
+  const joined = waitForState(next, state => state.viewerRole === "host");
+  next.connect();
+  next.runWhenConnected(() => next.host("Returning player"));
+  assert.equal((await joined).host.fragmentImageId, imageId);
+});
+
 test("the multiplayer client discovers public rooms, joins a seat and watches without exposing private rooms", async (t) => {
   const { app, host: privateHost, code: privateCode } = await connectedHost(t);
   const url = `http://127.0.0.1:${app.server.address().port}`;

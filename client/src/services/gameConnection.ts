@@ -1,5 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import type { RoomPlayerProfile } from "../domain/playerProfile";
+import { savedFragmentImage, saveFragmentImage } from "./fragmentAppearance.ts";
 
 export interface GameCounter {
   kind: "emoji" | "name" | "customEmoji" | "status";
@@ -58,6 +59,7 @@ export interface LobbyPlayerState {
   deckId: string | null;
   faction: string | null;
   protagonistId?: string | null;
+  fragmentImageId?: string | null;
   deckName?: string | null;
   personaCards?: string[] | null;
   graveyardCards?: string[];
@@ -484,7 +486,8 @@ export class GameConnection {
   }
   host(name: string, options?: { visibility: "public" | "private"; roomName: string; accessToken?: string }) {
     this.resumeCode = null; this.watchCode = null;
-    this.socket?.emit("lobby:host", options ? { name, ...options } : name);
+    const fragmentImageId = savedFragmentImage();
+    this.socket?.emit("lobby:host", options || fragmentImageId ? { name, ...options, fragmentImageId } : name);
   }
   listPublicRooms(): Promise<PublicRoom[]> {
     return new Promise((resolve, reject) => {
@@ -502,7 +505,7 @@ export class GameConnection {
     if (session) {
       this.resumeCode = normalizedCode;
       this.emitResume();
-    } else this.socket?.emit("lobby:join", { name, code: normalizedCode, accessToken });
+    } else this.socket?.emit("lobby:join", { name, code: normalizedCode, accessToken, fragmentImageId: savedFragmentImage() });
   }
   resume(code: string) { this.connect(code); }
   watch(code: string) {
@@ -515,6 +518,10 @@ export class GameConnection {
   setFaction(faction: string | null) { this.sendAction("lobby:setFaction", faction); }
   setDeck(deckId: string, deckName: string, faction: string, protagonistId: string | null, personaCards: string[], mainDeckCards: Array<{ id: string; qty: number }>) {
     this.sendAction("lobby:setDeck", { deckId, deckName, faction, protagonistId, personaCards, mainDeckCards });
+  }
+  setFragmentImage(imageId: string) {
+    this.sendAction("lobby:setFragmentImage", imageId);
+    saveFragmentImage(imageId);
   }
   setHand(cards: string[]) { this.sendAction("lobby:setHand", cards); }
   setDeckCards(cards: string[]) { this.sendAction("lobby:setDeckCards", cards); }

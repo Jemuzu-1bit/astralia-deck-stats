@@ -95,7 +95,7 @@ export async function createGameServer({ backend, socketPath = "/socket.io", ser
       const joining = event === "lobby:host" || event === "lobby:join";
       const profile = joining && !socket.data.roomCode ? await getRoomPlayerProfile(payload?.accessToken) : null;
       const roomPayload = joining && payload && typeof payload === "object"
-        ? { name: payload.name, code: payload.code, visibility: payload.visibility, roomName: payload.roomName }
+        ? { name: payload.name, code: payload.code, visibility: payload.visibility, roomName: payload.roomName, fragmentImageId: payload.fragmentImageId }
         : payload;
       let result;
       for (let attempt = 0; attempt < 5; attempt++) {

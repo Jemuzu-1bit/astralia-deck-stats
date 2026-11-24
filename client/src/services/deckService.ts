@@ -1,5 +1,5 @@
 import type { Deck, DeckEntry } from "../types/Deck";
-import { isAlternativeArt, readCardData } from "../data/cardDataReader.ts";
+import { getCardPrintingGroup, readCardData } from "../data/cardDataReader.ts";
 import { withoutSideboard } from "../domain/deckBuilder.ts";
 import { deflateToBase64Url, inflateBase64Url, parseLocalSharePayload, type LocalSharePayloadV2 } from "./deckShareCodec.ts";
 
@@ -59,7 +59,7 @@ export function getDeck(id: string): Deck | undefined {
 
 export function createDeck(input: Omit<Deck, "id" | "updatedAt">): Deck {
   const decks = loadAll();
-  const deck: Deck = { ...withoutSideboard(input), id: genId(), updatedAt: Date.now() };
+  const deck: Deck = { ...input, id: genId(), updatedAt: Date.now() };
   decks.push(deck);
   saveAll(decks);
   return deck;
@@ -68,7 +68,7 @@ export function createDeck(input: Omit<Deck, "id" | "updatedAt">): Deck {
 export function updateDeck(deck: Deck): Deck {
   const decks = loadAll();
   const idx = decks.findIndex((d) => d.id === deck.id);
-  const next = { ...withoutSideboard(deck), updatedAt: Date.now() };
+  const next = { ...deck, updatedAt: Date.now() };
   if (idx >= 0) decks[idx] = next; else decks.push(next);
   saveAll(decks);
   return next;
@@ -161,27 +161,18 @@ const OFFICIAL_DECK_IMPORT_URL = "https://www.astraliachronicles.com/deck-import
 
 async function cardKeysById(): Promise<Map<string, string>> {
   const cards = await readCardData();
-  const canonicalCards = cards.filter((card) => card.face === 1 && !isAlternativeArt(card));
-  const printKey = (setId: string) => setId
-    .replace(/\s(?:N|EX|P|SR|SSR)$/i, "")
-    .replace(/[^a-z0-9]/gi, "")
-    .toLowerCase();
-  const canonicalImageByPrint = new Map(
-    canonicalCards.map((card) => [printKey(card.setId), card.imageId.toUpperCase()])
-  );
-  return new Map(cards.filter((card) => card.face === 1).map((card) => [
-    card.id.toLowerCase(),
-    isAlternativeArt(card)
-      ? canonicalImageByPrint.get(printKey(card.setId)) ?? card.imageId.toUpperCase()
-      : card.imageId.toUpperCase(),
-  ]));
+  const fronts = new Map(cards.filter(card => card.face === 1).map(card => [card.id.toLowerCase(), card]));
+  return new Map(Array.from(fronts, ([id, card]) => {
+    const officialCard = fronts.get(getCardPrintingGroup(card)) ?? card;
+    return [id, officialCard.imageId.toUpperCase()];
+  }));
 }
 
 function toOfficialCardMap(cardIds: { id: string; qty: number }[], keysById: Map<string, string>): Record<string, number> {
   return cardIds.reduce<Record<string, number>>((result, { id, qty }) => {
     const officialId = keysById.get(id.toLowerCase());
     if (!officialId) throw new Error(`Card not found in catalog: ${id}`);
-    if (qty > 0) result[officialId] = qty;
+    if (qty > 0) result[officialId] = (result[officialId] ?? 0) + qty;
     return result;
   }, {});
 }

@@ -1,5 +1,6 @@
 import { publicState } from "./roomState.js";
 import { cardInstance, dealOpeningHand, makeId } from "./gameTable.js";
+import { isFragmentImage } from "./cardStats.js";
 import { registerCardEvents } from "./registerCardEvents.js";
 import { registerDeckEvents } from "./registerDeckEvents.js";
 import { startingPlayer } from "./turnOrder.js";
@@ -63,11 +64,12 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     return null;
   }
   function currentRoom(socket) { return rooms.get(socket.data.roomCode); }
-  function newPlayer(socket, name, role) {
+  function newPlayer(socket, name, role, fragmentImageId) {
     return {
       socketId: socket.id, token: makeId(), name: playerName(name, role === "host" ? "Host" : "Guest"),
       ...(actor.profile ? { profile: actor.profile } : {}),
       role, deckId: null, faction: null, protagonistId: null, deckName: null,
+      fragmentImageId: isFragmentImage(fragmentImageId) ? fragmentImageId : null,
       personaCards: null, mainDeckCards: null, handCards: [], deckCards: [],
       graveyardCards: [], oblivionCards: [], connected: true,
     };
@@ -99,7 +101,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     const name = typeof options === "string" ? options : options?.name;
     const visibility = options?.visibility === "public" ? "public" : "private";
     const roomName = String(typeof options === "object" ? options?.roomName || "" : "").trim().replace(/\s+/g, " ").slice(0, 60) || `${playerName(name, "Host")}'s room`;
-    const room = { code, instanceId: makeId(), visibility, roomName, createdAt: now, host: newPlayer(socket, name, "host"), guest: null, spectators: new Set(), started: false, lastActivity: now };
+    const room = { code, instanceId: makeId(), visibility, roomName, createdAt: now, host: newPlayer(socket, name, "host", options?.fragmentImageId), guest: null, spectators: new Set(), started: false, lastActivity: now };
     rooms.set(code, room);
     attachPlayer(socket, room, room.host);
     socket.emit("lobby:joined", { code, role: "host", token: room.host.token });
@@ -112,7 +114,7 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     if (!room) return fail(socket, "Invalid or expired join code.");
     if (room.started) return fail(socket, "This match has started. Watch it instead.");
     if (room.guest) return fail(socket, "This lobby is full.");
-    room.guest = newPlayer(socket, payload?.name, "guest");
+    room.guest = newPlayer(socket, payload?.name, "guest", payload?.fragmentImageId);
     attachPlayer(socket, room, room.guest);
     socket.emit("lobby:joined", { code, role: "guest", token: room.guest.token });
     emitState(room);
@@ -203,6 +205,13 @@ export function runRoomCommand(initialRoom, actor, event, payload, roomCode, now
     const room = currentRoom(socket); const player = currentPlayer(socket, room);
     if (!player || room.started) return;
     Object.assign(player, deckData(typeof data === "string" ? { deckId: data } : data)); room.lastActivity = now; emitState(room);
+  });
+  socket.on("lobby:setFragmentImage", (imageId) => {
+    const room = currentRoom(socket); const player = currentPlayer(socket, room);
+    if (!player || room.started || !isFragmentImage(imageId) || player.fragmentImageId === imageId) return;
+    player.fragmentImageId = imageId;
+    room.lastActivity = now;
+    emitState(room);
   });
   socket.on("lobby:setHand", (cards) => {
     const room = currentRoom(socket); const player = currentPlayer(socket, room);

@@ -295,8 +295,9 @@ simulati; l'applicazione usa solo gli aggregati restituiti da Supabase.
 ## Immagini delle carte su Cloudflare
 
 La funzione che costruisce gli URL è in `client/src/services/cardImageService.ts`.
-Oggi usa `/cards/{faction}/{imageId}-{thumb|full}.webp` sul dominio del sito.
-Quando le immagini saranno su Cloudflare R2:
+La build di produzione usa il Worker configurato in `client/.env.production`.
+I file WebP seguono il percorso `/cards/{faction}/{imageId}-{thumb|full}.webp`.
+I Frammenti usano la cartella `neutral`.
 
 1. Esegui `npm run cards:r2:upload` per caricare gli stessi file mantenendo il
    percorso `cards/...` nel bucket `astralia-card-images`.
@@ -305,8 +306,8 @@ Quando le immagini saranno su Cloudflare R2:
    restare privato. Dalla cartella del Worker esegui `npx wrangler login` e
    `npm run deploy`, poi prova un URL `/cards/...`. In seguito puoi assegnare
    al Worker un dominio tuo.
-3. Imposta `VITE_CARD_IMAGE_BASE_URL` all'URL del Worker, per esempio
-   `https://astralia-card-images.example.workers.dev`, senza `/cards` finale.
+3. Per un ambiente con un Worker diverso, imposta `VITE_CARD_IMAGE_BASE_URL`
+   al suo URL, senza `/cards` finale.
 4. Verifica miniature e immagini complete in editor, lobby e partita; poi
    distribuisci la nuova build. I mazzi nel database non richiedono migrazione.
 

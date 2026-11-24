@@ -76,6 +76,37 @@ test("public rooms update occupancy, enforce two seats and host start, and allow
   assert.deepEqual(await f.store.listPublicRooms(), []);
 });
 
+test("Fragment artwork is chosen per player and stays visible through start and resume", async () => {
+  const f = await setup();
+  const code = "ABC123";
+  await f.command("host", code, "lobby:host", { name: "Alice", fragmentImageId: "dcs_06_001_n" });
+  await f.command("guest", code, "lobby:join", { code, name: "Bob", fragmentImageId: "dcs_02_001_ex" });
+  await f.command("viewer", code, "lobby:watch", { code });
+  assert.equal((await f.read(code)).host.fragmentImageId, "dcs_06_001_n");
+  assert.equal((await f.read(code)).guest.fragmentImageId, null);
+
+  await f.command("viewer", code, "lobby:setFragmentImage", "gf_01_001_pr");
+  await f.command("host", code, "lobby:setFragmentImage", "https://example.test/fragment.webp");
+  assert.equal((await f.read(code)).host.fragmentImageId, "dcs_06_001_n");
+  await f.command("guest", code, "lobby:setFragmentImage", "ks_01_011_pr");
+  for (const role of ["host", "guest"]) await f.command(role, code, "lobby:setDeck", {
+    deckId: role, protagonistId: role === "host" ? "dcs_02_002ex" : "dcs_02_001ex", personaCards: [],
+  });
+  await f.command("host", code, "lobby:startRequest");
+  await f.command("guest", code, "lobby:setFragmentImage", "gf_01_001_pr");
+
+  let room = await f.read(code);
+  assert.equal(room.started, true);
+  assert.deepEqual(room.guest.table.fragments, [false]);
+  const watched = publicState(room, "viewer");
+  assert.equal(watched.host.fragmentImageId, "dcs_06_001_n");
+  assert.equal(watched.guest.fragmentImageId, "ks_01_011_pr");
+  await f.command("guest", code, "disconnect");
+  await f.command("returning-guest", code, "lobby:resume", { code, token: room.guest.token });
+  room = await f.read(code);
+  assert.equal(publicState(room, "returning-guest").guest.fragmentImageId, "ks_01_011_pr");
+});
+
 test("discovery omits disconnected, expired and closed hosts, and stale spectators", async () => {
   const f = await setup();
   const code = "ABC123";

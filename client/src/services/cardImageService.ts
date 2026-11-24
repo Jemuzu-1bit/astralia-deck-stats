@@ -18,5 +18,6 @@ export function getImagePath(
   variant: CardImageVariant = "thumb"
 ): string {
   const normalizedImageId = imageId.toLowerCase();
-  return `${cardImageOrigin}/cards/${faction.toLowerCase()}/${normalizedImageId}-${variant}.webp`;
+  const directory = faction.toLowerCase() || "neutral";
+  return `${cardImageOrigin}/cards/${directory}/${normalizedImageId}-${variant}.webp`;
 }

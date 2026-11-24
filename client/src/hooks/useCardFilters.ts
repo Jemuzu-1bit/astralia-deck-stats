@@ -7,6 +7,7 @@ export interface CardFiltersState extends CardFilterValues {
   setSearchText: Dispatch<SetStateAction<string>>;
   toggleSelectedSet: (set: CardSet) => void;
   clearSelectedSets: () => void;
+  setSelectedRarities: StringListSetter;
   setSelectedCosts: StringListSetter;
   setSelectedTypes: StringListSetter;
   setSelectedSubtypes: StringListSetter;
@@ -19,6 +20,7 @@ export interface CardFiltersState extends CardFilterValues {
 export function useCardFilters(): CardFiltersState {
   const [searchText, setSearchText] = useState("");
   const [selectedSets, setSelectedSets] = useState<CardSet[]>([]);
+  const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
   const [selectedCosts, setSelectedCosts] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedSubtypes, setSelectedSubtypes] = useState<string[]>([]);
@@ -38,6 +40,7 @@ export function useCardFilters(): CardFiltersState {
   const clearFilters = () => {
     setSearchText("");
     clearSelectedSets();
+    setSelectedRarities([]);
     setSelectedCosts([]);
     setSelectedTypes([]);
     setSelectedSubtypes([]);
@@ -52,6 +55,8 @@ export function useCardFilters(): CardFiltersState {
     selectedSets,
     toggleSelectedSet,
     clearSelectedSets,
+    selectedRarities,
+    setSelectedRarities,
     selectedCosts,
     setSelectedCosts,
     selectedTypes,

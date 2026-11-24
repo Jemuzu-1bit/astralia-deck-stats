@@ -39,6 +39,54 @@ test("official share links keep main deck cards and omit the sideboard", async (
   });
 });
 
+test("official share links export base artwork, including Kickstarter, and keep APX A and B separate", async () => {
+  const deck = {
+    id: "pink-deck",
+    name: "Mixed printings",
+    faction: "pink",
+    protagonist: "ks_02_009_pr",
+    persona: [],
+    deck: [
+      { id: "dcs04013p", qty: 1 },
+      { id: "dcs04015n", qty: 2 },
+      { id: "dcs04015sr", qty: 1 },
+      { id: "ls_01_005_ssr", qty: 2 },
+      { id: "sg_01_005_ssr", qty: 1 },
+      { id: "sp_01_002_pr", qty: 1 },
+      { id: "sd_09_018_n", qty: 1 },
+      { id: "apx_01_010_a_n", qty: 1 },
+      { id: "apx_01_010_b_n", qty: 3 },
+    ],
+    updatedAt: 1,
+  };
+  const link = await exportDeck(deck);
+  const deckData = new URL(link).searchParams.get("deckData");
+  const payload = JSON.parse(await inflateBase64Url(deckData));
+  assert.deepEqual(payload.protagonist, { AOR_04_001_EX: 1 });
+  assert.deepEqual(payload.deckCards, {
+    DCS_04_013_N: 1,
+    DCS_04_015_N: 3,
+    DCS_04_024_N: 2,
+    DCS_04_027_N: 1,
+    DCS_04_017_N: 1,
+    DCS_04_022_N: 1,
+    APX_01_010_A_N: 1,
+    APX_01_010_B_N: 3,
+  });
+  const imported = await importDeck(link);
+  assert.equal(imported.protagonist, "aor_04_001_ex");
+  assert.deepEqual(imported.deck, [
+    { id: "dcs04013n", qty: 1 },
+    { id: "dcs04015n", qty: 3 },
+    { id: "dcs04024n", qty: 2 },
+    { id: "dcs04027n", qty: 1 },
+    { id: "dcs04017n", qty: 1 },
+    { id: "dcs04022n", qty: 1 },
+    { id: "apx_01_010_a_n", qty: 1 },
+    { id: "apx_01_010_b_n", qty: 3 },
+  ]);
+});
+
 test("existing official and compact links remain importable", async () => {
   const official = {
     deckCards: { AOR_05_037_N: 2 },

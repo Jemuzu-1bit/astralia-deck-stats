@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, useS
 import type { Deck } from "../types/Deck";
 import type { Card } from "../types/Card";
 import { COPIES_PER_CARD, FACTIONS, SECTION_LABELS, SECTION_LIMITS, countSelectedCards, getCardDeckSection, otherDeckSection, type DeckCardSection, type DeckSection, type CardSelection } from "../domain/deckBuilder";
+import { getCardPrintingGroup } from "../data/cardDataReader";
 import { CHRONICLES } from "../data/chronicles";
 import { getCardImagePath } from "../services/cardImageService";
 import { fileToDataUrl } from "../services/deckService";
@@ -25,14 +26,13 @@ interface DeckCreationModalProps {
   onClose: () => void;
   initialDeck?: Deck;
   initialFaction?: string;
-  sideboardEnabled: boolean;
   onSaved?: (deck: Deck) => void;
   saveDeck?: (deck: Omit<Deck, "id" | "updatedAt">, initialDeck?: Deck) => Promise<Deck>;
 }
 
 const collectionTabs = ["protagonist", "persona", "deck"] as const;
 type CollectionTab = typeof collectionTabs[number];
-const sectionsWithSideboard = [...collectionTabs, "sideboard"] as const;
+const deckSections = [...collectionTabs, "sideboard"] as const;
 
 const COLLECTION_ZOOM_KEY = "astralia.deckBuilderCollectionZoom.v1";
 const MIN_COLLECTION_ZOOM = 100;
@@ -62,13 +62,13 @@ function getSavedCollectionZoom() {
   return MIN_COLLECTION_ZOOM;
 }
 
-export default function DeckCreationModal({ onClose, initialDeck, initialFaction, sideboardEnabled, onSaved, saveDeck }: DeckCreationModalProps) {
+export default function DeckCreationModal({ onClose, initialDeck, initialFaction, onSaved, saveDeck }: DeckCreationModalProps) {
   const [activeDrag, setActiveDrag] = useState<CollectionCardDrag | DeckCardDrag | null>(null);
   const collectionDrag = activeDrag && "card" in activeDrag ? activeDrag : null;
   const deckDrag = activeDrag && "item" in activeDrag ? activeDrag : null;
   const dragging = activeDrag !== null;
-  const editor = useDeckEditor({ initialDeck, initialFaction, sideboardEnabled, onSaved, onClose, saveDeck, suppressEscape: dragging });
-  const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
+  const editor = useDeckEditor({ initialDeck, initialFaction, onSaved, onClose, saveDeck, suppressEscape: dragging });
+  const { selectedFaction, setSelectedFaction, deckName, setDeckName, description, setDescription, backgroundImage, setBackgroundImage, cardOptions, protagonistSelection, deckSelections, detailCard, openCardDetails, closeCardDetails, preferredPrintings, choosePrinting, canAddCard, addCard, removeCard, discardEmptySideboardCard, moveCard, handleSave, saving, saveError, loadingDeck, loadError } = editor;
   const [collectionTab, setCollectionTab] = useState<CollectionTab>(initialDeck ? "deck" : "protagonist");
   const collectionFilters = { protagonist: useCardFilters(), persona: useCardFilters(), deck: useCardFilters() };
   const [view, setView] = useState<"overview" | "cards" | "stats" | "hand">("overview");
@@ -97,6 +97,16 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const chronicle = selectedFaction ? CHRONICLES[selectedFaction] : null;
   const canEdit = !isOverview && !saving && !loadingDeck && !cardOptions.loading && !loadError && !cardOptions.error;
   const canSave = canEdit && !dragging && !readingCover;
+  const getPrintings = (card: Card) => cardOptions.printings.get(getCardPrintingGroup(card)) ?? [];
+  const hasPrintings = (card: Card) => getPrintings(card).length > 1;
+  const getDisplayCard = (card: Card) => {
+    const groupId = getCardPrintingGroup(card);
+    const home = getCardDeckSection(card);
+    const selected = (selection: CardSelection, includeEmpty = false) => Object.values(selection)
+      .find(item => (includeEmpty || item.qty > 0) && getCardPrintingGroup(item.card) === groupId)?.card;
+    return preferredPrintings[groupId] ?? (home && selected(selections[home]))
+      ?? selected(selections.sideboard) ?? selected(selections.sideboard, true) ?? card;
+  };
   const readCover = async (file: File) => {
     setReadingCover(true);
     setCoverError(null);
@@ -107,7 +117,8 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
   const getDestinations = (card: Card): CardDestination[] => {
     const home = getCardDeckSection(card);
     if (!home) return [];
-    const destinations: DeckSection[] = sideboardEnabled && home !== "protagonist" ? [home, "sideboard"] : [home];
+    const printings = getPrintings(card);
+    const destinations: DeckSection[] = home === "protagonist" ? [home] : [home, "sideboard"];
     return destinations.map(section => {
       const full = totals[section] >= SECTION_LIMITS[section];
       let disabledReason: string | undefined;
@@ -118,12 +129,15 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
         else if (home === "persona") disabledReason = "One copy per Persona";
         else disabledReason = `${COPIES_PER_CARD} copies already assigned`;
       }
-      return { section, quantity: selections[section][card.id]?.qty ?? 0, full, disabledReason };
+      const quantity = printings.length > 1
+        ? printings.reduce((total, printing) => total + (selections[section][printing.id]?.qty ?? 0), 0)
+        : selections[section][card.id]?.qty ?? 0;
+      return { section, quantity, full, disabledReason };
     });
   };
   const moveDestinations = (from: DeckCardSection, card: Card): DeckCardSection[] => {
     const to = otherDeckSection(from, card);
-    return sideboardEnabled && canEdit && to && totals[to] < SECTION_LIMITS[to] ? [from, to] : [from];
+    return canEdit && to && totals[to] < SECTION_LIMITS[to] ? [from, to] : [from];
   };
   const finishDrag = ({ active, collisions }: DragEndEvent) => {
     const collectionCard = getCollectionCardDrag(active);
@@ -153,11 +167,11 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
     try { localStorage.setItem(COLLECTION_ZOOM_KEY, String(nextZoom)); } catch { /* Keep the in-memory preference. */ }
   };
   const renderDeckSections = (overview = false) => <div className={`${styles.deckSections} ${overview ? styles.overviewSections : ""}`}>
-    {(sideboardEnabled ? sectionsWithSideboard : collectionTabs).map(target => <div key={target} className={styles.deckSection} data-collection-destination={collectionDrag?.destinations.includes(target) || undefined}>
+    {deckSections.map(target => <div key={target} className={styles.deckSection} data-collection-destination={collectionDrag?.destinations.includes(target) || undefined}>
       <SortableDeckSection section={target} title={SECTION_LABELS[target]}
         selection={selections[target]} viewMode={overview ? "grid" : deckView} overview={overview} readOnly={isOverview}
         acceptsCollectionDrop={!overview && view === "cards"}
-        disabled={!canEdit} onBrowse={() => browseCards(target)}
+        disabled={!canEdit} onBrowse={() => browseCards(target)} hasPrintings={hasPrintings}
         onOpenCard={openCardDetails} onAddCard={card => addCard(target, card)}
         onRemoveCard={card => removeCard(target, card)} canAdd={card => canEdit && canAddCard(target, card)}
         moveDestinations={moveDestinations} />
@@ -297,6 +311,9 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
                   gridZoom={collectionZoom}
                   options={cardOptions[collectionTab]}
                   filters={collectionFilters[collectionTab]}
+                  showFilters={false}
+                  getPrintings={getPrintings}
+                  getDisplayCard={getDisplayCard}
                   onOpenCard={openCardDetails}
                   loading={cardOptions.loading || loadingDeck}
                   error={cardOptions.error || loadError}
@@ -333,7 +350,7 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
             {(saveError || loadError) && <p className={styles.error} role="alert">{saveError || loadError}</p>}
             <div className={styles.deckToolbar}><span>Deck cards</span><CardViewToggle label="Deck cards view" value={deckView} onChange={setDeckView} /></div>
             {renderDeckSections()}
-            <div className={styles.deckFooter}><span>Up to {COPIES_PER_CARD} copies per Main Deck card and 1 per Persona{sideboardEnabled && " across the deck and Sideboard"}</span><button className={styles.analysisLink} onClick={() => { setView("stats"); setMobileView("browse"); }}><ArchiveIcon name="chart" size={15} /> View deck statistics <ArchiveIcon name="arrow" size={14} /></button></div>
+            <div className={styles.deckFooter}><span>Up to {COPIES_PER_CARD} copies per Main Deck card and 1 per Persona across the deck and Sideboard</span><button className={styles.analysisLink} onClick={() => { setView("stats"); setMobileView("browse"); }}><ArchiveIcon name="chart" size={15} /> View deck statistics <ArchiveIcon name="arrow" size={14} /></button></div>
           </aside>
         </div>
         <DragOverlay zIndex={10050} adjustScale={false} dropAnimation={null} style={{ pointerEvents: "none" }}>
@@ -342,7 +359,9 @@ export default function DeckCreationModal({ onClose, initialDeck, initialFaction
         </DragOverlay>
         </DndContext>
       </>}
-      {detailCard && <CardDetailsModal card={detailCard} onClose={closeCardDetails} />}
+      {detailCard && <CardDetailsModal card={detailCard} onClose={closeCardDetails}
+        printings={canEdit ? getPrintings(detailCard) : undefined}
+        onChoosePrinting={canEdit ? choosePrinting : undefined} />}
     </div>
   </div>;
 }

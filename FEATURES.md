@@ -9,9 +9,13 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - Create, edit, and delete decks on the **My Decks** page. Decks are stored in the browser's `localStorage` and sorted by most recent edit; deletion requires confirmation.
 - Set a deck name and custom background image, and remove the background image later.
 - Add a description (up to 5000 characters) to any deck, including private and browser-local decks. Descriptions are included in backups and public deck imports, and can also be edited during publication.
-- Separate **Protagonist**, **Persona Cards**, and **Deck Cards** sections, with counters and limits of 1, 5, and 45 cards respectively. The main deck allows up to four copies of the same card identity, including across APX print variants; Persona cards are limited to one copy per identity. Alternate artwork is excluded from deck builder choices.
+- Separate **Protagonist**, **Persona Cards**, and **Deck Cards** sections, with counters and limits of 1, 5, and 45 cards respectively. All printings share the same copy limit for a card.
+- The **Sideboard** appears below Main Deck for every deck. Its cards are saved with browser-local and cloud decks.
 - Add and remove cards with `+` and `-` controls; reorder Persona cards and main deck cards by dragging them.
-- Search by card name or ID and combine filters for cost, type, subtype, keyword, ATK, and HP. Keyword and stat filters also consider a card's reverse face, where present. Clear all filters with one click.
+- Search by card name or ID in the deck builder. The **Card Library** also has filters for set, rarity, cost, type, subtype, keyword, ATK, and HP.
+- The stacked-card icon in the builder marks cards with multiple printings. Click the card to choose artwork, including Kickstarter promos where available. The choice applies to every copy of the card and is saved with the deck for use in matches.
+- The Card Library includes the playable Kickstarter, Legacy Art, Stained Glass, and Seasonal Promo printings.
+- The builder and Card Library list APX A and B separately. The library can filter by APX. Each version has its own deck quantity, and both count toward the same copy limit.
 - Preview cards and open a detail view showing the image, cost, type, subtype, description, and keywords.
 - Main deck statistics: card count, cost curve, and counts by type and subtype.
 - Opening hand simulator: shuffle the actual card quantities in the deck, draw five cards, select cards for one mulligan, and generate another hand. The simulation resets when the deck changes.
@@ -19,6 +23,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 ## Import and sharing
 
 - Share a deck through an import link compatible with the official site. The link is copied to the clipboard automatically when the browser allows it.
+- Official export links use each card's base artwork. APX A and B keep their own artwork codes.
 - Import from official links, local links with a `deck` parameter, and older compact codes from this project. Opening a local link on **My Decks** opens the import dialog directly.
 - Imported decks are saved among local decks. Custom background images are not included in the shared format.
 - Signed-in players can publish and unpublish their cloud decks from **My decks**. Saved edits to a published deck are public; imports remain independent private copies.
@@ -31,6 +36,7 @@ Inventory of features available in the project as of November 10, 2026 (commit `
 - **Multiplayer** in the sidebar opens a searchable public room list with host and room names, occupancy, spectators, and filters for open seats and ongoing matches; it refreshes every five seconds.
 - Create public rooms discoverable by all visitors, or private rooms accessible only through their six-character code. Existing rooms remain private. Public rooms provide separate player and spectator actions; full or started rooms cannot accept a new player.
 - Only the host starts a match, after both players are connected and have selected a saved local or account deck. Matches do not start automatically when a guest joins.
+- Players choose their Fragment artwork in the lobby. The browser remembers the choice for new rooms, and the chosen artwork is shown on each player's Fragment rail in the match.
 - Host a room or join as the second player using a six-character code. The player's name is remembered in the browser.
 - Each player selects a locally saved deck; the host can start the match once both players have selected one.
 - Join as a spectator before or during a match, with a limit of 20 spectators. Spectators see the table and both players' complete hands, with both hand panels expanded by default. Deck contents remain private, and spectators cannot change the match.

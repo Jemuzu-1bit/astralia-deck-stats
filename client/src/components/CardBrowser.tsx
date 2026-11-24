@@ -4,6 +4,7 @@ import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { CardFiltersState } from "../hooks/useCardFilters";
 import { CARD_SETS, filterCards, type DeckSection } from "../domain/deckBuilder";
+import { getCardRarity } from "../data/cardDataReader";
 import { getCardFilterValues } from "./cardFilterValues";
 import CardDisplay from "./CardDisplay";
 import type { CardViewMode } from "./CardViewToggle";
@@ -21,6 +22,9 @@ export interface CardDestination {
 interface Props {
   options: AugCard[];
   filters: CardFiltersState;
+  showFilters?: boolean;
+  getPrintings?: (card: Card) => readonly Card[];
+  getDisplayCard?: (card: Card) => Card;
   onOpenCard: (card: Card) => void;
   destinations?: (card: Card) => CardDestination[];
   onAdd?: (section: DeckSection, card: Card) => void;
@@ -51,8 +55,9 @@ interface FilterDropdownProps<Value extends string> {
 function FilterDropdown<Value extends string>({ label, options, selected, selectionLabel, optionsClassName, onToggle, onClear }: FilterDropdownProps<Value>) {
   const allSelected = selected.length === 0;
   const filterName = label.toLowerCase();
-  const allLabel = `All ${filterName}s`;
-  const selectedLabel = selectionLabel ?? (selected.length === 1 ? selected[0] : `${selected.length} ${filterName}s`);
+  const plural = label === "Rarity" ? "rarities" : `${filterName}s`;
+  const allLabel = `All ${plural}`;
+  const selectedLabel = selectionLabel ?? (selected.length === 1 ? selected[0] : `${selected.length} ${plural}`);
   const summary = allSelected ? allLabel : selectedLabel;
 
   return <div className={styles.dropdownField}>
@@ -80,7 +85,7 @@ function FilterDropdown<Value extends string>({ label, options, selected, select
       >
         {summary}
       </summary>
-      <div className={optionsClassName ? `${styles.filterOptions} ${optionsClassName}` : styles.filterOptions} role="group" aria-label={`Card ${filterName}s`}>
+      <div className={optionsClassName ? `${styles.filterOptions} ${optionsClassName}` : styles.filterOptions} role="group" aria-label={`Card ${plural}`}>
         <label>
           <input
             type="checkbox"
@@ -101,11 +106,12 @@ function FilterDropdown<Value extends string>({ label, options, selected, select
   </div>;
 }
 
-function CollectionCardArt({ card, destinations, quantities, viewMode, onOpenCard }: {
+function CollectionCardArt({ card, destinations, viewMode, hasPrintings, assignedLabels = [], onOpenCard }: {
   card: Card;
   destinations: DeckSection[];
-  quantities: CardDestination[];
   viewMode: CardViewMode;
+  hasPrintings: boolean;
+  assignedLabels?: string[];
   onOpenCard: Props["onOpenCard"];
 }) {
   const draggable = destinations.length > 0;
@@ -121,16 +127,20 @@ function CollectionCardArt({ card, destinations, quantities, viewMode, onOpenCar
     className={styles.art}
     data-draggable={draggable || undefined}
     data-dragging={isDragging || undefined}
+    title={hasPrintings ? "Multiple printings available" : undefined}
     {...listeners}
   >
     <CardDisplay card={card} onClick={onOpenCard} enableFlip={viewMode === "grid"} />
-    {viewMode === "grid" && quantities.length > 0 && <span className={styles.badge}>
-      {quantities.map(target => <span key={target.section}>{target.quantity} {quantityLabels[target.section]}</span>)}
+    {(hasPrintings || assignedLabels.length > 0) && <span className={styles.badgeStack}>
+      {hasPrintings && <span className={styles.printingBadge} role="img" aria-label="Multiple printings available"><ArchiveIcon name="cards" size={14} /></span>}
+      {assignedLabels.length > 0 && <span className={styles.assignedBadge} aria-live="polite">
+        {assignedLabels.map(label => <span key={label}>{label}</span>)}
+      </span>}
     </span>}
   </div>;
 }
 
-export default function CardBrowser({ options, filters, onOpenCard, destinations, onAdd, onRemove, loading, error, viewMode = "grid", gridZoom, autoLoadMore = false, scrollRootRef }: Props) {
+export default function CardBrowser({ options, filters, showFilters = true, getPrintings, getDisplayCard, onOpenCard, destinations, onAdd, onRemove, loading, error, viewMode = "grid", gridZoom, autoLoadMore = false, scrollRootRef }: Props) {
   const [sort, setSort] = useState("cost");
   const [pageSize, setPageSize] = useState(CARD_PAGE_SIZE);
   const [advanced, setAdvanced] = useState(false);
@@ -141,10 +151,11 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
     : undefined;
   const resultsLayout = viewMode === "list" ? styles.list : styles.grid;
   const values = getCardFilterValues(options);
-  const filtered = filterCards(options, filters).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : (Number(a.cost) || 0) - (Number(b.cost) || 0) || a.name.localeCompare(b.name));
+  const filtered = filterCards(options, filters, getPrintings).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : (Number(a.cost) || 0) - (Number(b.cost) || 0) || a.name.localeCompare(b.name));
   const filterGroups = [
     { label: "Type", values: values.types, selected: filters.selectedTypes, set: filters.setSelectedTypes },
     { label: "Cost", values: [...costValues, ...values.costs], selected: filters.selectedCosts, set: filters.setSelectedCosts, optionsClassName: styles.costOptions },
+    { label: "Rarity", values: options.map(getCardRarity).filter(Boolean), selected: filters.selectedRarities, set: filters.setSelectedRarities },
     { label: "Subtype", values: values.subtypes, selected: filters.selectedSubtypes, set: filters.setSelectedSubtypes },
     { label: "Keyword", values: values.keywords, selected: filters.selectedKeywords, set: filters.setSelectedKeywords },
     { label: "ATK", values: values.atks, selected: filters.selectedAtks, set: filters.setSelectedAtks },
@@ -159,6 +170,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   }
 
   useEffect(() => {
+    if (!showFilters) return;
     const dismissFilterMenus = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
@@ -169,7 +181,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
     };
     document.addEventListener("pointerdown", dismissFilterMenus);
     return () => document.removeEventListener("pointerdown", dismissFilterMenus);
-  }, []);
+  }, [showFilters]);
 
   const hasMore = filtered.length > pageSize;
   const canAutoLoad = autoLoadMore && typeof IntersectionObserver !== "undefined";
@@ -188,8 +200,8 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
   }, [showLoadTrigger, pageSize, paginationResults, scrollRootRef]);
 
   return <div className={styles.browser}>
-    <div className={styles.searchRow}><label className={styles.search}><ArchiveIcon name="search" size={18} /><input aria-label="Search cards" placeholder="Search cards by name or ID…" value={filters.searchText} onChange={event => { filters.setSearchText(event.target.value); setPageSize(CARD_PAGE_SIZE); }} />{filters.searchText && <button aria-label="Clear card search" onClick={() => filters.setSearchText("")}><ArchiveIcon name="close" size={15} /></button>}</label><button className={styles.filterToggle} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>Filters{filterCount > 0 ? ` (${filterCount})` : ""}</button></div>
-    <div className={styles.filters} ref={filterBar}>
+    <div className={styles.searchRow}><label className={styles.search}><ArchiveIcon name="search" size={18} /><input aria-label="Search cards" placeholder="Search cards by name or ID…" value={filters.searchText} onChange={event => { filters.setSearchText(event.target.value); setPageSize(CARD_PAGE_SIZE); }} />{filters.searchText && <button aria-label="Clear card search" onClick={() => filters.setSearchText("")}><ArchiveIcon name="close" size={15} /></button>}</label>{showFilters && <button className={styles.filterToggle} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>Filters{filterCount > 0 ? ` (${filterCount})` : ""}</button>}</div>
+    {showFilters && <div className={styles.filters} ref={filterBar}>
       <FilterDropdown
         label="Set"
         options={setOptions}
@@ -204,7 +216,7 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
           setPageSize(CARD_PAGE_SIZE);
         }}
       />
-      {filterGroups.slice(0, 2).map(group => <FilterDropdown
+      {filterGroups.slice(0, 3).map(group => <FilterDropdown
         key={group.label}
         label={group.label}
         options={[...new Set([...group.values, ...group.selected])].map(value => ({ value, label: value }))}
@@ -220,8 +232,8 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
         }}
       />)}
       <button className={styles.reset} onClick={() => { filters.clearFilters(); setPageSize(CARD_PAGE_SIZE); }}>Reset filters</button>
-    </div>
-    {advanced && <div className={styles.advanced}>{filterGroups.slice(2).map(group => <div key={group.label}><span>{group.label}</span><div>{group.values.length === 0 ? <small>No options</small> : group.values.map(value => <button key={value} aria-pressed={group.selected.includes(value)} className={group.selected.includes(value) ? styles.activeChip : ""} onClick={() => group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value])}>{value}</button>)}</div></div>)}</div>}
+    </div>}
+    {showFilters && advanced && <div className={styles.advanced}>{filterGroups.slice(3).map(group => <div key={group.label}><span>{group.label}</span><div>{group.values.length === 0 ? <small>No options</small> : group.values.map(value => <button key={value} aria-pressed={group.selected.includes(value)} className={group.selected.includes(value) ? styles.activeChip : ""} onClick={() => group.set(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value])}>{value}</button>)}</div></div>)}</div>}
     <div className={styles.results}>
       <span aria-live="polite">{loading ? "Loading cards…" : `${filtered.length} cards`}</span>
       <label className={styles.dropdownField}>
@@ -234,29 +246,32 @@ export default function CardBrowser({ options, filters, onOpenCard, destinations
         </span>
       </label>
     </div>
-    {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3><p>Try a different search or reset your filters.</p><button onClick={filters.clearFilters}>Reset filters</button></div> : <div className={gridStyle ? `${resultsLayout} ${styles.zoomGrid}` : resultsLayout} style={gridStyle}>{filtered.slice(0, pageSize).map(card => {
+    {error ? <div className={styles.empty} role="alert">{error}</div> : !loading && filtered.length === 0 ? <div className={styles.empty}><ArchiveIcon name="search" size={30} /><h3>No cards found</h3>{showFilters && <button onClick={filters.clearFilters}>Reset filters</button>}</div> : <div className={gridStyle ? `${resultsLayout} ${styles.zoomGrid}` : resultsLayout} style={gridStyle}>{filtered.slice(0, pageSize).map(option => {
+      const card = getDisplayCard?.(option) ?? option;
+      const hasPrintings = (getPrintings?.(card).length ?? 0) > 1;
       const cardDestinations = destinations?.(card) ?? [];
       const assigned = cardDestinations.filter(target => target.quantity > 0);
+      const assignedLabels = assigned.map(target => `${target.quantity} ${quantityLabels[target.section]}`);
       const addable = cardDestinations.filter(target => !target.disabledReason);
       const [home, sideboard] = cardDestinations;
       const addTarget = addable[0];
       const removeTarget = home?.full && sideboard?.quantity ? sideboard : assigned[0];
       return <article
         className={`${styles.card} ${assigned.length ? styles.selected : ""}`}
-        key={card.id}
+        key={option.id}
         onDragStartCapture={onAdd ? event => event.preventDefault() : undefined}
       >
-        <CollectionCardArt card={card} destinations={addable.map(target => target.section)} quantities={assigned} viewMode={viewMode} onOpenCard={onOpenCard} />
-        <button className={styles.cardName} onClick={() => onOpenCard(card)} title={card.name}>{card.name}</button>
-        <div className={styles.cardMeta}><span>{onAdd && cardDestinations[0]?.section === "persona" ? `${card.type} · Persona` : card.type}</span><span>{card.cost || "—"} cost</span></div>
+        <CollectionCardArt card={card} destinations={addable.map(target => target.section)} viewMode={viewMode}
+          hasPrintings={hasPrintings} assignedLabels={viewMode === "grid" ? assignedLabels : undefined} onOpenCard={onOpenCard} />
+        <button className={styles.cardName} onClick={() => onOpenCard(card)} title={card.name} aria-label={hasPrintings ? `Choose printing for ${card.name}` : undefined}>{card.name}</button>
+        <div className={styles.cardMeta}><span>{onAdd && cardDestinations[0]?.section === "persona" ? `${card.type} · Persona` : card.type}</span>{(showFilters || card.setId.startsWith("APX-")) && <span>{card.setId}</span>}<span>{card.cost || "—"} cost</span></div>
         {onAdd && cardDestinations.length > 0 && <div className={styles.cardActions}>
           <div className={styles.quantity}>
             <button type="button" aria-label={`Remove ${card.name}`}
               disabled={!onRemove || !removeTarget} onClick={() => { if (removeTarget) onRemove?.(removeTarget.section, card); }}>−</button>
-            <span aria-live="polite" aria-label={assigned.map(target => `${target.quantity} ${quantityLabels[target.section]}`).join(", ") || "0 copies"}>
-              {viewMode === "list" && assigned.length ? assigned.map(target => <span key={target.section}>{target.quantity} {quantityLabels[target.section]}</span>)
-                : assigned.reduce((total, target) => total + target.quantity, 0)}
-            </span>
+            {viewMode === "list" && <span aria-live="polite" aria-label={assignedLabels.join(", ") || "0 copies"}>
+              {assignedLabels.length > 0 ? assignedLabels.map(label => <span key={label}>{label}</span>) : 0}
+            </span>}
             <button type="button" aria-label={`Add ${card.name}`}
               disabled={!addTarget} title={addTarget ? undefined : home?.disabledReason}
               onClick={() => { if (addTarget) onAdd(addTarget.section, card); }}>+</button>

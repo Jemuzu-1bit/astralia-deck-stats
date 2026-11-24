@@ -1,4 +1,4 @@
-import { getCardIdentity } from "../data/cardDataReader.ts";
+import { getCardIdentity, getCardPrintingGroup, getCardRarity } from "../data/cardDataReader.ts";
 import type { AugCard } from "../types/AugCard";
 import type { Card } from "../types/Card";
 import type { Deck } from "../types/Deck";
@@ -10,8 +10,12 @@ export const COPIES_PER_CARD = 4;
 
 export const CARD_SETS = [
   { code: "DCS", label: "Dawn of the Celestial Shadows (DCS)" },
+  { code: "APX", label: "DCS Appendix (APX)" },
   { code: "AOR", label: "Anthem of Rebellion (AOR)" },
   { code: "KS", label: "Kickstarter Promos" },
+  { code: "LS", label: "Legacy Art Skin Set (LS)" },
+  { code: "SG", label: "Stained Glass (SG)" },
+  { code: "SP", label: "Seasonal Promos (SP)" },
 ] as const;
 
 export type CardSet = (typeof CARD_SETS)[number]["code"];
@@ -36,6 +40,7 @@ export type DeckCardSelections = Record<DeckCardSection, CardSelection>;
 export interface CardFilterValues {
   searchText: string;
   selectedSets: CardSet[];
+  selectedRarities: string[];
   selectedCosts: string[];
   selectedTypes: string[];
   selectedSubtypes: string[];
@@ -177,6 +182,19 @@ export function moveSelectedCard(
   return Object.fromEntries(entries);
 }
 
+export function changeSelectionPrinting(selection: CardSelection, printing: Card): CardSelection {
+  const groupId = getCardPrintingGroup(printing);
+  const entries = Object.entries(selection);
+  const matching = entries.filter(([, { card }]) => getCardPrintingGroup(card) === groupId);
+  if (matching.length === 0 || (matching.length === 1 && matching[0][0] === printing.id)) return selection;
+
+  const qty = matching.reduce((total, [, item]) => total + item.qty, 0);
+  return Object.fromEntries(entries.flatMap(([id, item]): [string, SelectedCard][] => {
+    if (id === matching[0][0]) return [[printing.id, { card: printing, qty }]];
+    return getCardPrintingGroup(item.card) === groupId ? [] : [[id, item]];
+  }));
+}
+
 function commaSeparatedValues(value: string | undefined): string[] {
   return (value ?? "")
     .split(",")
@@ -186,8 +204,8 @@ function commaSeparatedValues(value: string | undefined): string[] {
 
 function getCardSet(setId: string): CardSet | undefined {
   const [prefix, deckNumber] = setId.trim().toUpperCase().split(/[-\s]+/, 2);
-  if (prefix === "DCS" || prefix === "APX") return "DCS";
-  if (prefix === "AOR" || prefix === "KS") return prefix;
+  const knownSet = CARD_SETS.find(({ code }) => code === prefix);
+  if (knownSet) return knownSet.code;
   if (prefix === "SD") {
     if (/^0[1-5]$/.test(deckNumber)) return "DCS";
     if (/^(0[6-9]|10)$/.test(deckNumber)) return "AOR";
@@ -196,23 +214,21 @@ function getCardSet(setId: string): CardSet | undefined {
 
 export function filterCards(
   cards: AugCard[],
-  filters: CardFilterValues
+  filters: CardFilterValues,
+  getPrintings?: (card: Card) => readonly Card[]
 ): AugCard[] {
   const query = filters.searchText.trim().toLowerCase();
+  const matchesQuery = (card: Card) => [card.name, card.id, card.setId].some(value => value.toLowerCase().includes(query));
 
   return cards.filter((card) => {
     if (filters.selectedSets.length > 0) {
       const cardSet = getCardSet(card.setId);
-      if (!cardSet || !filters.selectedSets.includes(cardSet)) return false;
+      const appendixInDcs = cardSet === "APX" && filters.selectedSets.includes("DCS");
+      if (!appendixInDcs && (!cardSet || !filters.selectedSets.includes(cardSet))) return false;
     }
 
-    if (
-      query &&
-      !card.name.toLowerCase().includes(query) &&
-      !card.id.toLowerCase().includes(query)
-    ) {
-      return false;
-    }
+    if (filters.selectedRarities.length > 0 && !filters.selectedRarities.includes(getCardRarity(card))) return false;
+    if (query && !matchesQuery(card) && !getPrintings?.(card).some(matchesQuery)) return false;
 
     if (
       filters.selectedCosts.length > 0 &&

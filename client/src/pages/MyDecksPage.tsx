@@ -250,12 +250,11 @@ export default function MyDecksPage() {
         <button className={styles.createTile} disabled={!authReady} onClick={() => navigate("/my-decks?new=1")}><span><ArchiveIcon name="plus" size={26} /></span><strong>Create a new deck</strong><small>Your next chapter awaits</small></button>
       </div>
 
-      {creatingDeck && authReady && <DeckCreationModal initialFaction={FACTIONS.includes(requestedFaction as typeof FACTIONS[number]) ? requestedFaction : undefined} sideboardEnabled={Boolean(user)} saveDeck={saveDeck} onClose={() => navigate("/my-decks", { replace: true })} onSaved={() => refresh()} />}
+      {creatingDeck && authReady && <DeckCreationModal initialFaction={FACTIONS.includes(requestedFaction as typeof FACTIONS[number]) ? requestedFaction : undefined} saveDeck={saveDeck} onClose={() => navigate("/my-decks", { replace: true })} onSaved={() => refresh()} />}
 
       {editingDeck && (
         <DeckCreationModal
           initialDeck={editingDeck.id === "temp" ? undefined : editingDeck}
-          sideboardEnabled={Boolean(user)}
           saveDeck={saveDeck}
           onClose={() => setEditingDeck(null)}
           onSaved={() => {
