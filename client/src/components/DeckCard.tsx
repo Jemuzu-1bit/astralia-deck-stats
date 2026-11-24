@@ -31,7 +31,9 @@ export default function DeckCard({ deck, onEdit, onDelete, onShare, onExport, on
         <button onClick={() => onEdit(deck)}><ArchiveIcon name="decks" size={14} /> Edit deck</button>
         <button onClick={() => onShare(deck)}>Share ↗</button>
         <button onClick={() => onExport(deck)} aria-label={`Export ${deck.name || "Untitled deck"}`} aria-haspopup="dialog">Export</button>
-        <button className={styles.delete} onClick={() => onDelete(deck)} aria-label={`Delete ${deck.name}`}>Delete</button>
+        <button className={styles.delete} onClick={() => onDelete(deck)} aria-label={`Delete ${deck.name || "Untitled deck"}`}>
+          <ArchiveIcon name="trash" size={14} />
+        </button>
       </div>
     </div>
   </article>;

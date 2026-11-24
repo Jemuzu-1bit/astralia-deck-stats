@@ -9,6 +9,7 @@ const paths = {
   refresh: "M20 7v5h-5 M4 17v-5h5 M6 6a8 8 0 0 1 14 6 M18 18a8 8 0 0 1-14-6",
   user: "M20 21v-2a7 7 0 0 0-14 0v2 M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   edit: "m16 3 5 5-12 12-6 1 1-6z M14 5l5 5",
+  trash: "M3 6h18 M8 6V3h8v3 M5 6l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13 M10 10v7 M14 10v7",
   logout: "M9 4H3v16h6 M9 12h12 m-5-5 5 5-5 5",
   home: "m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",
   cards: "M8 3h11v15H8z M5 6H3v15h11v-1",
