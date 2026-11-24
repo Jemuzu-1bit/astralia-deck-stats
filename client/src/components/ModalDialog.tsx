@@ -11,6 +11,7 @@ interface ModalDialogProps {
   primary?: Action;
   secondary?: Action;
   ariaId?: string;
+  className?: string;
 }
 
 export default function ModalDialog({
@@ -20,6 +21,7 @@ export default function ModalDialog({
   primary,
   secondary,
   ariaId,
+  className,
 }: ModalDialogProps) {
   const dialog = useRef<HTMLDivElement>(null);
   useModalFocus(dialog);
@@ -33,7 +35,7 @@ export default function ModalDialog({
         ref={dialog}
         tabIndex={-1}
         onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); onClose?.(); } }}
-        className={styles.dialog}
+        className={className ? `${styles.dialog} ${className}` : styles.dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaId}
@@ -46,7 +48,7 @@ export default function ModalDialog({
 
         <div className={styles.dialogBody}>{children}</div>
 
-        <div className={styles.dialogActions}>
+        {(secondary || primary) && <div className={styles.dialogActions}>
           {secondary && (
             <button
               type="button"
@@ -67,7 +69,7 @@ export default function ModalDialog({
               {primary.label}
             </button>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

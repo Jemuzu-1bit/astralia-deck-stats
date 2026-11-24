@@ -11,6 +11,8 @@ import {
   mergeLocalDecks,
 } from "../services/deckService";
 import { parseDeckBackup, serializeDeckBackup } from "../services/deckBackup";
+import { createDeckFile, type DeckFileFormat } from "../services/deckFileExport";
+import { getImagePath } from "../services/cardImageService";
 import DeckCreationModal from "../components/DeckCreationModal";
 import ModalDialog from "../components/ModalDialog";
 import styles from "./MyDecksPage.module.scss";
@@ -22,12 +24,30 @@ import { createCloudDeck, deleteCloudDeck, importLocalDecks, listCloudDecks, upd
 import ArchiveIcon from "../components/ArchiveIcon";
 import { FACTIONS } from "../domain/deckBuilder";
 import { ChronicleSelect } from "../components/ChronicleLabel";
+import { getChronicle } from "../data/chronicles";
+
+const royalMessengerArtwork = getImagePath("green", "aor_01_020_n", "full");
+
+function downloadFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 export default function MyDecksPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [editingDeck, setEditingDeck] = useState<Deck | null>(null);
+  const [exportingDeck, setExportingDeck] = useState<Deck | null>(null);
+  const [includeSideboard, setIncludeSideboard] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [publishingDeck, setPublishingDeck] = useState<Deck | null>(null);
   const [publicationDescription, setPublicationDescription] = useState("");
   const [publicationBusy, setPublicationBusy] = useState(false);
@@ -153,14 +173,22 @@ export default function MyDecksPage() {
 
   const downloadBrowserDecks = () => {
     const blob = new Blob([serializeDeckBackup(localDecks)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `astralia-decks-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadFile(blob, `astralia-decks-${new Date().toISOString().slice(0, 10)}.json`);
+  };
+
+  const downloadDeck = async (deck: Deck, format: DeckFileFormat) => {
+    setExportBusy(true);
+    setExportError(null);
+    try {
+      const chronicle = getChronicle(deck.faction)?.name ?? deck.faction;
+      const { blob, filename } = await createDeckFile(deck, chronicle, format, { includeSideboard });
+      downloadFile(blob, filename);
+      setExportingDeck(null);
+    } catch {
+      setExportError("Could not download this deck. Please try again.");
+    } finally {
+      setExportBusy(false);
+    }
   };
 
   const importBackupFile = async (file: File) => {
@@ -244,6 +272,11 @@ export default function MyDecksPage() {
               setShowDelete(true);
             }}
             onShare={handleShare}
+            onExport={(deck) => {
+              setExportError(null);
+              setIncludeSideboard(false);
+              setExportingDeck(deck);
+            }}
             onPublish={user ? (deck) => { setPublicationError(null); setPublicationDescription(deck.description ?? ""); setPublishingDeck(deck); } : undefined}
           />
         ))}
@@ -263,6 +296,34 @@ export default function MyDecksPage() {
           }}
         />
       )}
+
+      {exportingDeck && <ModalDialog
+        className={styles.exportDialog}
+        ariaId="export-deck-title"
+        onClose={() => { if (!exportBusy) setExportingDeck(null); }}
+      >
+        <header className={styles.exportHeader}>
+          <div className={styles.exportArtwork} style={{ backgroundImage: `url(${royalMessengerArtwork})` }} aria-hidden="true" />
+          <h3 id="export-deck-title">Export {exportingDeck.name || "Untitled deck"}</h3>
+          <button type="button" className={styles.exportClose} aria-label="Close export" disabled={exportBusy} onClick={() => setExportingDeck(null)}>
+            <ArchiveIcon name="close" size={16} />
+          </button>
+        </header>
+        <div className={styles.exportBody}>
+          <div className={styles.exportControls}>
+            <label className={styles.exportSideboard}>
+              <input type="checkbox" checked={includeSideboard} disabled={exportBusy} onChange={event => setIncludeSideboard(event.target.checked)} />
+              Include Sideboard
+            </label>
+            <div className={styles.exportFormats}>
+              <button type="button" disabled={exportBusy} onClick={() => void downloadDeck(exportingDeck, "txt")}>Text file</button>
+              <button type="button" disabled={exportBusy} onClick={() => void downloadDeck(exportingDeck, "xlsx")}>Excel</button>
+            </div>
+          </div>
+          {exportBusy && <p role="status" className={styles.notice}>Preparing download...</p>}
+          {exportError && <p role="alert" className={styles.error}>{exportError}</p>}
+        </div>
+      </ModalDialog>}
 
       {publishingDeck && <ModalDialog
         title={publishingDeck.visibility === "public" ? "Unpublish deck" : "Publish deck"}

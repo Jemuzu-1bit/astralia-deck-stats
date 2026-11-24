@@ -6,4 +6,5 @@
 .title { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 0 8px; font-size: 18px !important; font-weight: 550 !important; background: none; border: none; color: #e4e4e9; text-align: left; }
 .meta { display: flex; justify-content: space-between; gap: 10px; color: #9195a2; font-size: 10px; margin-bottom: 18px; }
 .actions { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid #33353d; button { display: flex; align-items: center; gap: 6px; padding: 6px 8px; color: #c4b18a; background: #ddbd7d08; border: 1px solid #4a4336; border-radius: 4px; font-size: 10px; } .delete { margin-left: auto; border-color: transparent; background: transparent; color: #a98a90; } }
+.ownDeckActions { flex-wrap: wrap; gap: 6px; button { padding-inline: 6px; } }
 .publication { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; color: #b9bbc6; font-size: 11px; border-bottom: 1px solid #34363e; button { padding: 5px 10px; background: #ddbd7d12; border: 1px solid #6a593b; border-radius: 4px; color: #ddbd7d; font-size: 11px; } }
