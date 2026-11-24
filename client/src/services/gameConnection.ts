@@ -578,14 +578,9 @@ export class GameConnection {
       else socket.disconnect();
     }
     this.socket = null;
-    this.stopSession();
     this.syncing = false;
     if (code && !wasSpectator) removeSession(code);
-    this.resumeCode = null;
-    this.watchCode = null;
-    this.sessionReady = false;
-    this.pendingActions = [];
-    this.state = { host: null, guest: null, started: false };
+    this.clearRoom();
   }
 }
 

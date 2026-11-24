@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ArchiveIcon from "./ArchiveIcon";
 import SettingsMenu from "./SettingsMenu";
@@ -8,12 +8,22 @@ import DiscordProfile from "./DiscordProfile";
 import useAuthSession from "../hooks/useAuthSession";
 import useAdminAccess from "../hooks/useAdminAccess";
 import { takeDiscordAppearanceDraft } from "../services/discordAppearanceService";
+import { gameConnection } from "../services/gameConnection";
 import styles from "./ArchiveLayout.module.scss";
+
+const subscribeToLobby = (onChange: () => void) => gameConnection.onState(onChange);
+
+function getLobbyPath() {
+  const { code, viewerRole, started } = gameConnection.getCurrentState();
+  if (!code || !viewerRole || started) return null;
+  return `/lobby/${code}${viewerRole === "spectator" ? "?watch=1" : ""}`;
+}
 
 export default function ArchiveLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const authSession = useAuthSession();
+  const lobbyPath = useSyncExternalStore(subscribeToLobby, getLobbyPath);
   const userId = authSession.user?.id;
   useEffect(() => {
     if (!authSession.authReady || location.pathname !== "/my-decks") return;
@@ -35,7 +45,10 @@ export default function ArchiveLayout() {
         <NavLink to="/my-decks" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="decks" /><span>My decks</span></NavLink>
         <NavLink to="/public-decks" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="user" /><span>Public decks</span></NavLink>
         <NavLink to="/cards" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="cards" /><span>Card library</span></NavLink>
-        <NavLink to="/multiplayer" className={({ isActive }) => isActive || location.pathname.startsWith("/lobby") ? styles.active : undefined}><ArchiveIcon name="multiplayer" /><span>Multiplayer</span></NavLink>
+        <div className={lobbyPath ? styles.multiplayerWithLobby : undefined}>
+          <NavLink to="/multiplayer" className={({ isActive }) => isActive || location.pathname.startsWith("/lobby") ? styles.active : undefined}><ArchiveIcon name="multiplayer" /><span>Multiplayer</span></NavLink>
+          {lobbyPath && <NavLink to={lobbyPath} end className={styles.backToLobby}><ArchiveIcon name="return" size={16} /><span>Back to Lobby</span></NavLink>}
+        </div>
         <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : undefined}><ArchiveIcon name="book" /><span>Getting started</span></NavLink>
       </nav>
       </div>
